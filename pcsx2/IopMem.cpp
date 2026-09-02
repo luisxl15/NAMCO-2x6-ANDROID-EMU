@@ -3,6 +3,9 @@
 
 #include "common/AlignedMalloc.h"
 #include "R3000A.h"
+#include "VMManager.h" // ARCADE (pcsx2x6): ACRAM is only cleared for arcade boots
+
+#include <cstddef>
 #include "Common.h"
 #include "ps2/pgif.h" // for PSX kernel TTY in iopMemWrite32
 #include "SPU2/spu2.h"
@@ -98,7 +101,16 @@ void iopMemReset()
 	// but leaving it in for reference (air)
 	//for (i=0; i<0x0008; i++) psxMemWLUT[i + 0xbfc0] = (uptr)&psR[i << 16];
 
-	std::memset(iopMem, 0, sizeof(*iopMem));
+	// ARCADE (pcsx2x6): ACRAM is 128 MB (a Wangan RAM expansion, allocated at max size) and
+	// sits at the end of the IOP block. Zeroing it on every reset touches all 128 MB -- which
+	// on a phone means 128 MB resident -- even for an ordinary PS2 disc, which never reads a
+	// byte of it. Clear it only when a System 246/256 game is what is booting; otherwise the
+	// region stays untouched and its pages are never faulted in.
+	static_assert(offsetof(IopVM_MemoryAllocMess, ACRAM) + NamcoMemSize::ACRAM == sizeof(IopVM_MemoryAllocMess),
+		"ACRAM must stay last in IopVM_MemoryAllocMess for this split reset");
+	const size_t clear_size =
+		VMManager::IsArcadeGame() ? sizeof(*iopMem) : offsetof(IopVM_MemoryAllocMess, ACRAM);
+	std::memset(iopMem, 0, clear_size);
 }
 
 u8 iopMemRead8(u32 mem)
