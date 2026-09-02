@@ -680,6 +680,14 @@ const char* Pcsx2Config::GSOptions::FMVAspectRatioSwitchNames[(size_t)FMVAspectR
 	"Custom",
 	nullptr};
 
+const char* Pcsx2Config::GSOptions::BezelFitModeNames[] = {
+	"Fit",
+	"Fill",
+	"Stretch",
+	"Center",
+	nullptr,
+};
+
 const char* Pcsx2Config::GSOptions::DisplayRotationNames[(size_t)DisplayRotation::MaxCount + 1] = {
 	"0",
 	"90",
@@ -849,6 +857,14 @@ bool Pcsx2Config::GSOptions::OptionsAreEqual(const GSOptions& right) const
 		OpEqu(Crop[1]) &&
 		OpEqu(Crop[2]) &&
 		OpEqu(Crop[3]) &&
+
+		OpEqu(BezelEnabled) &&
+		OpEqu(BezelPath) &&
+		OpEqu(BezelOpacity) &&
+		OpEqu(BezelScale) &&
+		OpEqu(BezelFitMode) &&
+		OpEqu(BezelShowInFullscreen) &&
+		OpEqu(BezelShowInBigPicture) &&
 
 		OpEqu(OsdScale) &&
 		OpEqu(OsdColor) &&
@@ -1023,6 +1039,14 @@ void Pcsx2Config::GSOptions::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapEntryEx(Crop[1], "CropTop");
 	SettingsWrapEntryEx(Crop[2], "CropRight");
 	SettingsWrapEntryEx(Crop[3], "CropBottom");
+
+	SettingsWrapBitBool(BezelEnabled);
+	SettingsWrapEntry(BezelPath);
+	SettingsWrapEntry(BezelOpacity);
+	SettingsWrapEntry(BezelScale);
+	SettingsWrapEnumEx(BezelFitMode, "BezelFitMode", BezelFitModeNames);
+	SettingsWrapBitBool(BezelShowInFullscreen);
+	SettingsWrapBitBool(BezelShowInBigPicture);
 
 	// Unfortunately, because code in the GS still reads the setting by key instead of
 	// using these variables, we need to use the old names. Maybe post 2.0 we can change this.
@@ -1357,10 +1381,12 @@ bool Pcsx2Config::GSOptions::ShouldDump(u64 draw, int frame) const
 static constexpr const std::array s_spu2_sync_mode_names = {
 	"Disabled",
 	"TimeStretch",
+	"LowLatency",
 };
 static constexpr const std::array s_spu2_sync_mode_display_names = {
 	TRANSLATE_NOOP("Pcsx2Config", "Disabled (Noisy)"),
 	TRANSLATE_NOOP("Pcsx2Config", "TimeStretch (Recommended)"),
+	TRANSLATE_NOOP("Pcsx2Config", "Low Latency (Resampling)"),
 };
 
 const char* Pcsx2Config::SPU2Options::GetSyncModeName(SPU2SyncMode mode)
@@ -1458,6 +1484,7 @@ bool Pcsx2Config::SPU2Options::operator==(const SPU2Options& right) const
 		   OpEqu(OutputMuted) &&
 		   OpEqu(LightweightMode) &&
 		   OpEqu(Backend) &&
+		   OpEqu(SyncMode) &&
 		   OpEqu(StreamParameters) &&
 		   OpEqu(DriverName) &&
 		   OpEqu(DeviceName);
@@ -2184,6 +2211,7 @@ void Pcsx2Config::LoadSaveCore(SettingsWrapper& wrap)
 	SettingsWrapBitBool(ManuallySetRealTimeClock);
 	SettingsWrapBitBool(UseSystemLocaleFormat);
 
+
 	// Process various sub-components:
 
 	Speedhacks.LoadSave(wrap);
@@ -2191,6 +2219,7 @@ void Pcsx2Config::LoadSaveCore(SettingsWrapper& wrap)
 	GS.LoadSave(wrap);
 	SPU2.LoadSave(wrap);
 	DEV9.LoadSave(wrap);
+	Arcade.LoadSave(wrap);
 	Gamefixes.LoadSave(wrap);
 	Profiler.LoadSave(wrap);
 	Savestate.LoadSave(wrap);
@@ -2418,6 +2447,7 @@ std::string EmuFolders::GetPortableModePath()
 	return std::string(trimmed_path);
 }
 
+///TODOX: decide if fork needs a dedicated folder to be alone
 bool EmuFolders::SetDataDirectory(Error* error)
 {
 	// Portable mode has the absolute priority.
@@ -2619,4 +2649,29 @@ std::string EmuFolders::GetOverridableResourcePath(std::string_view name)
 	}
 
 	return upath;
+}
+
+
+void Pcsx2Config::ArcadeOptions::LoadSave(SettingsWrapper& wrap)
+{
+	{
+		SettingsWrapSection("Arcade");
+		SettingsWrapEntry(ATAVerboseReads);
+		SettingsWrapEntry(RAMVerboseReads);
+		SettingsWrapEntry(SRAMVerboseReads);
+		SettingsWrapEntry(UARTVerbose);
+	}
+}
+
+bool Pcsx2Config::ArcadeOptions::operator!=(const ArcadeOptions& right) const
+{
+	return !this->operator==(right);
+}
+
+bool Pcsx2Config::ArcadeOptions::operator==(const ArcadeOptions& right) const
+{
+	return OpEqu(ATAVerboseReads) &&
+		   OpEqu(RAMVerboseReads) &&
+		   OpEqu(UARTVerbose) &&
+		   OpEqu(SRAMVerboseReads);
 }

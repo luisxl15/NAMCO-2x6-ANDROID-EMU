@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "common/Pcsx2Defs.h"
+#include "common/ARCADE.h"
 
 #include "Config.h"
 
@@ -34,6 +35,7 @@ struct VMBootParameters
 	std::string save_state;
 	std::optional<s32> state_index;
 	std::optional<CDVD_SourceType> source_type;
+	std::optional<ArcadeBootParams> arcade;
 
 	std::optional<bool> fast_boot;
 	std::optional<bool> fullscreen;
@@ -256,6 +258,9 @@ namespace VMManager
 
 	/// Returns true if the specified path is an ELF.
 	bool IsElfFileName(const std::string_view path);
+
+	/// Returns true if the specified path is an Arcade game config file.
+	bool isArcadeManifest(const std::string_view path);
 
 	/// Returns true if the specified path is a blockdump.
 	bool IsBlockDumpFileName(const std::string_view path);

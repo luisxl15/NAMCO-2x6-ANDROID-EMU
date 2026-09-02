@@ -35,6 +35,7 @@
 
 cdvdStruct cdvd;
 
+u32 PS2CLK = PS2CLK_DEFAULT;
 u32 PSXCLK = 36864000;
 
 static constexpr s32 GMT9_OFFSET_SECONDS = 9 * 60 * 60; // 32400
@@ -57,7 +58,9 @@ static u8 s_nvram[NVRAM_SIZE];
 // Autosaving breaks that loop: the second full boot boots the game, as on hardware.
 static bool s_nvram_dirty = false;
 
-static constexpr u32 DEFAULT_MECHA_VERSION = 0x00020603;
+#define MECHACONVER_PCSX2_GENERIC 0x00020603
+#define MECHACONVER_ARCADE 0x0104020a // from a COH-H31100: `0A 02 04 01`
+static constexpr u32 DEFAULT_MECHA_VERSION = MECHACONVER_ARCADE;
 static u32 s_mecha_version = 0;
 
 static __fi void SetSCMDResultSize(u8 size) noexcept
@@ -81,7 +84,7 @@ static void CDVDSECTORREADY_INT(u32 eCycle)
 
 	if (EmuConfig.Speedhacks.fastCDVD)
 	{
-		if (eCycle < Cdvd_FullSeek_Cycles && eCycle > 1)
+		if (eCycle < Cdvd_FullSeek_Cycles() && eCycle > 1)
 			eCycle *= 0.5f;
 	}
 
@@ -94,7 +97,7 @@ static void CDVDREAD_INT(u32 eCycle)
 	// Keep long seeks out though, as games may try to push dmas while seeking. (Tales of the Abyss)
 	if (EmuConfig.Speedhacks.fastCDVD)
 	{
-		if (eCycle < Cdvd_FullSeek_Cycles && eCycle > 1)
+		if (eCycle < Cdvd_FullSeek_Cycles() && eCycle > 1)
 			eCycle *= 0.5f;
 	}
 
@@ -146,7 +149,7 @@ const NVMLayout* getNvmLayout() noexcept
 
 static void cdvdCreateNewNVM()
 {
-	std::memset(s_nvram, 0, sizeof(s_nvram));
+	std::memset(s_nvram, 0xFF, sizeof(s_nvram));
 
 	// Write NVM ILink area with dummy data (Age of Empires 2)
 	// Also write language data defaulting to English (Guitar Hero 2)
@@ -185,6 +188,7 @@ void cdvdLoadNVRAM()
 	}
 	else
 	{
+#if 0 // COH-H models dont have this, and system256 doesnt even use anything from the NVM beyond iLinkID
 		// Verify NVRAM is sane.
 		const NVMLayout* nvmLayout = getNvmLayout();
 		constexpr u8 zero[16] = {0};
@@ -196,6 +200,7 @@ void cdvdLoadNVRAM()
 			ERROR_LOG("Language or Region Parameters missing, filling in defaults");
 			cdvdCreateNewNVM();
 		}
+#endif
 	}
 
 	// Also load the mechacon version while we're here.
@@ -1514,12 +1519,12 @@ static uint cdvdStartSeek(uint newsector, CDVD_MODE_TYPE mode, bool transition_t
 		{
 			// Full Seek
 			CDVD_LOG("CdSeek Begin > to sector %d, from %d - delta=%d [FULL]", cdvd.SeekToSector, cdvd.CurrentSector, delta);
-			seektime = Cdvd_FullSeek_Cycles;
+			seektime = Cdvd_FullSeek_Cycles();
 		}
 		else
 		{
 			CDVD_LOG("CdSeek Begin > to sector %d, from %d - delta=%d [FAST]", cdvd.SeekToSector, cdvd.CurrentSector, delta);
-			seektime = Cdvd_FastSeek_Cycles;
+			seektime = Cdvd_FastSeek_Cycles();
 		}
 		isSeeking = true;
 	}
@@ -2618,6 +2623,16 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 			case 0x12: // sceCdReadILinkId (0:9)
 				SetSCMDResultSize(9);
 				cdvdReadILinkID(&cdvd.SCMDResultBuff[1]);
+				extern std::string ArcadeiLinkID;
+				if (!ArcadeiLinkID.empty()) {
+					constexpr u8 s256Region_ASIA4[8] = {0x32, 0x1F, 0xC7, 0xFA, 0xD6, 0xEE, 0xF0, 0x1C};
+					constexpr u8 s256Region_ASIA5[8] = {0x41, 0x46, 0x53, 0x2F, 0x1E, 0xFD, 0x0F, 0xE0};
+					constexpr u8 s256Region_JAPAN[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+					if (ArcadeiLinkID == "ASIA4") std::memcpy(cdvd.SCMDResultBuff, s256Region_ASIA4, 8);
+					else if (ArcadeiLinkID == "ASIA5") std::memcpy(cdvd.SCMDResultBuff, s256Region_ASIA5, 8);
+					else if (ArcadeiLinkID == "JAPAN") std::memcpy(cdvd.SCMDResultBuff, s256Region_JAPAN, 8);
+					break;
+				}
 				if ((!cdvd.SCMDResultBuff[3]) && (!cdvd.SCMDResultBuff[4])) // nvm file is missing correct iLinkId, return hardcoded one
 				{
 					cdvd.SCMDResultBuff[0] = 0x00;
@@ -2633,8 +2648,9 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				break;
 
 			case 0x13: // sceCdWriteILinkID (8:1)
+				Console.Warning("INVESTIGATE: sceCdWriteILinkID called");
 				SetSCMDResultSize(1);
-				cdvdWriteILinkID(&cdvd.SCMDParamBuff[1]);
+				cdvdWriteILinkID(&cdvd.SCMDParamBuff[0]);
 				break;
 
 			case 0x14: // CdCtrlAudioDigitalOut (1:1)
@@ -3098,7 +3114,7 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 			default:
 				SetSCMDResultSize(1); //in:0
 				cdvd.SCMDResultBuff[0] = 0x80; // 0 complete ; 1 busy ; 0x80 error
-				Console.WriteLn("SCMD Unknown %x", rt);
+				Console.Warning("SCMD Unknown %x", rt);
 				break;
 		} // end switch
 

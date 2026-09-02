@@ -8,6 +8,7 @@
 #include "R3000A.h"
 #include "IopHw.h"
 #include "Config.h"
+#include "common/Console.h"
 
 static constexpr int CYCLES_PER_WORD = 24;
 
@@ -214,6 +215,12 @@ void V_Core::PlainDMAWrite(u16* pMem, u32 size)
 		}
 	}
 
+	if (ReadSize > 0)
+	{
+		Console.WriteLn("SPU2 DMA%c WARNING: new DMA while old pending! ReadSize=%x ActiveTSA=%x newTSA=%x newSize=%x",
+			Index ? '7' : '4', ReadSize, ActiveTSA, TSA, size);
+	}
+
 	TimeUpdate(psxRegs.cycle);
 
 	ReadSize = size;
@@ -250,7 +257,10 @@ void V_Core::FinishDMAwrite()
 		DMA7LogWrite(DMAPtr, ReadSize << 1);
 #endif
 
-	u32 buff1end = ActiveTSA + std::min(ReadSize, (u32)0x100 + std::abs(DMAICounter / CYCLES_PER_WORD));
+	// Transfer all data in one shot. The original deferred partial transfer caused a
+	// ~170ms delay on S246/S256 where real hardware completes in <0.1ms, producing
+	// audio corruption during streaming transitions (e.g. TK5DR attract mode).
+	u32 buff1end = ActiveTSA + ReadSize;
 	u32 buff2end = 0;
 	if (buff1end > 0x100000)
 	{
@@ -346,6 +356,10 @@ void V_Core::FinishDMAwrite()
 	ReadSize -= TDA - ActiveTSA;
 
 	DMAICounter = (DMAICounter - ReadSize) * CYCLES_PER_WORD;
+
+	// After a full transfer, don't leave a large stale counter that delays the IRQ.
+	if (ReadSize == 0 && DMAICounter > CYCLES_PER_WORD)
+		DMAICounter = CYCLES_PER_WORD;
 
 	CounterUpdate(DMAICounter);
 

@@ -517,7 +517,6 @@ void MemoryCardProtocol::AuthF3()
 	}
 	else
 	{
-		mcd->term = Terminator::READY;
 		The2bTerminator(5);
 	}
 }

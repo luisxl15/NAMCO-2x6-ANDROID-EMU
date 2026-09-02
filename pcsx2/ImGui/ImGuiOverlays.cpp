@@ -29,6 +29,8 @@
 #include "SIO/Pad/PadBase.h"
 #include "USB/USB.h"
 #include "VMManager.h"
+#include "DEV9/ACJV.h"
+#include "GS/Renderers/Common/GSRenderer.h"
 
 #include "common/BitUtils.h"
 #include "common/Error.h"
@@ -573,9 +575,9 @@ __ri void ImGuiManager::DrawPerformanceOverlay(float& position_y, float scale, f
 				s_speed_line.append_format("{}ARMSX2 " ARMSX2_IOS_OSD_VERSION " | Core: {}",
 					s_speed_line.empty() ? "" : " | ", BuildVersion::GitRev);
 #elif defined(__ANDROID__)
-				s_speed_line.append_format("{}ARMSX2 2.7", s_speed_line.empty() ? "" : " | ");
+				s_speed_line.append_format("{}PCSX2x6 2.7", s_speed_line.empty() ? "" : " | ");
 #else
-				s_speed_line.append_format("{}PCSX2 {}", s_speed_line.empty() ? "" : " | ", BuildVersion::GitRev);
+				s_speed_line.append_format("{}PCSX2x6 {}", s_speed_line.empty() ? "" : " | ", BuildVersion::GitRev);
 #endif
 			}
 
@@ -2072,6 +2074,46 @@ void ImGuiManager::SetAndroidOSDVisibility(bool fps, bool vps, bool speed, bool 
 }
 #endif
 
+// ARCADE (pcsx2x6): Sinden-style white border, drawn for lightgun JVS profiles so
+// the gun's camera has a reference frame. Mode 0 tracks the actual PS2 draw rect,
+// mode 1 covers the whole window.
+static void DrawSindenBorder()
+{
+	if (ACJV::GetMode() != JVS_MODE::LIGHTGUN || !ACJV::IsSindenBorderEnabled())
+		return;
+
+	const int thickness = ACJV::GetSindenBorderThickness();
+	const int mode = ACJV::GetSindenBorderMode();
+	const u32 color = IM_COL32(0xFF, 0xFF, 0xFF, 0xFF);
+
+	ImDrawList* dl = ImGui::GetForegroundDrawList();
+	float x0, y0, x1, y1;
+
+	if (mode == 0)
+	{
+		const GSVector4 rect = GSRenderer::GetLastDrawRect();
+		x0 = rect.x;
+		y0 = rect.y;
+		x1 = rect.z;
+		y1 = rect.w;
+		if (x1 <= x0 || y1 <= y0)
+			return;
+	}
+	else
+	{
+		x0 = 0.0f;
+		y0 = 0.0f;
+		x1 = ImGuiManager::GetWindowWidth();
+		y1 = ImGuiManager::GetWindowHeight();
+	}
+
+	const float t = static_cast<float>(thickness);
+	dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y0 + t), color);
+	dl->AddRectFilled(ImVec2(x0, y1 - t), ImVec2(x1, y1), color);
+	dl->AddRectFilled(ImVec2(x0, y0 + t), ImVec2(x0 + t, y1 - t), color);
+	dl->AddRectFilled(ImVec2(x1 - t, y0 + t), ImVec2(x1, y1 - t), color);
+}
+
 void ImGuiManager::RenderOverlays()
 {
 	// Android: the live GSConfig can be stale — the GS device reopens whenever the
@@ -2129,6 +2171,7 @@ void ImGuiManager::RenderOverlays()
 	const float bottom_margin = base_margin + inset_bottom;
 	float position_y = base_margin + inset_top;
 
+	DrawSindenBorder();
 	DrawIndicatorsOverlay(position_y, scale, margin, spacing);
 	DrawInputRecordingOverlay(position_y, scale, margin, spacing);
 	DrawTextureReplacementsOverlay(position_y, scale, margin, spacing);

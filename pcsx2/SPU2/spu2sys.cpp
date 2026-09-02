@@ -7,6 +7,7 @@
 // This module contains (most!) stuff which is directly related to SPU2 emulation.
 // Contents should be cross-platform compatible whenever possible.
 
+#include "Common.h"
 #include "IopCounters.h"
 #include "IopDma.h"
 #include "IopHw.h"
@@ -311,7 +312,7 @@ __forceinline void CheckDMAProgress(int cid)
 	}
 }
 
-static constexpr uint TickInterval = 768;
+static uint TickInterval = 768;
 static constexpr int SanityInterval = 4800;
 
 __forceinline void TimeUpdate(u64 cClocks)

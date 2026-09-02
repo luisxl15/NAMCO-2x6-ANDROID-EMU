@@ -336,6 +336,17 @@ set(pcsx2DEV9Sources
 	DEV9/DEV9.cpp
 	DEV9/flash.cpp
 	DEV9/net.cpp
+#ARCADE (System 246/256 - pcsx2x6)
+	DEV9/ACRAM.cpp
+	DEV9/ACSRAM.cpp
+	DEV9/ACATA.cpp
+	DEV9/ACATA_IO.cpp
+	DEV9/ACATA_IO_CHD.cpp
+	DEV9/ACATAPI.cpp
+	DEV9/ACJV.cpp
+	DEV9/ACUART.cpp
+	DEV9/ACUART_GLUE.cpp
+	DEV9/ACCORE.cpp
 	)
 
 # libpcap is unavailable on Android and iOS; DEV9 uses Android/AndroidPcapStubs.cpp

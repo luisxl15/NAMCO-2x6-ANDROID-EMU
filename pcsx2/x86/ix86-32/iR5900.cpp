@@ -2248,12 +2248,20 @@ static void recRecompile(const u32 startpc)
 			const u32 typeBexecjump = memRead32(EELOAD_START + 0x5B0); // v1.20, v1.50, v1.60 (3000x models)
 			const u32 typeCexecjump = memRead32(EELOAD_START + 0x618); // v1.60 (3900x models)
 			const u32 typeDexecjump = memRead32(EELOAD_START + 0x600); // v1.70, v1.90, v2.00, v2.20, v2.30
-			if ((typeBexecjump >> 26 == 3) || (typeCexecjump >> 26 == 3) || (typeDexecjump >> 26 == 3)) // JAL to 0x822B8
+			// const u32 typeEexecjump = memRead32(EELOAD_START + 0x4E8); // COH-H System 246 (Namco arcade)
+			if (
+				(typeBexecjump >> 26 == 3) 
+			|| (typeCexecjump >> 26 == 3) 
+			|| (typeDexecjump >> 26 == 3) 
+			// || (typeEexecjump >> 26 == 3)
+			) // JAL to 0x822B8
 				g_eeloadExec = EELOAD_START + 0x2B8;
 			else if (typeAexecjump >> 26 == 3) // JAL to 0x82170
 				g_eeloadExec = EELOAD_START + 0x170;
-			else // There might be other types of EELOAD, because these models' BIOSs have not been examined: 18000, 3500x, 3700x, 5500x, and 7900x. However, all BIOS versions have been examined except for v1.01 and v1.10.
-				Console.WriteLn("recRecompile: Could not enable launch arguments for fast boot mode; unidentified BIOS version! Please report this to the PCSX2 developers.");
+			else
+			{
+				Console.WriteLn("recRecompile: Could not enable launch arguments for fast boot mode; unidentified BIOS version!");
+			}
 		}
 	}
 

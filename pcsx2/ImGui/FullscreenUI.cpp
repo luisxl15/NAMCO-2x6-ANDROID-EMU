@@ -1302,7 +1302,7 @@ void FullscreenUI::DrawLandingTemplate(ImVec2* menu_pos, ImVec2* menu_size)
 			dl->AddImage(reinterpret_cast<ImTextureID>(GetCachedTexture("icons/AppIconLarge.png")->GetNativeHandle()),
 				logo_pos, logo_pos + logo_size);
 			const ImVec2 branding_pos(logo_pos.x + logo_size.x + LayoutScale(LAYOUT_MENU_BUTTON_X_PADDING), logo_pos.y);
-			ImGuiFullscreen::AddTextWithShadow(dl, heading_font, branding_pos, ImGui::GetColorU32(ImGuiCol_Text), "ARMSX2");
+			ImGuiFullscreen::AddTextWithShadow(dl, heading_font, branding_pos, ImGui::GetColorU32(ImGuiCol_Text), "PCSX2x6");
 		}
 
 		// draw time
@@ -1733,6 +1733,7 @@ void FullscreenUI::DrawPauseMenu(MainWindowType type)
 				// NOTE: Menu close must come first, because otherwise VM destruction options will race.
 				const bool can_load_state = s_current_disc_crc != 0 && !Achievements::IsHardcoreModeActive();
 				const bool can_save_state = s_current_disc_crc != 0;
+				const bool can_open_game_settings = !s_current_disc_serial.empty();
 
 				if (just_focused)
 					ImGui::SetFocusID(ImGui::GetID(FSUI_ICONSTR(ICON_FA_PLAY, "Resume Game")), ImGui::GetCurrentWindow());
@@ -1758,7 +1759,7 @@ void FullscreenUI::DrawPauseMenu(MainWindowType type)
 						s_current_main_window = MainWindowType::None;
 				}
 
-				if (ActiveButton(FSUI_ICONSTR(ICON_FA_WRENCH, "Game Properties"), false, can_save_state))
+				if (ActiveButton(FSUI_ICONSTR(ICON_FA_WRENCH, "Game Properties"), false, can_open_game_settings))
 				{
 					SwitchToGameSettings();
 				}
@@ -3647,6 +3648,14 @@ void FullscreenUI::DrawAboutWindow()
 									 "ARMSX2 is a free and open-source PlayStation 2 (PS2) emulator. Its purpose is to emulate the PS2's hardware, using a "
 									 "combination of MIPS CPU Interpreters, Recompilers and a Virtual Machine which manages hardware states and PS2 system memory. "
 									 "This allows you to play PS2 games on your PC, with many additional features and benefits."));
+		ImGui::NewLine();
+
+		ImGui::TextWrapped("%s",
+			FSUI_CSTR("PCSX2x6 is a modification of PCSX2 primarily created by El_isra and Tovarichtch. this fork aims to "
+					  "emulate the NAMCO 'SYSTEM 246', 'SYSTEM 256' and 'SYSTEM SUPER256' arcade platforms. "
+					  "Which are based on the Official Sony COH-H Playstation2 units, a special divison of ps2 motherboards "
+					  "made to be used in the creation of arcade systems"));
+		
 		ImGui::NewLine();
 
 		ImGui::TextWrapped("%s",

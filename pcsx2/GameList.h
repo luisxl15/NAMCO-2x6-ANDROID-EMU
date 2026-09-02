@@ -5,6 +5,7 @@
 
 #include "GameDatabase.h"
 
+#include "common/ARCADE.h"
 #include "common/Pcsx2Defs.h"
 
 #include <ctime>
@@ -28,6 +29,7 @@ namespace GameList
 		PS2Disc,
 		PS1Disc,
 		ELF,
+		ARCADE,
 		Invalid,
 		Count
 	};
@@ -64,6 +66,9 @@ namespace GameList
 		PAL_SW,
 		PAL_SWI,
 		PAL_UK,
+		SYSTEM246,
+		SYSTEM256,
+		SYSTEMS256,
 		Count
 	};
 
@@ -84,6 +89,9 @@ namespace GameList
 		std::time_t last_modified_time = 0;
 		std::time_t last_played_time = 0;
 		std::time_t total_played_time = 0;
+
+		bool is_arcade = false;
+		ArcadeBootParams arcade;
 
 		const std::string& GetTitle(bool force_en = false) const
 		{

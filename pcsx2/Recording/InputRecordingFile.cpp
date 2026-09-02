@@ -21,7 +21,7 @@ void InputRecordingFile::InputRecordingFileHeader::init() noexcept
 
 void InputRecordingFile::setEmulatorVersion()
 {
-	snprintf(m_header.m_emulatorVersion, sizeof(m_header.m_emulatorVersion), "PCSX2-%s", BuildVersion::GitRev);
+	snprintf(m_header.m_emulatorVersion, sizeof(m_header.m_emulatorVersion), "PCSX2x6-%s", BuildVersion::GitRev);
 }
 
 void InputRecordingFile::setAuthor(const std::string& _author)
@@ -219,7 +219,7 @@ bool InputRecordingFile::writePadData(const uint frame, const PadData data) cons
 void InputRecordingFile::logRecordingMetadata()
 {
 	InputRec::consoleMultiLog({fmt::format("File: {}", getFilename()),
-		fmt::format("PCSX2 Version Used: {}", m_header.m_emulatorVersion),
+		fmt::format("PCSX2x6 Version Used: {}", m_header.m_emulatorVersion),
 		fmt::format("Recording File Version: {}", m_header.m_fileVersion),
 		fmt::format("Associated Game Name or ISO Filename: {}", m_header.m_gameName),
 		fmt::format("Author: {}", m_header.m_author),

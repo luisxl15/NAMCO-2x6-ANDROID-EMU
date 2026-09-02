@@ -116,6 +116,23 @@ static RenderAPI GetAPIForRenderer(GSRendererType renderer)
 	}
 }
 
+static ImGuiManager::BezelFitMode ConvertBezelFitMode(GSBezelFitMode mode)
+{
+	switch (mode)
+	{
+		case GSBezelFitMode::Fit:
+			return ImGuiManager::BezelFitMode::Contain;
+
+		case GSBezelFitMode::Fill:
+			return ImGuiManager::BezelFitMode::Cover;
+
+		case GSBezelFitMode::Center:
+		case GSBezelFitMode::Stretch:
+		default:
+			return ImGuiManager::BezelFitMode::Stretch;
+	}
+}
+
 static bool OpenGSDevice(GSRendererType renderer, bool clear_state_on_fail, bool recreate_window,
 	GSVSyncMode vsync_mode, bool allow_present_throttle)
 {
@@ -466,6 +483,15 @@ bool GSopen(const Pcsx2Config::GSOptions& config, GSRendererType renderer, u8* b
 #ifdef __ANDROID__
 		ApplyAndroidGameDBOverrides();
 #endif
+
+		// ARCADE (pcsx2x6): cabinet bezel artwork.
+		ImGuiManager::SetBezelOverlay(
+			GSConfig.BezelEnabled,
+			GSConfig.BezelPath,
+			GSConfig.BezelOpacity,
+			GSConfig.BezelScale,
+			ConvertBezelFitMode(GSConfig.BezelFitMode));
+
 		res = OpenGSRenderer(renderer, basemem);
 		if (!res)
 			CloseGSDevice(true);
@@ -997,6 +1023,21 @@ void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
 
 	if (new_config.OsdFontPath != old_config.OsdFontPath)
 		ImGuiManager::ReloadFonts();
+
+		if (
+		new_config.BezelEnabled != old_config.BezelEnabled ||
+		new_config.BezelPath != old_config.BezelPath ||
+		new_config.BezelOpacity != old_config.BezelOpacity ||
+		new_config.BezelScale != old_config.BezelScale ||
+		new_config.BezelFitMode != old_config.BezelFitMode)
+	{
+		ImGuiManager::SetBezelOverlay(
+			new_config.BezelEnabled,
+			new_config.BezelPath,
+			new_config.BezelOpacity,
+			new_config.BezelScale,
+			ConvertBezelFitMode(new_config.BezelFitMode));
+	}
 
 	// Options which need a full teardown/recreate.
 	if (!GSConfig.RestartOptionsAreEqual(old_config))

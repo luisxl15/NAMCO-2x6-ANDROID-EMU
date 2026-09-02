@@ -10,6 +10,7 @@
 #include "SIO/Sio2.h"
 
 #include "Sif.h"
+#include "IopMem.h"
 #include "DEV9/DEV9.h"
 
 using namespace R3000A;
@@ -72,9 +73,6 @@ int psxDma4Interrupt()
 
 void spu2DMA4Irq()
 {
-#ifdef SPU2IRQTEST
-	Console.Warning("spu2DMA4Irq()");
-#endif
 	SPU2interruptDMA4();
 	if (HW_DMA4_CHCR & 0x01000000)
 	{
@@ -100,9 +98,6 @@ int psxDma7Interrupt()
 
 void spu2DMA7Irq()
 {
-#ifdef SPU2IRQTEST
-	Console.Warning("spu2DMA7Irq()");
-#endif
 	SPU2interruptDMA7();
 	if (HW_DMA7_CHCR & 0x01000000)
 	{
@@ -156,17 +151,15 @@ void psxDma8(u32 madr, u32 bcr, u32 chcr)
 	switch (chcr & 0x01000201)
 	{
 		case 0x01000201: //cpu to dev9 transfer
-			PSXDMA_LOG("*** DMA 8 - DEV9 mem2dev9 *** %lx addr = %lx size = %lx", chcr, madr, bcr);
 			DEV9writeDMA8Mem((u32*)iopPhysMem(madr), size);
 			break;
 
 		case 0x01000200: //dev9 to cpu transfer
-			PSXDMA_LOG("*** DMA 8 - DEV9 dev9mem *** %lx addr = %lx size = %lx", chcr, madr, bcr);
 			DEV9readDMA8Mem((u32*)iopPhysMem(madr), size);
 			break;
 
 		default:
-			PSXDMA_LOG("*** DMA 8 - DEV9 unknown *** %lx addr = %lx size = %lx", chcr, madr, bcr);
+			Console.Error("*** DMA 8 - DEV9 unknown *** %lx addr = %lx size = %lx", chcr, madr, bcr);
 			break;
 	}
 }
@@ -188,6 +181,10 @@ void psxDma9(u32 madr, u32 bcr, u32 chcr)
 	sif0.iop.end = false;
 
 	SIF0Dma();
+
+	// Clear dma9 busy now so each queued sceSifSetDma re-kicks & reads the reused bounce fresh (else movie corrupts).
+	if (!sif0.iop.busy)
+		HW_DMA9_CHCR &= ~0x01000000;
 }
 
 void psxDma10(u32 madr, u32 bcr, u32 chcr)

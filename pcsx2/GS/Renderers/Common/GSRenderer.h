@@ -85,6 +85,7 @@ public:
 	bool IsDumpRecording() const { return static_cast<bool>(m_dump); }
 	void StopGSDump();
 	void PresentCurrentFrame();
+	static GSVector4 GetLastDrawRect();
 };
 
 extern std::unique_ptr<GSRenderer> g_gs_renderer;

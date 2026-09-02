@@ -279,6 +279,15 @@ enum class DisplayRotation : u8
 	MaxCount
 };
 
+enum class GSBezelFitMode : u8
+{
+	Fit,
+	Fill,
+	Stretch,
+	Center,
+	MaxCount
+};
+
 enum class MemoryCardType
 {
 	Empty,
@@ -832,6 +841,7 @@ struct Pcsx2Config
 	{
 		static const char* AspectRatioNames[];
 		static const char* FMVAspectRatioSwitchNames[];
+		static const char* BezelFitModeNames[];
 		static const char* DisplayRotationNames[];
 		static const char* BlendingLevelNames[];
 
@@ -992,6 +1002,15 @@ struct Pcsx2Config
 		/// anything can be expressed (2.1666 for 19.5:9, 1.85 for a film ratio) without a second key.
 		float CustomAspectRatio = 16.0f / 9.0f;
 		int Crop[4] = {};
+
+		// ARCADE (pcsx2x6): cabinet bezel artwork drawn around the PS2 output.
+		bool BezelEnabled = false;
+		std::string BezelPath;
+		float BezelOpacity = 1.0f;
+		float BezelScale = 100.0f;
+		GSBezelFitMode BezelFitMode = GSBezelFitMode::Fit;
+		bool BezelShowInFullscreen = true;
+		bool BezelShowInBigPicture = true;
 
 		float OsdScale = DEFAULT_OSD_SCALE;
 		/// OSD text colour as 0xRRGGBB. 0 keeps the classic white, so existing installs and
@@ -1219,8 +1238,6 @@ struct Pcsx2Config
 		SPU2Options();
 
 		void LoadSave(SettingsWrapper& wrap);
-
-		bool IsTimeStretchEnabled() const { return (SyncMode == SPU2SyncMode::TimeStretch); }
 
 		bool operator==(const SPU2Options& right) const;
 		bool operator!=(const SPU2Options& right) const;
@@ -1561,6 +1578,17 @@ struct Pcsx2Config
 	};
 
 	// ------------------------------------------------------------------------
+	struct ArcadeOptions {
+		bool SRAMVerboseReads{false};
+		bool RAMVerboseReads{false};
+		bool ATAVerboseReads{false};
+		bool UARTVerbose{false};
+		
+		void LoadSave(SettingsWrapper& wrap);
+
+		bool operator==(const ArcadeOptions& right) const;
+		bool operator!=(const ArcadeOptions& right) const;
+	};
 
 	BITFIELD32()
 	bool
@@ -1609,6 +1637,8 @@ struct Pcsx2Config
 	FilenameOptions BaseFilenames;
 
 	AchievementsOptions Achievements;
+
+	ArcadeOptions Arcade;
 
 	// Memorycard options - first 2 are default slots, last 6 are multitap 1 and 2
 	// slots (3 each)
