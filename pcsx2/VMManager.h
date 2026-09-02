@@ -262,6 +262,9 @@ namespace VMManager
 	/// Returns true if the specified path is an Arcade game config file.
 	bool isArcadeManifest(const std::string_view path);
 
+	/// Returns true if the VM was booted from an Arcade (.acgame) manifest.
+	bool IsArcadeGame();
+
 	/// Returns true if the specified path is a blockdump.
 	bool IsBlockDumpFileName(const std::string_view path);
 

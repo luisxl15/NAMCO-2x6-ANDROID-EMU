@@ -1239,6 +1239,8 @@ struct Pcsx2Config
 
 		void LoadSave(SettingsWrapper& wrap);
 
+		bool IsTimeStretchEnabled() const { return (SyncMode == SPU2SyncMode::TimeStretch); }
+
 		bool operator==(const SPU2Options& right) const;
 		bool operator!=(const SPU2Options& right) const;
 	};

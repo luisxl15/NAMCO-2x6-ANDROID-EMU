@@ -24,6 +24,8 @@ import java.io.File
 class GameLibraryRepository(private val context: Context) {
     private val gameExtensions = setOf(
         "iso", "chd", "cso", "zso", "gz", "bin", "mdf", "img", "nrg", "dump", "elf",
+        // ARCADE (pcsx2x6): NAMCO System 246/256 manifest files.
+        "acgame",
     )
 
     // Recent-games export runs off the launch/UI thread; exportLock serialises the file

@@ -41,6 +41,7 @@
 #include "SIO/Pad/Pad.h"
 #include "Input/InputManager.h"
 #include "USB/USB.h"
+#include "DEV9/ACJV.h" // ARCADE (pcsx2x6): JVS I/O board
 #include "USB/deviceproxy.h"
 #include "USB/qemu-usb/hid.h"
 #include "ImGui/ImGuiFullscreen.h"
@@ -1047,6 +1048,89 @@ static GenericInputBinding PadKeyToGeneric(jint key) {
     }
 }
 
+// ---- ARCADE (pcsx2x6): JVS bridge ---------------------------------------------------
+// A System 246/256 cabinet has no DualShock2; its controls hang off the emulated JVS I/O
+// board (ACJV). Desktop pcsx2x6 binds those through InputManager, but the Android touch
+// controls bypass InputManager entirely -- they call Pad::SetControllerState straight from
+// applyPadButton below. So mirror the pad into JVS the way the USB bridge above does:
+// every ACJV binding carries a generic_mapping (Cross, DPadUp, Start, ...), so build
+// GenericInputBinding -> JVS switch mask for both JVS players and forward each pad press.
+// The player's existing on-screen and Bluetooth controls then drive the cabinet with no
+// extra setup. Coin, Test and Service have no pad equivalent and get their own JNI entry
+// points further down, for the arcade panel in the UI.
+static u16 s_jvs_generic_binds[2][static_cast<size_t>(GenericInputBinding::Count)];
+static bool s_jvs_binds_valid = false;
+static std::string s_jvs_binds_layout;
+static JVS_MODE s_jvs_binds_mode = JVS_MODE::DEFAULT;
+
+static void AddJvsGenericBinds(u32 player, std::span<const InputBindingInfo> binds,
+                               bool skip_generic_action_buttons) {
+    for (const InputBindingInfo& bi : binds) {
+        if (bi.generic_mapping == GenericInputBinding::Unknown)
+            continue;
+        // The same rule InputManager::AddJVSBindings uses: once a game has a per-layout
+        // button set, the generic P*_Button2..6 are stale and only Button1 (the System
+        // ENTER switch) stays.
+        if (skip_generic_action_buttons) {
+            const std::string_view n(bi.name);
+            if ((n.starts_with("P1_Button") || n.starts_with("P2_Button")) && !n.ends_with("1"))
+                continue;
+        }
+        s_jvs_generic_binds[player][static_cast<size_t>(bi.generic_mapping)] = bi.bind_index;
+    }
+}
+
+static void RebuildJvsGenericBinds() {
+    std::memset(s_jvs_generic_binds, 0, sizeof(s_jvs_generic_binds));
+
+    const std::span<const InputBindingInfo> layouts[] = {
+        ACJV::GetFightingButtons(), ACJV::GetStandardButtons(), ACJV::GetRacingButtons()};
+    bool has_layout = false;
+    for (const auto& l : layouts)
+        has_layout |= !l.empty();
+
+    AddJvsGenericBinds(0, ACJV::GetButtonBindings(), has_layout);
+    AddJvsGenericBinds(1, ACJV::GetP2ButtonBindings(), has_layout);
+
+    // Fighting and standard cabinets wire both sides; racing is one player per cabinet.
+    AddJvsGenericBinds(0, ACJV::GetFightingButtons(), false);
+    AddJvsGenericBinds(1, ACJV::GetFightingButtons(), false);
+    AddJvsGenericBinds(0, ACJV::GetStandardButtons(), false);
+    AddJvsGenericBinds(1, ACJV::GetStandardButtons(), false);
+    AddJvsGenericBinds(0, ACJV::GetRacingButtons(), false);
+
+    s_jvs_binds_layout = ACJV::GetCurrentLayoutKey();
+    s_jvs_binds_mode = ACJV::GetMode();
+    s_jvs_binds_valid = true;
+}
+
+static void ApplyJvsPadButton(u32 port, GenericInputBinding generic, float state) {
+    if (!ACJV::enabled || generic == GenericInputBinding::Unknown || port > 1)
+        return;
+
+    // The table comes from the running game's layout, which is only known once the .acgame
+    // has been resolved, so rebuild whenever the mode or the layout changes.
+    if (!s_jvs_binds_valid || s_jvs_binds_mode != ACJV::GetMode() ||
+        s_jvs_binds_layout != ACJV::GetCurrentLayoutKey())
+        RebuildJvsGenericBinds();
+
+    u16 mask = s_jvs_generic_binds[port][static_cast<size_t>(generic)];
+    if (mask == 0)
+        return;
+
+    u32 target_player = port;
+    // Lightgun cabinets put both guns on JVS player 0, each with its own start bit.
+    if (ACJV::GetMode() == JVS_MODE::LIGHTGUN && mask == JVS_BTN_START) {
+        const u16 gun_start = (port == 0) ? ACJV::GetGunMapping().p1_start
+                                          : ACJV::GetGunMapping().p2_start;
+        if (gun_start) {
+            mask = gun_start;
+            target_player = 0;
+        }
+    }
+    ACJV::SetButtonState(target_player, mask, state > 0.5f);
+}
+
 static void applyPadButton(u32 port, jint p_key, jint p_range, jboolean p_keyPressed) {
     PadDualshock2::Inputs _key;
     switch (p_key) {
@@ -1101,6 +1185,7 @@ static void applyPadButton(u32 port, jint p_key, jint p_range, jboolean p_keyPre
             const s32 bind = s_usb_generic_binds[port][static_cast<size_t>(generic)];
             if (bind >= 0)
                 USB::SetDeviceBindValue(port, static_cast<u32>(bind), state);
+            ApplyJvsPadButton(port, generic, state);
         }
     }
 
@@ -1121,6 +1206,96 @@ Java_kr_co_iefriends_pcsx2_NativeApp_setPadButtonForPort(JNIEnv *env, jclass cla
     // Local co-op: route to PS2 controller port 0 (P1) or 1 (P2). SetControllerState
     // ignores ports >= NUM_CONTROLLER_PORTS; a negative/unset port falls back to P1.
     applyPadButton(p_port < 0 ? 0u : static_cast<u32>(p_port), p_key, p_range, p_keyPressed);
+}
+
+// ---- ARCADE (pcsx2x6): JVS panel entry points ---------------------------------------
+// Coin, Test and Service have no DualShock2 equivalent, so the arcade panel in the UI
+// drives them directly. Every one of these is a no-op unless a System 246/256 game is
+// actually running, so the UI can call them without checking first.
+
+// Order must match ArcadePanel in the UI.
+enum class JvsUiButton : jint {
+    Start = 0, Service, Up, Down, Left, Right,
+    Button1, Button2, Button3, Button4, Button5, Button6,
+};
+
+static u16 JvsUiButtonToMask(jint which) {
+    switch (static_cast<JvsUiButton>(which)) {
+        case JvsUiButton::Start:   return JVS_BTN_START;
+        case JvsUiButton::Service: return JVS_BTN_SERVICE;
+        case JvsUiButton::Up:      return JVS_BTN_UP;
+        case JvsUiButton::Down:    return JVS_BTN_DOWN;
+        case JvsUiButton::Left:    return JVS_BTN_LEFT;
+        case JvsUiButton::Right:   return JVS_BTN_RIGHT;
+        case JvsUiButton::Button1: return JVS_BTN_1;
+        case JvsUiButton::Button2: return JVS_BTN_2;
+        case JvsUiButton::Button3: return JVS_BTN_3;
+        case JvsUiButton::Button4: return JVS_BTN_4;
+        case JvsUiButton::Button5: return JVS_BTN_5;
+        case JvsUiButton::Button6: return JVS_BTN_6;
+        default:                   return 0;
+    }
+}
+
+static bool JvsReady() {
+    return VMManager::HasValidVM() && ACJV::enabled;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_jvsIsArcade(JNIEnv*, jclass) {
+    return JvsReady() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_jvsInsertCoin(JNIEnv*, jclass, jint p_slot) {
+    if (!JvsReady())
+        return;
+    ACJV::InsertCoin(p_slot < 0 ? 0u : static_cast<u32>(p_slot));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_jvsSetButton(JNIEnv*, jclass, jint p_player, jint p_which,
+                                                  jboolean p_pressed) {
+    if (!JvsReady())
+        return;
+    const u16 mask = JvsUiButtonToMask(p_which);
+    if (mask == 0)
+        return;
+    const u32 player = (p_player == 1) ? 1u : 0u;
+    ACJV::SetButtonState(player, mask, p_pressed == JNI_TRUE);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_jvsToggleDipSwitch(JNIEnv*, jclass, jint p_index) {
+    if (!JvsReady() || p_index < 0 || static_cast<u32>(p_index) >= ACJV::NUM_DIP_SWITCHES)
+        return;
+    ACJV::ToggleDIPSwitchState(static_cast<u32>(p_index));
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_jvsGetDipSwitchState(JNIEnv*, jclass, jint p_index) {
+    if (!JvsReady() || p_index < 0 || static_cast<u32>(p_index) >= ACJV::NUM_DIP_SWITCHES)
+        return JNI_FALSE;
+    return ACJV::GetDIPSwitchState(static_cast<u32>(p_index)) ? JNI_TRUE : JNI_FALSE;
+}
+
+// Which control layout the running cabinet uses, so the UI can show the right panel.
+extern "C" JNIEXPORT jstring JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_jvsGetModeName(JNIEnv* env, jclass) {
+    const char* name = "none";
+    if (JvsReady()) {
+        switch (ACJV::GetMode()) {
+            case JVS_MODE::LIGHTGUN:  name = "lightgun"; break;
+            case JVS_MODE::FIGHTING:  name = "fighting"; break;
+            case JVS_MODE::DRIVE:     name = "drive"; break;
+            case JVS_MODE::DRUM:      name = "drum"; break;
+            case JVS_MODE::TOUCH:     name = "touch"; break;
+            case JVS_MODE::STANDARD:  name = "standard"; break;
+            case JVS_MODE::TWINSTICK: name = "twinstick"; break;
+            default:                  name = "default"; break;
+        }
+    }
+    return env->NewStringUTF(name);
 }
 
 extern "C" JNIEXPORT void JNICALL

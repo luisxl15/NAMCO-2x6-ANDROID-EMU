@@ -2886,6 +2886,11 @@ bool VMManager::IsElfFileName(const std::string_view path)
 	return StringUtil::EndsWithNoCase(path, ".elf");
 }
 
+bool VMManager::IsArcadeGame()
+{
+	return !s_acgame.empty();
+}
+
 bool VMManager::isArcadeManifest(const std::string_view path)
 {
 	return StringUtil::EndsWithNoCase(path, ".acgame");

@@ -405,6 +405,19 @@ public class NativeApp {
 	/** Local co-op: like setPadButton but routes to PS2 controller port 0 (Player 1)
 	 *  or 1 (Player 2). The plain setPadButton above stays port-0 for touch controls. */
 	public static native void setPadButtonForPort(int port, int index, int range, boolean iskeypressed);
+
+	/* ARCADE (pcsx2x6): NAMCO System 246/256 JVS I/O panel. Every call is a no-op unless
+	 * an arcade game is running, so callers do not have to check first. The pad itself is
+	 * already mirrored into JVS by setPadButton; these cover the cabinet-only controls. */
+	public static native boolean jvsIsArcade();
+	public static native void jvsInsertCoin(int slot);
+	/** which: 0=Start 1=Service 2=Up 3=Down 4=Left 5=Right 6..11=Button1..6 */
+	public static native void jvsSetButton(int player, int which, boolean pressed);
+	/** index: 0=Test mode 1=Video voltage 2=Monitor sync 3=Video sync split */
+	public static native void jvsToggleDipSwitch(int index);
+	public static native boolean jvsGetDipSwitchState(int index);
+	/** "none", "default", "lightgun", "fighting", "drive", "drum", "touch", "standard", "twinstick" */
+	public static native String jvsGetModeName();
 	/** Local co-op: hot-plug a 2nd DualShock2 into PS2 port 2 when a second physical
 	 *  controller joins. Idempotent; briefly parks the VM to rebuild the pad list. */
 	public static native void enablePad2();
