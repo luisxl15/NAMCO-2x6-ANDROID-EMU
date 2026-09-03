@@ -1660,25 +1660,27 @@ bool VMManager::AutoDetectSource(const std::string& filename, Error* error)
 				//FileMcd_Reopen(s_serial);
 				s_elf_override = Path::Combine(basedir, INI.GetStringValue("data", "elf", "boot.elf"));
 				EmuConfig.CurrentGameArgs = INI.GetStringValue("data", "args");
-				ACSRAM::filepath = Path::Combine(basedir, INI.GetStringValue("data", "sram", "sram.bin"));
-				// A board whose SRAM is blank stops on its backup-error screen until someone initialises it
-				// through the TEST switch. Ship an already-initialised image per gameid (resources/arcade_sram/
-				// <gameid>.bin, copied out of the APK's assets at startup) and seed it here, so a fresh
-				// install boots straight into the game. Copied INTO the game folder rather than read in
-				// place: from then on it is an ordinary SRAM the game writes its own settings and
-				// bookkeeping into, exactly as it would after a manual init. SRAM is per-game -- 32KB of
-				// that title's own settings -- so this is keyed by gameid and never shared between games.
-				if (!FileSystem::FileExists(ACSRAM::filepath.c_str()))
+				// The SRAM is the battery-backed 32KB a real PCB carries: the operator's own settings,
+				// built up through the TEST switch and written back on a clean shutdown. That is player
+				// state, not content shipped with the game, so it lives outside the game folder -- one
+				// "sram" folder beside the .acgame files, a folder per gameid inside it, because on real
+				// hardware every PCB has its own chip and one board's layout means nothing to another.
+				const std::string sramname = INI.GetStringValue("data", "sram", "sram.bin");
+				const std::string sramdir = Path::Combine(Path::Combine(acgamedir, "sram"), s_serial);
+				if (!FileSystem::CreateDirectoryPath(sramdir.c_str(), true))
+					Console.ErrorFmt("ACGAME: could not create SRAM folder '{}'", sramdir);
+				ACSRAM::filepath = Path::Combine(sramdir, sramname);
+
+				// It used to sit in the game folder. Carry an existing one across instead of handing
+				// the player a blank board and the backup-error screen they already worked past.
+				const std::string legacy = Path::Combine(basedir, sramname);
+				if (!FileSystem::FileExists(ACSRAM::filepath.c_str()) && FileSystem::FileExists(legacy.c_str()))
 				{
-					const std::string seed = Path::Combine(
-						Path::Combine(EmuFolders::Resources, "arcade_sram"), fmt::format("{}.bin", s_serial));
-					if (FileSystem::FileExists(seed.c_str()))
-					{
-						if (FileSystem::CopyFilePath(seed.c_str(), ACSRAM::filepath.c_str(), false))
-							Console.WriteLnFmt(Color_Green, "ACGAME: seeded SRAM for {} from the bundled image", s_serial);
-						else
-							Console.ErrorFmt("ACGAME: could not seed SRAM from '{}'", seed);
-					}
+					if (FileSystem::RenamePath(legacy.c_str(), ACSRAM::filepath.c_str()) ||
+						FileSystem::CopyFilePath(legacy.c_str(), ACSRAM::filepath.c_str(), false))
+						Console.WriteLnFmt(Color_Green, "ACGAME: moved SRAM for {} into sram/{}/", s_serial, s_serial);
+					else
+						Console.ErrorFmt("ACGAME: could not move SRAM from '{}'", legacy);
 				}
 				// JVS device mode: an explicit jvsmode= in the .acgame overrides (force/legacy); otherwise it is
 				// derived from the gameid alone (ACJV::ResolveModeFromGameId), so a .acgame needs only its gameid.
