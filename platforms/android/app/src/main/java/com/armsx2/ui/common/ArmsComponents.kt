@@ -3,6 +3,8 @@ package com.armsx2.ui.common
 import android.content.res.Configuration
 
 import androidx.compose.foundation.BorderStroke
+import com.armsx2.ui.premium.MaterialLevel
+import com.armsx2.ui.premium.material
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -87,7 +89,9 @@ fun ArmsBackdrop(
     }
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = colors.background,
+        // Transparent under the premium launcher so the aurora below shows through; the aurora
+        // paints its own ground, so nothing is left unpainted.
+        color = if (com.armsx2.ui.premium.PremiumUi.enabled.value) Color.Transparent else colors.background,
         contentColor = colors.onBackground,
     ) {
         Box(
@@ -98,6 +102,12 @@ fun ArmsBackdrop(
             // edge — including behind the gesture bar. Kept OUT of the inset-padded
             // content Box below; otherwise it stops short of the bottom edge and the
             // exposed strip reads as a bar (most visibly in landscape).
+            // Premium launcher: the same out-of-focus ground the home uses, so an internal
+            // screen is the same surface rather than a flat panel bolted onto it. Drawn first so
+            // a caller's own wallpaper layer (the library background) still sits on top of it.
+            if (com.armsx2.ui.premium.PremiumUi.enabled.value) {
+                com.armsx2.ui.premium.AuroraBackground(Modifier.fillMaxSize())
+            }
             if (backgroundLayer != null) {
                 Box(modifier = Modifier.fillMaxSize(), content = backgroundLayer)
             }
@@ -220,6 +230,25 @@ fun GlassPanel(
     content: @Composable () -> Unit,
 ) {
     val panelShape = RoundedCornerShape(28.dp)
+    if (com.armsx2.ui.premium.PremiumUi.enabled.value) {
+        // Translucent vibrancy over the aurora, with the hairline edge and specular top a real
+        // glass panel catches — the same material the launcher home is built from.
+        Box(
+            modifier
+                .fillMaxWidth()
+                // No hairline: the settings screen wraps its whole scroll area in one of these
+                // and then draws its own cards inside, so an outer edge just reads as a stray box
+                // around the page. The fill and the specular top carry the separation instead.
+                .material(
+                    level = MaterialLevel.UltraThin,
+                    shape = panelShape,
+                    borderColor = Color.Transparent,
+                    elevation = 0.dp,
+                )
+                .padding(contentPadding),
+        ) { content() }
+        return
+    }
     val panelColor = MaterialTheme.colorScheme.surface
     Surface(
         modifier = modifier.clip(panelShape),

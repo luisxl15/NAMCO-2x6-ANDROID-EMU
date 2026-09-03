@@ -121,11 +121,21 @@ fun AppNavigation() {
             }
         }
 
-        NavigationDrawer(
-            visible = drawerOpen,
-            selected = route,
-            onDismiss = { UiNavigator.drawerOpen.value = false },
-            onNavigate = UiNavigator::navigate,
-        )
+        // The stock Material drawer clashed with the premium launcher (light panel, its own
+        // palette), so that build gets a glass sheet carrying the same destinations instead.
+        if (com.armsx2.ui.premium.PremiumUi.enabled.value) {
+            com.armsx2.ui.premium.PremiumMoreSheet(
+                visible = drawerOpen,
+                onDismiss = { UiNavigator.drawerOpen.value = false },
+                onNavigate = UiNavigator::navigate,
+            )
+        } else {
+            NavigationDrawer(
+                visible = drawerOpen,
+                selected = route,
+                onDismiss = { UiNavigator.drawerOpen.value = false },
+                onNavigate = UiNavigator::navigate,
+            )
+        }
     }
 }

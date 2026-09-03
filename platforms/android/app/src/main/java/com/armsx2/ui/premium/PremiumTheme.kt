@@ -61,7 +61,7 @@ object Palette {
     val hairlineStrong = Color(0x3DFFFFFF)
     val specular = Color(0x1FFFFFFF)
 
-    val scrim = Color(0x99000000)
+    val scrim = Color(0xC7000000)
 }
 
 /**

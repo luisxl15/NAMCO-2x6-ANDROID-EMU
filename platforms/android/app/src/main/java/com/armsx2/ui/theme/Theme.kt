@@ -305,6 +305,34 @@ object LauncherOrientationPreferences {
     }
 }
 
+// The premium launcher's palette as a Material scheme, so the internal screens — which are all
+// built from MaterialTheme colours plus ArmsBackdrop/GlassPanel — inherit the same design as the
+// home instead of staying on the old blue/neutral one. Surfaces are deliberately near-black and
+// LOW-contrast: ArmsBackdrop paints the aurora behind them and GlassPanel supplies the
+// translucency, so a heavy opaque surface here would bury both.
+private val PremiumScheme = darkColorScheme(
+    primary = Color(0xFFC8202F),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFF5E0B13),
+    onPrimaryContainer = Color(0xFFFFD9DC),
+    secondary = Color(0xFFA5121F),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFF4A0910),
+    onSecondaryContainer = Color(0xFFFFD9DC),
+    tertiary = Color(0xFFD08A90),
+    background = Color(0xFF0B0B0D),
+    onBackground = Color(0xFFF5F5F7),
+    surface = Color(0xFF141417),
+    onSurface = Color(0xFFF5F5F7),
+    surfaceVariant = Color(0xFF1C1C20),
+    onSurfaceVariant = Color(0x99EBEBF5),
+    outline = Color(0x24FFFFFF),
+    outlineVariant = Color(0x1AFFFFFF),
+    error = Color(0xFFFF6B6B),
+    scrim = Color.Black,
+    surfaceTint = Color.Transparent,
+)
+
 private val NightScheme = darkColorScheme(
     primary = ArmsBlueBright,
     onPrimary = Color(0xFF07101F),
@@ -567,10 +595,14 @@ fun Armsx2Theme(content: @Composable () -> Unit) {
     // OLED base is a modifier over the resolved scheme, so it applies to every mode above —
     // including MaterialYou, Custom and the animated Rgb one. Light themes are left alone;
     // forcing black surfaces under light-theme text would be unreadable.
-    val resolved = if (ThemePreferences.oledBase.value && scheme.isDarkScheme())
-        scheme.withOledBase()
+    // The premium launcher owns the whole look while it is enabled, so its palette wins over the
+    // theme picker. Turning it off in settings hands the app straight back to the chosen mode.
+    val effectiveScheme =
+        if (com.armsx2.ui.premium.PremiumUi.enabled.value) PremiumScheme else scheme
+    val resolved = if (ThemePreferences.oledBase.value && effectiveScheme.isDarkScheme())
+        effectiveScheme.withOledBase()
     else
-        scheme
+        effectiveScheme
     // Publish it for the parts of the app that are NOT Compose. The second-screen panel is
     // classic Views inside a Presentation, so it cannot read MaterialTheme, and it used to carry
     // a hand-written palette of its own -- neutral greys against an app whose night theme is
