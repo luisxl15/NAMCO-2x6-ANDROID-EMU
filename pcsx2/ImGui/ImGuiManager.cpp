@@ -491,6 +491,14 @@ void ImGuiManager::SetStyle()
 	style.ScrollbarRounding = 5.0f;
 
 	style.ScaleAllSizes(s_global_scale);
+
+	// ScaleAllSizes multiplies (and truncates) every size, WindowMinSize included. The global
+	// scale is only clamped to 0.5 above, so on a display that reports a sub-1.0 window scale
+	// the 1x1 minimum set earlier lands below 1 — and ImGui asserts exactly that in
+	// ErrorCheckNewFrameSanityChecks, aborting on the first frame. Restore the floor after
+	// scaling; a minimum window is a pixel, not a fraction of one.
+	style.WindowMinSize.x = std::max(style.WindowMinSize.x, 1.0f);
+	style.WindowMinSize.y = std::max(style.WindowMinSize.y, 1.0f);
 }
 
 void ImGuiManager::SetKeyMap()
