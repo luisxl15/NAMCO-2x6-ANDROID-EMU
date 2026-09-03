@@ -1596,26 +1596,62 @@ bool VMManager::AutoDetectSource(const std::string& filename, Error* error)
 					Console.WriteLnFmt(Color_Green, "ACGAME: System {} requested — overclock will be applied", platform);
 
 				// When subdir= is set, basedir points to the subdir (e.g. roms/tekken4/).
-				// Dongle/card files may live elsewhere, so fall back to acgame dir and memcards/.
 				std::string acgamedir = Path::ToNativePath(Path::GetDirectory(filename))+FS_OSPATH_SEPARATOR_CHARACTER;
+
+				// The memcard subsystem opens Slot files by bare name from EmuFolders::MemoryCards
+				// (FullpathToMcd = Combine(MemoryCards, Filename)), so a dongle/card must physically
+				// live there. Desktop pcsx2x6 asks the user to drop dongles into memcards/ by hand;
+				// on Android the .acgame folder is meant to be self-contained (dongle=NM00004.ps2
+				// sits next to the .chd), so resolve the source next to the .acgame -- subdir first,
+				// then the .acgame dir -- and stage it into memcards/ under its bare name.
+				// Returns "" when the source can't be found anywhere.
+				const auto stage_card = [&](const std::string& card, bool overwrite) -> std::string {
+					const std::string dest = Path::Combine(EmuFolders::MemoryCards, card);
+					const bool dest_exists = FileSystem::FileExists(dest.c_str());
+					if (dest_exists && !overwrite)
+						return dest; // keep the player's existing save card untouched
+
+					// Prefer a copy shipped with the game (subdir, then the .acgame dir); fall back
+					// to whatever is already staged in memcards/.
+					std::string srcfound;
+					for (const std::string& dir : {basedir, acgamedir}) {
+						const std::string cand = Path::Combine(dir, card);
+						if (FileSystem::FileExists(cand.c_str())) { srcfound = cand; break; }
+					}
+					if (srcfound.empty())
+						return dest_exists ? dest : std::string();
+
+					// Don't copy a file onto itself (dongle already lives in memcards/).
+					if (Path::ToNativePath(srcfound) == Path::ToNativePath(dest))
+						return dest;
+
+					FileSystem::CreateDirectoryPath(EmuFolders::MemoryCards.c_str(), false);
+					if (!FileSystem::CopyFilePath(srcfound.c_str(), dest.c_str(), overwrite)) {
+						// A failed overwrite is fine if a copy is already there to reuse.
+						if (dest_exists) return dest;
+						Console.ErrorFmt("ACGAME: failed to stage card '{}' -> '{}'", srcfound, dest);
+						return std::string();
+					}
+					Console.WriteLnFmt(Color_Green, "ACGAME: staged card '{}' -> memcards/", card);
+					return dest;
+				};
+
 				std::string card;
 				// Slot 1 (mc0:) = dongle (boot modules only, no save data).
 				// Always overwrite — DONGLEMAN corrupts this file at runtime.
 				if ((card = INI.GetStringValue("data", "dongle", fmt::format("{}.ps2", s_serial).c_str())) != "") {
-					std::string src = Path::Combine(EmuFolders::MemoryCards, card);
-					if (!FileSystem::FileExists(src.c_str())) {
+					if (stage_card(card, /*overwrite=*/true).empty()) {
 						Error::SetStringFmt(error, "requested dongle image does not exist! '{}'", card);
-						Console.ErrorFmt("ACGAME: cannot open a dongle file at location '{}'", src);
+						Console.ErrorFmt("ACGAME: cannot find dongle '{}' in the game folder or memcards/", card);
 						return false;
 					}
 					Host::SetBaseStringSettingValue("MemoryCards", "Slot1_Filename", card.c_str());
 				}
 				// Slot 2 (mc1:) = save card (e.g. SC2 conquest). Never overwrite existing saves.
 				if ((card = INI.GetStringValue("data", "card", "")) != "") {
-					std::string src = Path::Combine(EmuFolders::MemoryCards, card);
-					if (!FileSystem::FileExists(src.c_str())) {
+					if (stage_card(card, /*overwrite=*/false).empty()) {
 						Error::SetStringFmt(error, "requested memcard image does not exist! '{}'", card);
-						Console.ErrorFmt("ACGAME: cannot open a card file at location '{}'", src);
+						Console.ErrorFmt("ACGAME: cannot find card '{}' in the game folder or memcards/", card);
 						return false;
 					}
 					Host::SetBaseStringSettingValue("MemoryCards", "Slot2_Filename", card.c_str());

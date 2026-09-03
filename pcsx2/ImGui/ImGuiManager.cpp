@@ -1838,7 +1838,11 @@ void ImGuiManager::SetBezelOverlay(bool enabled, std::string image_path, float o
 		}
 	};
 
-	if (MTGS::IsOpen())
+	// GSopen() calls this from the GS thread itself, to rebuild the bezel texture against a
+	// freshly created device. MTGS::RunOnGSThread asserts it is called from the CPU thread, so
+	// only queue when we are actually on it -- otherwise we are already where the work belongs
+	// and can touch s_bezel_overlay / g_gs_device directly.
+	if (MTGS::IsOpen() && VMManager::Internal::IsOnCPUThread())
 		MTGS::RunOnGSThread(std::move(update_state));
 	else
 		update_state();
@@ -1853,7 +1857,9 @@ void ImGuiManager::ClearBezelOverlay()
 		s_bezel_overlay.texture_device = nullptr;
 	};
 
-	if (MTGS::IsOpen())
+	// Same CPU-thread rule as SetBezelOverlay above: queue only when we are on the CPU thread,
+	// otherwise run inline because we are already on the GS thread.
+	if (MTGS::IsOpen() && VMManager::Internal::IsOnCPUThread())
 		MTGS::RunOnGSThread(std::move(clear_state));
 	else
 		clear_state();

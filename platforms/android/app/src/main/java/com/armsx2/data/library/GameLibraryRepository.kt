@@ -197,8 +197,17 @@ class GameLibraryRepository(private val context: Context) {
     ) {
         if (depth > MaxScanDepth) return
         val children = runCatching { directory.listFiles() }.getOrNull() ?: return
+        // ARCADE (pcsx2x6): a `NM00004.acgame` manifest sits beside a `NM00004/` payload dir
+        // holding the .chd/.ps2/.elf. Those are components of the arcade game, not separate
+        // games, so collapse a subdir under an identically-named sibling .acgame: emit the
+        // manifest, skip the payload dir.
+        val arcadePayloadDirs = children
+            .filter { !it.isDirectory && (it.name?.substringAfterLast('.', "")?.lowercase() == "acgame") }
+            .mapNotNull { it.name?.substringBeforeLast('.') }
+            .toSet()
         children.forEach { file ->
             if (file.isDirectory) {
+                if (file.name in arcadePayloadDirs) return@forEach
                 scanDocumentTree(file, output, depth + 1)
                 return@forEach
             }
@@ -218,8 +227,15 @@ class GameLibraryRepository(private val context: Context) {
     ) {
         if (depth > MaxScanDepth) return
         val children = runCatching { directory.listFiles() }.getOrNull() ?: return
+        // ARCADE (pcsx2x6): collapse a `NM00004/` payload dir under its `NM00004.acgame`
+        // sibling manifest -- see scanDocumentTree for why.
+        val arcadePayloadDirs = children
+            .filter { !it.isDirectory && it.extension.lowercase() == "acgame" }
+            .map { it.nameWithoutExtension }
+            .toSet()
         children.forEach { file ->
             if (file.isDirectory) {
+                if (file.name in arcadePayloadDirs) return@forEach
                 scanRawDirectory(file, output, depth + 1, accept)
                 return@forEach
             }
