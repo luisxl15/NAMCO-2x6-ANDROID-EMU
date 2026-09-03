@@ -83,10 +83,21 @@ typedef struct
 
 static std::string hostRoot;
 
+// Android names the same storage through several equally-real mount aliases: /sdcard is a
+// symlink to /storage/self/primary, which is a per-process bind mount that realpath() then
+// leaves alone. So a launcher handing us "/sdcard/x/boot.elf" as the ELF override yields a
+// hostRoot of "/storage/self/primary/x", and the path host_path() rebuilds from that root no
+// longer compares equal to the override string it came from. With HostFs off — the default —
+// that escape hatch is the only way the boot ELF itself gets read, so the miss ends in an
+// empty path, an entry point of 0xFFFFFFFF, and the recompiler asserting on garbage.
+// Cache the override in the same normalised form as the root so the compare is exact and free.
+static std::string hostElfNative;
+
 void Hle_SetHostRoot(const char* bootFilename)
 {
 	std::string path = Path::RealPath(bootFilename);
 	hostRoot = Path::ToNativePath(Path::GetDirectory(path));
+	hostElfNative = VMManager::Internal::GetELFOverride().empty() ? std::string() : Path::ToNativePath(path);
 
 #if defined(__ANDROID__)
 	// A SAF content:// URI has no parent directory to derive a host: root from, and RealPath
@@ -117,6 +128,7 @@ void Hle_SetHostRoot(const char* bootFilename)
 void Hle_ClearHostRoot()
 {
 	hostRoot = {};
+	hostElfNative = {};
 }
 
 namespace R3000A
@@ -585,9 +597,12 @@ namespace R3000A
 			else if (!hostRoot.empty()) // relative paths
 				new_path = Path::Combine(hostRoot, native_path);
 
-			// Allow opening the ELF override.
-			if (new_path == VMManager::Internal::GetELFOverride())
+			// Allow opening the ELF override, under either spelling of its path.
+			if (new_path == VMManager::Internal::GetELFOverride() ||
+				(!hostElfNative.empty() && new_path == hostElfNative))
+			{
 				return new_path;
+			}
 
 			// Allow nothing if hostfs isn't enabled.
 			if (!EmuConfig.HostFs)
