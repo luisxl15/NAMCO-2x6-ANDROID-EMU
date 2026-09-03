@@ -50,6 +50,12 @@ endif()
 set(ENABLE_SHARED OFF CACHE BOOL "" FORCE)
 set(ENABLE_STATIC ON CACHE BOOL "" FORCE)
 set(WITH_TURBOJPEG OFF CACHE BOOL "" FORCE)
+# The vendored copy ships only the arm/mips64/powerpc/riscv64 SIMD sources -- the x86_64
+# ones (NASM .asm) were stripped, so the SIMD target has no sources to build there. JPEG
+# decode is cover art and screenshots, never the emulation path, so the C fallback is fine.
+if(NOT ARCH_ARM64)
+	set(WITH_SIMD OFF CACHE BOOL "" FORCE)
+endif()
 add_subdirectory(3rdparty/libjpeg-turbo EXCLUDE_FROM_ALL)
 # libjpeg-turbo doesn't set public include dirs; headers are in src/, config in build dir
 target_include_directories(jpeg-static PUBLIC

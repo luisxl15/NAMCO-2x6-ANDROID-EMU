@@ -122,6 +122,12 @@ if("${_PCSX2_TARGET_PROCESSOR}" STREQUAL "x86_64" OR "${_PCSX2_TARGET_PROCESSOR}
 		# Multi-ISA => SSE4, otherwise native.
 		if (DISABLE_ADVANCE_SIMD)
 			add_compile_options("-msse" "-msse2" "-msse4.1" "-mfxsr")
+		elseif(ANDROID)
+			# Android x86_64 is a cross-compile: -march=native would read the BUILD host CPU,
+			# not the guest the APK runs on. Pin the x86-64-v2 baseline (SSE4.2/POPCNT), which
+			# every x86_64 Android image provides.
+			message(STATUS "Building for Android (x86_64).")
+			add_compile_options("-march=x86-64-v2" "-mfxsr")
 		else()
 			# Can't use march=native on Apple Silicon.
 			if(NOT APPLE OR "${_PCSX2_TARGET_PROCESSOR}" STREQUAL "x86_64")

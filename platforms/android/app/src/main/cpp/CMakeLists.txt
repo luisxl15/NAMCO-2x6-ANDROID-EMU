@@ -204,7 +204,11 @@ target_link_libraries(savers log GLESv2 m)
 
 
 
-add_subdirectory(3rdparty/adrenotools)
+# ARM64 only: adrenotools loads a custom Adreno Vulkan driver, and does not build (or
+# mean anything) for the x86_64 Android images emulators use.
+if(ARCH_ARM64)
+	add_subdirectory(3rdparty/adrenotools)
+endif()
 
 # librashader: RetroArch (.slangp) shader chains for the GS post-process path, for BOTH
 # the Vulkan and OpenGL(ES) renderers. Rust-built and fetched at configure time from a
@@ -300,11 +304,16 @@ target_link_libraries(${ARMSX2_EMUCORE_LIBRARY_NAME} PRIVATE
 	libzip::zip
 	SDL3::SDL3
 	shaderc
-	vixl
-	adrenotools
 	android
 	log
 )
+
+# Architecture-specific backends: vixl is the ARM64 assembler the JIT emits through,
+# adrenotools the Adreno driver loader. The x86_64 build uses xbyak/zydis instead,
+# which SearchForStuff.cmake already selects.
+if(ARCH_ARM64)
+	target_link_libraries(${ARMSX2_EMUCORE_LIBRARY_NAME} PRIVATE vixl adrenotools)
+endif()
 
 # ★ AFTER the emucore target exists — add_dependencies needs a target that has already been
 # created, and stating this next to the flurry target itself (which is defined earlier in this

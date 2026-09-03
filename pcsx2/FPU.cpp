@@ -70,6 +70,13 @@ bool g_eeFprSlotsRelocated = false;
 
 void eeFprSyncSlotFormat()
 {
+#ifdef _M_X86
+	// The x86 recompilers (iCore/iFPU/iFPUd) read and write the FPR file as 32-bit words
+	// in memory; they cannot see the relocated 64-bit slots the ARM64 backend computes in.
+	// Stay narrow there, which is the representation upstream PCSX2's x86 FPU has always
+	// run on. Full/exact FPU mode consequently gets upstream's x86 accuracy, not ARMSX2's.
+	return;
+#else
 	const bool want = CHECK_FPU_FULL;
 	if (want == g_eeFprSlotsRelocated)
 		return;
@@ -86,6 +93,7 @@ void eeFprSyncSlotFormat()
 	for (size_t i = 0; i < std::size(words); i++)
 		fpuRegs.fpr[i].SetWord(words[i]);
 	fpuRegs.ACC.SetWord(acc);
+#endif
 }
 
 static u32 floatToBits(float f)

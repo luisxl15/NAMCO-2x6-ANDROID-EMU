@@ -160,6 +160,13 @@ union FPRreg {
 	double d;
 	u64 UD;
 
+	// Narrow-format aliases for the x86 recompilers, which address the EE float's 32
+	// bits in memory. These overlay the low half of UD -- where the word lives whenever
+	// the slots are not relocated, the only format the x86 backend understands.
+	float f;
+	u32 UL;
+	s32 SL;
+
 	u32 Word() const { return g_eeFprSlotsRelocated ? eeFprNarrowBits(UD) : static_cast<u32>(UD); }
 	void SetWord(u32 word) { UD = g_eeFprSlotsRelocated ? eeFprWidenBits(word) : word; }
 };

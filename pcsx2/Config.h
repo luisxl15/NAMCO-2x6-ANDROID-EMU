@@ -1778,6 +1778,7 @@ namespace EmuFolders
 #define CHECK_VU_SIGN_OVERFLOW(vunum) (((vunum) == 0) ? EmuConfig.Cpu.Recompiler.vu0SignOverflow : EmuConfig.Cpu.Recompiler.vu1SignOverflow)
 #define CHECK_VU_EXACT(vunum) (((vunum) == 0) ? EmuConfig.Cpu.Recompiler.vu0ExactMode : EmuConfig.Cpu.Recompiler.vu1ExactMode) // GameDB vu0/vu1ClampMode 4: mode 3 plus the VU's own arithmetic and status flags -- the adder's guard mask, the divide unit's recurrence and the EFU's series, the multiplier's one-ULP deficit, and the FMAC's saturation ceiling with its MAC U and MAC O.
 
+#define CHECK_FPUMULHACK (EmuConfig.Gamefixes.FpuMulHack) // Special Fix for Tales of Destiny hangs.
 #define CHECK_FPU_OVERFLOW (EmuConfig.Cpu.Recompiler.fpuOverflow)
 #define CHECK_FPU_EXTRA_OVERFLOW (EmuConfig.Cpu.Recompiler.fpuExtraOverflow) // If enabled, Operands are checked for infinities before being used in the FPU recs
 #define CHECK_FPU_EXTRA_FLAGS 1 // Always enabled now // Sets D/I flags on FPU instructions

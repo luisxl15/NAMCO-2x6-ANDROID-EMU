@@ -105,7 +105,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
-            abiFilters.add("arm64-v8a")
+            // -Parmsx2.abi=x86_64 builds for the x86_64 Android images emulators run,
+            // which use the x86-64 recompilers instead of the ARM64 JIT.
+            abiFilters.add(providers.gradleProperty("armsx2.abi").orElse("arm64-v8a").get())
         }
     }
 

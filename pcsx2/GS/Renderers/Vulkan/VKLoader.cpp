@@ -17,7 +17,12 @@
 #if defined(__ANDROID__)
 #include <dlfcn.h>
 #include <mutex>
+#if defined(__aarch64__)
+// adrenotools is Adreno-only, and the core CMake only links it for arm64-v8a. An x86_64
+// Android build (emulator images) always goes through the system Vulkan loader.
 #include "adrenotools/driver.h"
+#define PCSX2_HAS_ADRENOTOOLS 1
+#endif
 #endif
 
 extern "C" {
@@ -66,6 +71,11 @@ void Vulkan::SetCustomDriverPath(const char* driver_dir, const char* driver_name
 
 static bool TryOpenAdrenotoolsDriver(DynamicLibrary& library, Error* error)
 {
+#if !defined(PCSX2_HAS_ADRENOTOOLS)
+	(void)library;
+	(void)error;
+	return false;
+#else
 	std::string driver_dir, driver_name, redirect_dir, hook_lib_dir;
 	{
 		std::lock_guard lock(s_custom_driver_mutex);
@@ -113,6 +123,7 @@ static bool TryOpenAdrenotoolsDriver(DynamicLibrary& library, Error* error)
 	library.Adopt(handle);
 	Console.WriteLn("VKLoader: adrenotools driver handle acquired.");
 	return true;
+#endif
 }
 #endif
 
