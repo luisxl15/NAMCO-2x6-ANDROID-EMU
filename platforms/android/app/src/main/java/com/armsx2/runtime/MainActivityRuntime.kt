@@ -2247,6 +2247,7 @@ open class MainActivityRuntime : ComponentActivity() {
             }
         }
         prefs = applicationContext.getSharedPreferences("ARMSX2", MODE_PRIVATE)
+        com.armsx2.ui.emotion.EmotionUi.load()
         ControllerMappings.installRuntimeCacheInvalidation()
         com.armsx2.i18n.I18n.init(applicationContext)
         applyEmulationOrientation()

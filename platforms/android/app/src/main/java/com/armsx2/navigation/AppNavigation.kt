@@ -82,10 +82,18 @@ fun AppNavigation() {
             label = "app-route",
         ) { destination ->
             when (destination) {
-                AppRoute.Home -> HomeScreen(
-                    onOpenMenu = { UiNavigator.drawerOpen.value = true },
-                    onOpenGameSettings = { UiNavigator.navigate(AppRoute.Settings(game = it)) },
-                )
+                AppRoute.Home ->
+                    if (com.armsx2.ui.emotion.EmotionUi.enabled.value) {
+                        com.armsx2.ui.emotion.EmotionHome(
+                            onOpenMenu = { UiNavigator.drawerOpen.value = true },
+                            onNavigate = { UiNavigator.navigate(it) },
+                        )
+                    } else {
+                        HomeScreen(
+                            onOpenMenu = { UiNavigator.drawerOpen.value = true },
+                            onOpenGameSettings = { UiNavigator.navigate(AppRoute.Settings(game = it)) },
+                        )
+                    }
                 is AppRoute.Settings -> SettingsScreen(
                     initialCategory = destination.category,
                     game = destination.game,
