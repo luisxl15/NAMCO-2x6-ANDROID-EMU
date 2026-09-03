@@ -1661,6 +1661,25 @@ bool VMManager::AutoDetectSource(const std::string& filename, Error* error)
 				s_elf_override = Path::Combine(basedir, INI.GetStringValue("data", "elf", "boot.elf"));
 				EmuConfig.CurrentGameArgs = INI.GetStringValue("data", "args");
 				ACSRAM::filepath = Path::Combine(basedir, INI.GetStringValue("data", "sram", "sram.bin"));
+				// A board whose SRAM is blank stops on its backup-error screen until someone initialises it
+				// through the TEST switch. Ship an already-initialised image per gameid (resources/arcade_sram/
+				// <gameid>.bin, copied out of the APK's assets at startup) and seed it here, so a fresh
+				// install boots straight into the game. Copied INTO the game folder rather than read in
+				// place: from then on it is an ordinary SRAM the game writes its own settings and
+				// bookkeeping into, exactly as it would after a manual init. SRAM is per-game -- 32KB of
+				// that title's own settings -- so this is keyed by gameid and never shared between games.
+				if (!FileSystem::FileExists(ACSRAM::filepath.c_str()))
+				{
+					const std::string seed = Path::Combine(
+						Path::Combine(EmuFolders::Resources, "arcade_sram"), fmt::format("{}.bin", s_serial));
+					if (FileSystem::FileExists(seed.c_str()))
+					{
+						if (FileSystem::CopyFilePath(seed.c_str(), ACSRAM::filepath.c_str(), false))
+							Console.WriteLnFmt(Color_Green, "ACGAME: seeded SRAM for {} from the bundled image", s_serial);
+						else
+							Console.ErrorFmt("ACGAME: could not seed SRAM from '{}'", seed);
+					}
+				}
 				// JVS device mode: an explicit jvsmode= in the .acgame overrides (force/legacy); otherwise it is
 				// derived from the gameid alone (ACJV::ResolveModeFromGameId), so a .acgame needs only its gameid.
 				std::string jvsmode = INI.GetStringValue("data", "jvsmode", "");

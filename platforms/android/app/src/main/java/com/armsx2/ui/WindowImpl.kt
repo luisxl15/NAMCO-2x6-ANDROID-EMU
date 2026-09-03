@@ -128,6 +128,11 @@ object WindowImpl {
                     com.armsx2.ui.touch.TouchControlsOverlay()
                 }
 
+            // Cabinet-only controls (coin / START / TEST / SERVICE) for System 246/256 games.
+            // Self-hiding: it asks the VM whether an arcade game is running and draws nothing
+            // otherwise, so it costs a poll and no screen space for a normal PS2 disc.
+            com.armsx2.ui.premium.ArcadePanel()
+
             if (showLibrary.value && MainActivityRuntime.eState.value == EmuState.RUNNING && !overlayVisible.value) {
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.56f))) {
                     com.armsx2.navigation.AppNavigation()
