@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -128,9 +129,12 @@ fun PremiumHome(
                 HeroCard(
                     game = hero,
                     onPlay = { viewModel.launch(hero) },
-                    modifier = Modifier.fillMaxWidth().widthIn(max = 780.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .heightIn(max = 360.dp),
                 )
-                Spacer(Modifier.height(22.dp))
+                Spacer(Modifier.height(20.dp))
             }
 
             if (games.size > 1) {
@@ -143,8 +147,6 @@ fun PremiumHome(
                 )
                 Spacer(Modifier.height(18.dp))
             }
-
-            Spacer(Modifier.weight(1f))
 
             DestinationRow(
                 onLibrary = { showLibrary = true },
@@ -191,15 +193,26 @@ private fun GlyphButton(glyph: String, onClick: () -> Unit) {
 @Composable
 private fun HeroCard(game: GameInfo, onPlay: () -> Unit, modifier: Modifier = Modifier) {
     val title = game.displayTitle(EnglishTitles.enabled.value)
+    Box(modifier.material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.card), elevation = 18.dp)) {
+        // Oversized, nearly-invisible mark bleeding off the right edge — gives the wide card a
+        // second focal point instead of dead space.
+        Image(
+            painter = painterResource(R.drawable.namco_2x6),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxWidth(0.44f)
+                .alpha(0.05f)
+                .padding(end = 12.dp),
+        )
     Row(
-        modifier
-            .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.card), elevation = 18.dp)
-            .padding(20.dp),
+        Modifier.fillMaxSize().padding(20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             Modifier
-                .height(188.dp)
+                .fillMaxHeight()
                 .aspectRatio(0.72f)
                 .clip(RoundedCornerShape(Radii.tile)),
         ) {
@@ -220,6 +233,7 @@ private fun HeroCard(game: GameInfo, onPlay: () -> Unit, modifier: Modifier = Mo
             Spacer(Modifier.height(16.dp))
             PlayButton(onPlay)
         }
+    }
     }
 }
 
@@ -294,7 +308,7 @@ private fun DestinationRow(onLibrary: () -> Unit, onNavigate: (AppRoute) -> Unit
         Destination("Memory Cards", "▤", Modifier.weight(1f)) { onNavigate(AppRoute.MemoryCardManager()) }
         Destination("BIOS", "◈", Modifier.weight(1f)) { onNavigate(AppRoute.BiosManager()) }
         Destination("Controles", "◎", Modifier.weight(1f)) { onNavigate(AppRoute.ControllerManager) }
-        Destination("Saves", "☁", Modifier.weight(1f)) { onNavigate(AppRoute.SaveManager) }
+        Destination("Saves", "▧", Modifier.weight(1f)) { onNavigate(AppRoute.SaveManager) }
     }
 }
 

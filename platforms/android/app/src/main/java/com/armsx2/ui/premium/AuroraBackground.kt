@@ -62,13 +62,13 @@ fun AuroraBackground(modifier: Modifier = Modifier) {
         }
 
         // NAMCO red, kept to the upper left so the logo sits in its own light.
-        field(Color(0x3AA5121F), 0.0f, 0.22f, 0.18f, 0.10f, 0.08f, 0.62f)
+        field(Color(0x30A5121F), 0.0f, 0.22f, 0.18f, 0.10f, 0.08f, 0.62f)
         // A deeper crimson pooling bottom-right for balance.
-        field(Color(0x2E7A0E18), 2.4f, 0.82f, 0.78f, 0.12f, 0.09f, 0.58f)
+        field(Color(0x247A0E18), 2.4f, 0.82f, 0.78f, 0.12f, 0.09f, 0.58f)
         // Cool neutral to keep the whole thing from going monochrome-warm.
         field(Color(0x1F2A3550), 4.1f, 0.62f, 0.30f, 0.14f, 0.10f, 0.70f)
         // A dim warm centre lift, so the middle of the screen isn't a dead zone.
-        field(Color(0x14FFFFFF), 5.6f, 0.45f, 0.58f, 0.08f, 0.06f, 0.45f)
+        field(Color(0x0AFFFFFF), 5.6f, 0.45f, 0.58f, 0.08f, 0.06f, 0.40f)
 
         // Vignette to seat the edges.
         drawRect(
