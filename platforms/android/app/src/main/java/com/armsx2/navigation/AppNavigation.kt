@@ -83,8 +83,8 @@ fun AppNavigation() {
         ) { destination ->
             when (destination) {
                 AppRoute.Home ->
-                    if (com.armsx2.ui.emotion.EmotionUi.enabled.value) {
-                        com.armsx2.ui.emotion.EmotionHome(
+                    if (com.armsx2.ui.premium.PremiumUi.enabled.value) {
+                        com.armsx2.ui.premium.PremiumHome(
                             onOpenMenu = { UiNavigator.drawerOpen.value = true },
                             onNavigate = { UiNavigator.navigate(it) },
                         )

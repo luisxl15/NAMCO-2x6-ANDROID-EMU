@@ -33,7 +33,7 @@ class GameLibraryRepository(private val context: Context) {
     private val exportScope = CoroutineScope(Dispatchers.IO)
     private val exportLock = Any()
 
-    fun cacheKey(directories: List<String>): String = directories.sorted().joinToString("|")
+    fun cacheKey(directories: List<String>): String = directories.sorted().joinToString("|") + "|v2-arcade"
 
     fun loadCached(): CachedLibrary {
         val cachedKey = MainActivityRuntime.prefs.getString("gamesCacheKey", null)
@@ -215,7 +215,8 @@ class GameLibraryRepository(private val context: Context) {
             val extension = name.substringAfterLast('.', "").lowercase()
             if (extension !in gameExtensions) return@forEach
             val probe = if (extension in probeExtensions) probeDocument(file.uri) else null
-            output.putIfAbsent(file.uri.toString(), createGame(file.uri, name, extension, probe))
+            val (acSerial, acTitle) = if (extension == "acgame") readAcgameDocument(file.uri) else (null to null)
+            output.putIfAbsent(file.uri.toString(), createGame(file.uri, name, extension, probe, acSerial, acTitle))
         }
     }
 
@@ -243,14 +244,50 @@ class GameLibraryRepository(private val context: Context) {
             if (extension !in accept) return@forEach
             val uri = Uri.fromFile(file)
             val probe = if (extension in probeExtensions) probeRaw(file) else null
-            output.putIfAbsent(uri.toString(), createGame(uri, file.name, extension, probe))
+            val (acSerial, acTitle) = if (extension == "acgame") readAcgameRaw(file) else (null to null)
+            output.putIfAbsent(uri.toString(), createGame(uri, file.name, extension, probe, acSerial, acTitle))
         }
     }
 
-    private fun createGame(uri: Uri, name: String, extension: String, rawProbe: String?): GameInfo {
+    /** Parse a .acgame manifest's [game] gameid / name. Returns (serial, title), either null. */
+    private fun parseAcgame(text: String?): Pair<String?, String?> {
+        if (text.isNullOrBlank()) return null to null
+        var gameid: String? = null
+        var title: String? = null
+        for (raw in text.lineSequence()) {
+            val line = raw.trim()
+            val eq = line.indexOf('=')
+            if (eq <= 0) continue
+            val key = line.substring(0, eq).trim().lowercase()
+            val value = line.substring(eq + 1).trim()
+            when (key) {
+                "gameid" -> if (gameid == null) gameid = value.ifBlank { null }
+                "name" -> if (title == null) title = value.ifBlank { null }
+            }
+        }
+        return gameid to title
+    }
+
+    private fun readAcgameRaw(file: File): Pair<String?, String?> =
+        runCatching { parseAcgame(file.readText()) }.getOrDefault(null to null)
+
+    private fun readAcgameDocument(uri: Uri): Pair<String?, String?> = runCatching {
+        context.contentResolver.openInputStream(uri)?.use { parseAcgame(it.bufferedReader().readText()) }
+            ?: (null to null)
+    }.getOrDefault(null to null)
+
+    private fun createGame(
+        uri: Uri,
+        name: String,
+        extension: String,
+        rawProbe: String?,
+        acSerial: String? = null,
+        acTitle: String? = null,
+    ): GameInfo {
         val (probeSerial, probePlatform) = parseProbe(rawProbe)
         val (fileTitle, fileSerial) = FilenameParser.parse(name)
-        val serial = probeSerial ?: fileSerial
+        // ARCADE (.acgame): the gameid from the manifest is the DB key; prefer it.
+        val serial = acSerial ?: probeSerial ?: fileSerial
         val compatibility = serial
             ?.let { runCatching { NativeApp.getCompatibilityForSerial(it) }.getOrDefault(0) }
             ?.minus(1)
@@ -263,7 +300,9 @@ class GameLibraryRepository(private val context: Context) {
         val db = serial?.let { dbTitles(it) }
         return GameInfo(
             uri = uri,
-            title = db?.name?.takeIf { it.isNotEmpty() } ?: fileTitle,
+            title = db?.name?.takeIf { it.isNotEmpty() }
+                ?: acTitle?.takeIf { it.isNotEmpty() }
+                ?: fileTitle,
             serial = serial,
             compatibility = compatibility,
             extension = extension.uppercase(),
