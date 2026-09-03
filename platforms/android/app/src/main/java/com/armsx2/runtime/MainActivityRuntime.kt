@@ -1045,9 +1045,17 @@ open class MainActivityRuntime : ComponentActivity() {
                 launchGame(u, i)
                 return
             }
-            val queued = pendingExternalLaunch.value
-            if (queued.isNullOrEmpty()) return
+            val queuedRaw = pendingExternalLaunch.value
+            if (queuedRaw.isNullOrEmpty()) return
             pendingExternalLaunch.value = null
+            // A file:// URI (an external frontend, or `am start -d file://...`) must reach the
+            // native loader as a decoded filesystem path -- FileSystem::FileExists cannot see a
+            // "file://" scheme or a %20-encoded space. The library path already does this in
+            // HomeViewModel.launch; mirror it here so external launches resolve too.
+            val queued = runCatching {
+                val u = android.net.Uri.parse(queuedRaw)
+                if (u.scheme == "file") (u.path ?: queuedRaw) else queuedRaw
+            }.getOrDefault(queuedRaw)
             // Launching from a frontend (Cocoon/Daijisho/ES-DE) used to pass a null GameInfo,
             // so settingsKey was null and launchGame resolved GLOBAL settings — per-game
             // settings, per-game memory cards and per-game orientation all silently ignored,
