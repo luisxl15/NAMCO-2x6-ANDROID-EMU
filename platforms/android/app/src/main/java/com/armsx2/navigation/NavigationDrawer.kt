@@ -355,6 +355,7 @@ private fun sameDestination(current: AppRoute, target: AppRoute): Boolean = when
     AppRoute.PatchManager -> current is AppRoute.PatchManager
     AppRoute.TextureManager -> current is AppRoute.TextureManager
     AppRoute.Achievements -> current is AppRoute.Achievements
+    AppRoute.Artwork -> current is AppRoute.Artwork
     AppRoute.Language -> current is AppRoute.Language
     AppRoute.News -> current is AppRoute.News
     AppRoute.Friends -> current is AppRoute.Friends

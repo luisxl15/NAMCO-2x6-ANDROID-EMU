@@ -340,6 +340,12 @@ private fun Destination(label: String, glyph: String, modifier: Modifier = Modif
 @Composable
 fun CoverArt(game: GameInfo, modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    // A custom cover — hand-picked, or fetched from SteamGridDB — always wins: it is the art the
+    // user actually chose for this game.
+    val coverVersion = com.armsx2.CustomCovers.version.value
+    val custom = remember(coverVersion, game.uri) {
+        com.armsx2.CustomCovers.matchIn(com.armsx2.CustomCovers.loadAll(context), game)
+    }
     // The cover repo is keyed by console disc serials. An arcade gameid (NMxxxxx) has no entry
     // there, so don't even ask — go straight to the branded fallback.
     val cover = game.coverUrl?.takeUnless { game.serial?.startsWith("NM") == true }
@@ -348,7 +354,16 @@ fun CoverArt(game: GameInfo, modifier: Modifier = Modifier) {
         modifier.background(Brush.linearGradient(listOf(Color(0xFF17171B), Color(0xFF0E0E11)))),
         contentAlignment = Alignment.Center,
     ) {
-        if (cover == null) {
+        if (custom != null) {
+            SubcomposeAsyncImage(
+                model = ImageRequest.Builder(context).data(custom).crossfade(true).build(),
+                contentDescription = game.displayTitle(EnglishTitles.enabled.value),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+                error = { NamcoPlate() },
+                loading = { NamcoPlate() },
+            )
+        } else if (cover == null) {
             NamcoPlate()
         } else {
             SubcomposeAsyncImage(

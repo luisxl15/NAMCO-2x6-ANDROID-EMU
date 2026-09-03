@@ -19,6 +19,8 @@ sealed interface AppRoute {
     data object PatchManager : AppRoute
     data object TextureManager : AppRoute
     data object Achievements : AppRoute
+    /** SteamGridDB cover art (premium launcher). */
+    data object Artwork : AppRoute
     data object Language : AppRoute
     data object News : AppRoute
     data object Friends : AppRoute

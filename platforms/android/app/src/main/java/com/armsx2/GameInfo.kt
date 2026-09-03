@@ -549,6 +549,17 @@ object CustomCovers {
         (target.isFile && target.length() > 0L).also { if (it) version.value++ }
     }.getOrDefault(false)
 
+    /** Write [bytes] in as [game]'s cover, replacing any prior one. Used by the SteamGridDB
+     *  fetcher, which has the image in memory rather than behind a content Uri. */
+    fun setBytes(context: Context, game: GameInfo, bytes: ByteArray): Boolean = runCatching {
+        if (bytes.isEmpty()) return false
+        remove(context, game)
+        val target = targetFor(context, game)
+        target.parentFile?.mkdirs()
+        target.outputStream().use { it.write(bytes) }
+        (target.isFile && target.length() > 0L).also { if (it) version.value++ }
+    }.getOrDefault(false)
+
     fun remove(context: Context, game: GameInfo): Boolean {
         val f = fileFor(context, game) ?: return false
         return f.delete().also { if (it) version.value++ }

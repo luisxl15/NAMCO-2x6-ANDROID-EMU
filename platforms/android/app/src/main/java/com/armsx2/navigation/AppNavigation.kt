@@ -108,6 +108,7 @@ fun AppNavigation() {
                 AppRoute.PatchManager -> PatchManagerScreen(onBack = UiNavigator::home)
                 AppRoute.TextureManager -> TextureManagerScreen(onBack = UiNavigator::home)
                 AppRoute.Achievements -> AchievementsScreen(onBack = UiNavigator::home)
+                AppRoute.Artwork -> com.armsx2.ui.premium.PremiumArtworkRoute(onBack = UiNavigator::home)
                 AppRoute.Language -> LanguageScreen(
                     onBack = { UiNavigator.navigate(AppRoute.Settings(SettingsCategory.General)) },
                 )

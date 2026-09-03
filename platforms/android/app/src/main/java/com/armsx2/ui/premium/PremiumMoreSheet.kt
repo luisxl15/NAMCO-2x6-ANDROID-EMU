@@ -53,6 +53,7 @@ private val GROUPS = listOf(
     MoreGroup(
         "CONTEÚDO",
         listOf(
+            MoreItem("Capas", "▣", AppRoute.Artwork),
             MoreItem("Retroconquistas", "★", AppRoute.Achievements),
             MoreItem("Patches", "✦", AppRoute.PatchManager),
             MoreItem("Texturas", "▩", AppRoute.TextureManager),
