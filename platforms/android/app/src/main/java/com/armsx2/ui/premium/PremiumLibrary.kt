@@ -1,7 +1,11 @@
 package com.armsx2.ui.premium
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -40,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -72,7 +77,9 @@ import com.armsx2.art.HeroArt
 @Composable
 fun PremiumLibrary(
     games: List<GameInfo>,
+    scanning: Boolean,
     onLaunch: (GameInfo) -> Unit,
+    onRefresh: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -104,6 +111,12 @@ fun PremiumLibrary(
                     "${games.size} ${if (games.size == 1) "jogo" else "jogos"}",
                     style = Type.footnote, color = Palette.labelTertiary,
                 )
+                Spacer(Modifier.width(14.dp))
+                // Rescan. There was no way to do this at all: the affordance used to live on the
+                // stock library toolbar, which the premium launcher replaced, so a game added to
+                // the ROM folder never appeared until the folder itself was changed -- the scan
+                // cache is keyed by the folder list, not by what is inside it.
+                RescanButton(scanning = scanning, onClick = onRefresh)
             }
 
             Spacer(Modifier.height(20.dp))
@@ -194,6 +207,32 @@ private fun LibraryBackdrop(game: GameInfo) {
                     1.0f to Color.Transparent,
                 ),
             ),
+        )
+    }
+}
+
+@Composable
+private fun RescanButton(scanning: Boolean, onClick: () -> Unit) {
+    val spin = rememberInfiniteTransition(label = "rescan")
+    val angle by spin.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(1100, easing = LinearEasing)),
+        label = "rescanSpin",
+    )
+    Box(
+        Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .material(MaterialLevel.Thin, CircleShape)
+            .clickable(enabled = !scanning, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        ArcIcon(
+            Arc.refresh,
+            tint = if (scanning) Palette.accentBright else Palette.labelSecondary,
+            size = 17.dp,
+            modifier = if (scanning) Modifier.rotate(angle) else Modifier,
         )
     }
 }

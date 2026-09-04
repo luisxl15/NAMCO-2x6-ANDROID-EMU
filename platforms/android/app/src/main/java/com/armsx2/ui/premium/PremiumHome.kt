@@ -97,7 +97,9 @@ fun PremiumHome(
     if (showLibrary) {
         PremiumLibrary(
             games = state.allGames,
+            scanning = state.scanning,
             onLaunch = { viewModel.launch(it) },
+            onRefresh = { viewModel.refresh() },
             onBack = { showLibrary = false },
             modifier = modifier,
         )
