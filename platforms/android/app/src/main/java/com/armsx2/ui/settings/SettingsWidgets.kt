@@ -33,6 +33,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.ui.draw.drawBehind
+import com.armsx2.ui.premium.Palette
+import com.armsx2.ui.premium.Radii
+import com.armsx2.ui.premium.Type
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -568,16 +573,7 @@ internal fun Modifier.controllerFocusable(
  *  MenuDivider so settings rows tie visually into the existing overlay. */
 @Composable
 fun SettingsDivider() {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(
-                Brush.horizontalGradient(
-                    listOf(MaterialTheme.colorScheme.outline.copy(alpha = 0.55f), Color.Transparent)
-                )
-            ),
-    )
+    Box(Modifier.fillMaxWidth().height(1.dp).background(Palette.hairline))
 }
 
 /** Collapsible settings section: a tappable header (▸ collapsed / ▾ expanded) that
@@ -608,28 +604,19 @@ fun CollapsibleSection(
             if (expanded) com.armsx2.MenuSfx.Event.TOGGLE_ON else com.armsx2.MenuSfx.Event.TOGGLE_OFF
         )
     }
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(18.dp))
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .controllerFocusable("section.$title", onConfirm = toggle)
             .clickable(onClick = toggle)
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            .padding(horizontal = 4.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            title,
-            color = MaterialTheme.colorScheme.primary,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            if (expanded) "▾" else "▸",
-            color = MaterialTheme.colorScheme.primary,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-        )
+        // All-caps eyebrow, the way a grouped list sets its group headers — quiet enough that
+        // the settings themselves stay the loudest thing on the page.
+        Text(title.uppercase(), style = Type.eyebrow, color = Palette.labelTertiary, modifier = Modifier.weight(1f))
+        Text(if (expanded) "▾" else "▸", color = Palette.labelTertiary, fontSize = 13.sp)
     }
     // Collapsed content is not composed at all, so its rows also drop out of the controller-focus
     // registry — a pad cannot land on a setting the user cannot see.
@@ -640,11 +627,45 @@ fun CollapsibleSection(
 fun HelpText(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        modifier = modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+        style = Type.footnote,
+        color = Palette.labelSecondary,
+        modifier = modifier.padding(horizontal = 4.dp, vertical = 8.dp),
     )
+}
+
+/**
+ * The container every settings row sits in.
+ *
+ * Rows used to be self-contained cards — each with its own 22dp radius, fill and border — which
+ * made a settings page read as a stack of unrelated tiles. Apple's grouped list does the opposite:
+ * the GROUP is the card (here, the panel around the whole tab), and the rows inside it are flush,
+ * separated by a hairline. That is the single change that makes a long settings list scan as one
+ * list, so it lives in one place rather than being repeated per row type.
+ */
+@Composable
+private fun SettingsRowSurface(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    val hairline = Palette.hairline
+    Box(
+        modifier
+            .fillMaxWidth()
+            .drawBehind {
+                // Bottom hairline, inset from the leading edge the way a grouped list indents its
+                // separators past the label column.
+                drawLine(
+                    hairline,
+                    Offset(16.dp.toPx(), size.height),
+                    Offset(size.width, size.height),
+                    strokeWidth = 1f,
+                )
+            }
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+    ) {
+        content()
+    }
 }
 
 /** Toggle row — label on left, status text on right. Tapping anywhere
@@ -663,50 +684,51 @@ fun ToggleRow(
         com.armsx2.MenuSfx.play(if (it) com.armsx2.MenuSfx.Event.TOGGLE_ON else com.armsx2.MenuSfx.Event.TOGGLE_OFF)
         onChange(it)
     }
-    Surface(
-        onClick = { emit(!value) },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp)
-            .controllerFocusable(
-                controllerId = "toggle:$label",
-                onConfirm = { emit(!value) },
-                onLeft = { if (value) emit(false) },
-                onRight = { if (!value) emit(true) },
-            ),
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outline.copy(alpha = 0.46f),
+    SettingsRowSurface(
+        modifier = Modifier.controllerFocusable(
+            controllerId = "toggle:$label",
+            onConfirm = { emit(!value) },
+            onLeft = { if (value) emit(false) },
+            onRight = { if (!value) emit(true) },
         ),
+        onClick = { emit(!value) },
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .defaultMinSize(minHeight = if (description == null) 64.dp else 78.dp)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .defaultMinSize(minHeight = if (description == null) 52.dp else 64.dp)
+                .padding(horizontal = 4.dp, vertical = 11.dp),
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    Text(label, style = Type.body, color = Palette.label, modifier = Modifier.weight(1f))
                     if (description != null) InfoHint(label, description)
                 }
                 if (description != null) {
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         description,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 14.sp,
-                        lineHeight = 19.sp,
+                        style = Type.footnote,
+                        color = Palette.labelSecondary,
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
             Spacer(Modifier.width(12.dp))
-            Switch(checked = value, onCheckedChange = emit)
+            Switch(
+                checked = value,
+                onCheckedChange = emit,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Palette.accentBright,
+                    checkedBorderColor = Color.Transparent,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = Palette.materialThick,
+                    uncheckedBorderColor = Palette.hairline,
+                ),
+            )
         }
     }
 }
@@ -744,53 +766,38 @@ fun IntSliderRow(
     // DiscreteSlider drag / reset chip and the controller's left/right/confirm route through here.
     val onChangeSfx: (Int) -> Unit = { com.armsx2.MenuSfx.play(com.armsx2.MenuSfx.Event.SLIDER); onChange(it) }
     val onResetSfx: (() -> Unit)? = onReset?.let { r -> { com.armsx2.MenuSfx.play(com.armsx2.MenuSfx.Event.RESET); r() } }
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp)
-            .controllerFocusable(
-                controllerId = sliderId,
-                onConfirm = onResetSfx,
-                onLeft = { onChangeSfx((value - 1).coerceAtLeast(min)) },
-                onRight = { onChangeSfx((value + 1).coerceAtMost(max)) },
-            ),
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outline.copy(alpha = 0.46f),
+    SettingsRowSurface(
+        modifier = Modifier.controllerFocusable(
+            controllerId = sliderId,
+            onConfirm = onResetSfx,
+            onLeft = { onChangeSfx((value - 1).coerceAtLeast(min)) },
+            onRight = { onChangeSfx((value + 1).coerceAtMost(max)) },
         ),
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .defaultMinSize(minHeight = if (description == null) 76.dp else 94.dp)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .defaultMinSize(minHeight = if (description == null) 66.dp else 82.dp)
+                .padding(horizontal = 4.dp, vertical = 11.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text(label, style = Type.body, color = Palette.label, modifier = Modifier.weight(1f))
                         if (description != null) InfoHint(label, description)
                     }
                     if (description != null) {
-                        Spacer(Modifier.height(3.dp))
+                        Spacer(Modifier.height(2.dp))
                         Text(
                             description,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 14.sp,
-                            lineHeight = 19.sp,
+                            style = Type.footnote,
+                            color = Palette.labelSecondary,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
-                Text(
-                    valueFormatter(value),
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                )
+                Text(valueFormatter(value), style = Type.callout, color = Palette.labelSecondary)
                 if (onReset != null) {
                     Spacer(Modifier.width(10.dp))
                     // Its own Surface rather than a registry row: the controller reaches
@@ -798,20 +805,19 @@ fun IntSliderRow(
                     // modified parameter would only pad the D-pad walk.
                     Surface(
                         onClick = onResetSfx ?: onReset,
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                        shape = RoundedCornerShape(Radii.pill),
+                        color = Palette.materialThin,
                     ) {
                         Text(
                             str("action.reset"),
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            style = Type.caption,
+                            color = Palette.label,
+                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
                         )
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             DiscreteSlider(
                 value = value,
                 min = min,
@@ -1037,81 +1043,76 @@ fun SegmentedRow(
     // Menu SFX: a select blip when the chosen option changes — covers the chip tap and the
     // controller's confirm/left/right, which all route through onChange.
     val emit: (Int) -> Unit = { com.armsx2.MenuSfx.play(com.armsx2.MenuSfx.Event.SELECT); onChange(it) }
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f))
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.46f), RoundedCornerShape(22.dp))
-            .controllerFocusable(
-                controllerId = "segmented:$label",
-                onConfirm = {
-                    if (options.isNotEmpty())
-                        emit((selectedIndex + 1).floorMod(options.size))
-                },
-                onLeft = {
-                    if (options.isNotEmpty())
-                        emit((selectedIndex - 1).coerceAtLeast(0))
-                },
-                onRight = {
-                    if (options.isNotEmpty())
-                        emit((selectedIndex + 1).coerceAtMost(options.lastIndex))
-                },
-            )
-            .padding(vertical = 14.dp),
-        contentAlignment = Alignment.CenterStart,
+    SettingsRowSurface(
+        modifier = Modifier.controllerFocusable(
+            controllerId = "segmented:$label",
+            onConfirm = {
+                if (options.isNotEmpty())
+                    emit((selectedIndex + 1).floorMod(options.size))
+            },
+            onLeft = {
+                if (options.isNotEmpty())
+                    emit((selectedIndex - 1).coerceAtLeast(0))
+            },
+            onRight = {
+                if (options.isNotEmpty())
+                    emit((selectedIndex + 1).coerceAtMost(options.lastIndex))
+            },
+        ),
     ) {
-        Column {
+        Column(Modifier.padding(vertical = 11.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(label, style = Type.body, color = Palette.label, modifier = Modifier.weight(1f))
                 if (description != null) InfoHint(label, description)
             }
             if (description != null) {
-                Spacer(Modifier.height(3.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(
                     description,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp,
+                    style = Type.footnote,
+                    color = Palette.labelSecondary,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier.padding(horizontal = 4.dp),
                 )
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(9.dp))
             Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 options.forEachIndexed { idx, option ->
-                    val on = idx == selectedIndex
-                    Box(
-                        Modifier
-                            .defaultMinSize(minHeight = 42.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
-                            .border(
-                                1.dp,
-                                if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f),
-                                RoundedCornerShape(12.dp),
-                            )
-                            .clickable { emit(idx) }
-                            .padding(horizontal = 13.dp, vertical = 8.dp),
-                    ) {
-                        Text(
-                            option,
-                            color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
+                    SegmentChip(option, idx == selectedIndex) { emit(idx) }
                 }
             }
         }
+    }
+}
+
+/**
+ * One option in a segmented control. Apple's is a pill: the selected segment is a filled
+ * capsule and the rest are bare label text on the group's ground — no per-option border, which
+ * is what made the old chip strip read as a row of buttons rather than one control.
+ */
+@Composable
+private fun SegmentChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .defaultMinSize(minHeight = 34.dp)
+            .clip(RoundedCornerShape(Radii.pill))
+            .background(if (selected) Palette.accent else Palette.materialUltraThin)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            style = Type.caption,
+            color = if (selected) Color.White else Palette.labelSecondary,
+        )
     }
 }
 
@@ -1127,76 +1128,60 @@ fun SegmentedGridRow(
     description: String? = null,
     onChange: (Int) -> Unit,
 ) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f))
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.46f), RoundedCornerShape(22.dp))
-            .controllerFocusable(
-                controllerId = "segmented-grid:$label",
-                onConfirm = {
-                    if (options.isNotEmpty())
-                        onChange((selectedIndex + 1).floorMod(options.size))
-                },
-                onLeft = {
-                    if (options.isNotEmpty())
-                        onChange((selectedIndex - 1).coerceAtLeast(0))
-                },
-                onRight = {
-                    if (options.isNotEmpty())
-                        onChange((selectedIndex + 1).coerceAtMost(options.lastIndex))
-                },
-            )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        contentAlignment = Alignment.CenterStart,
+    SettingsRowSurface(
+        modifier = Modifier.controllerFocusable(
+            controllerId = "segmented-grid:$label",
+            onConfirm = {
+                if (options.isNotEmpty())
+                    onChange((selectedIndex + 1).floorMod(options.size))
+            },
+            onLeft = {
+                if (options.isNotEmpty())
+                    onChange((selectedIndex - 1).coerceAtLeast(0))
+            },
+            onRight = {
+                if (options.isNotEmpty())
+                    onChange((selectedIndex + 1).coerceAtMost(options.lastIndex))
+            },
+        ),
     ) {
-        Column {
+        Column(Modifier.padding(horizontal = 4.dp, vertical = 11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(label, style = Type.body, color = Palette.label, modifier = Modifier.weight(1f))
                 if (description != null) InfoHint(label, description)
             }
             if (description != null) {
-                Spacer(Modifier.height(3.dp))
+                Spacer(Modifier.height(2.dp))
                 Text(
                     description,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 14.sp,
-                    lineHeight = 19.sp,
+                    style = Type.footnote,
+                    color = Palette.labelSecondary,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(9.dp))
             val visibleColumns = columns.coerceIn(1, 3)
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 options.chunked(visibleColumns).forEachIndexed { rowIndex, rowOptions ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                         rowOptions.forEachIndexed { colIndex, option ->
                             val idx = rowIndex * visibleColumns + colIndex
                             val on = idx == selectedIndex
                             Box(
                                 Modifier
                                     .weight(1f)
-                                    .defaultMinSize(minHeight = 50.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
-                                    .border(
-                                        1.dp,
-                                        if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.55f),
-                                        RoundedCornerShape(12.dp),
-                                    )
+                                    .defaultMinSize(minHeight = 42.dp)
+                                    .clip(RoundedCornerShape(Radii.control))
+                                    .background(if (on) Palette.accent else Palette.materialUltraThin)
                                     .clickable { onChange(idx) }
                                     .padding(horizontal = 7.dp, vertical = 8.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
                                     option,
-                                    color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 14.sp,
-                                    lineHeight = 17.sp,
-                                    fontWeight = FontWeight.Bold,
+                                    style = Type.caption,
+                                    color = if (on) Color.White else Palette.labelSecondary,
                                     maxLines = 2,
                                     textAlign = TextAlign.Center,
                                 )
@@ -1218,16 +1203,17 @@ private fun Int.floorMod(modulus: Int): Int =
 @Composable
 internal fun InfoHint(title: String, message: String) {
     var open by remember { mutableStateOf(false) }
+    // A quiet glyph, not a filled badge. The row already carries its description underneath;
+    // this only exists for the longer text, so it should not be the loudest thing in the row.
     Box(
         modifier = Modifier
             .padding(start = 8.dp)
             .size(22.dp)
             .clip(androidx.compose.foundation.shape.CircleShape)
-            .background(MaterialTheme.colorScheme.primaryContainer)
             .clickable { open = true },
         contentAlignment = Alignment.Center,
     ) {
-        Text("i", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text("ⓘ", color = Palette.labelTertiary, fontSize = 15.sp)
     }
     if (open) {
         androidx.compose.runtime.DisposableEffect(Unit) {

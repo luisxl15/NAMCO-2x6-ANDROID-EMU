@@ -134,7 +134,7 @@ fun SaveStatePickerScreen(mode: SaveMode, onBack: () -> Unit) {
                 actions = {
                     RoundAction("⤓", str("savestate.import"), onClick = { importLauncher.launch(arrayOf("*/*")) }, controllerId = "save.import")
                     RoundAction(
-                        "🗑",
+                        "⊖",
                         str("savestate.delete.mode"),
                         onClick = { deleteMode = !deleteMode; notice = null; failure = null },
                         selected = deleteMode,

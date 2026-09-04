@@ -54,16 +54,16 @@ private val GROUPS = listOf(
         "CONTEÚDO",
         listOf(
             MoreItem("Capas", "▣", AppRoute.Artwork),
-            MoreItem("Retroconquistas", "★", AppRoute.Achievements),
             MoreItem("Patches", "✦", AppRoute.PatchManager),
             MoreItem("Texturas", "▩", AppRoute.TextureManager),
         ),
     ),
+    // No News, Friends or Retro Achievements: all three are online account services built around
+    // a console library. RetroAchievements carries no System 246/256 sets at all, so the entry
+    // could only ever open an empty screen.
     MoreGroup(
         "APP",
         listOf(
-            MoreItem("Novidades", "✧", AppRoute.News),
-            MoreItem("Amigos", "◍", AppRoute.Friends),
             MoreItem("Idioma", "◐", AppRoute.Language),
             MoreItem("Sobre", "ⓘ", AppRoute.About),
         ),

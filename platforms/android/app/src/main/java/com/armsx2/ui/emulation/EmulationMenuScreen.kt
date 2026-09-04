@@ -522,12 +522,12 @@ private fun MenuTab(tab: EmulationMenuTab, active: Boolean, onSelect: (Emulation
 // a distinct "open" glyph so there aren't two gears.
 private fun tabGlyph(tab: EmulationMenuTab): String = when (tab) {
     EmulationMenuTab.Session -> "☰"
-    EmulationMenuTab.Graphics -> "🖥️"
-    EmulationMenuTab.Fixes -> "🔧"
-    EmulationMenuTab.Performance -> "⚡"
-    EmulationMenuTab.Controls -> "🎮"
+    EmulationMenuTab.Graphics -> "◫"
+    EmulationMenuTab.Fixes -> "⌘"
+    EmulationMenuTab.Performance -> "↯"
+    EmulationMenuTab.Controls -> "⌁"
     EmulationMenuTab.Options -> "⚙"
-    EmulationMenuTab.Achievements -> "🏆"
+    EmulationMenuTab.Achievements -> "★"
 }
 
 @Composable
@@ -1326,7 +1326,6 @@ private fun ControlsPane(state: EmulationMenuUiState, viewModel: EmulationMenuVi
     Spacer(Modifier.height(6.dp))
     // Sits with the touch layout because it's the same job: what the on-screen pad LOOKS
     // like, right after where it's laid out. Full-screen like Controller mapping.
-    CompactAction(str("tab.skins"), "◈", Modifier.fillMaxWidth(), viewModel::openSkins)
     // Analog sticks in-game: swap/invert per stick, deadzone and feel. Requested because some
     // games ship no invert option of their own, so changing it meant leaving the game for All
     // Settings mid-session (Sizor). Global scope, matching the rumble/multitap toggles above.

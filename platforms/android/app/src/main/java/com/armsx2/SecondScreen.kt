@@ -1029,15 +1029,15 @@ object SecondScreen {
          * Which mode you are in, then how many you have.
          *
          * The first attempt showed a hardcore count and a casual count above the total, which
-         * read as three unrelated numbers -- "🏆0" over "0/64" says nothing about which mode is
+         * read as three unrelated numbers -- a trophy count over "0/64" says nothing about which mode is
          * active, and both being zero made it worse. What a glance actually wants is the mode
          * you are playing in and your progress in it, so that is what it says.
          */
         private fun achievementSummary(): String {
             if (raItems.isEmpty()) return I18n.get("secondScreen.tile.achievements") + "\n—"
             val hardcore = runCatching { NativeApp.isHardcorePersisted() }.getOrDefault(false)
-            val mode = if (hardcore) "🏆 " + I18n.get("secondScreen.ra.hardcore")
-            else "🎖 " + I18n.get("secondScreen.ra.casual")
+            val mode = if (hardcore) I18n.get("secondScreen.ra.hardcore")
+            else I18n.get("secondScreen.ra.casual")
             return mode + "\n" + raItems.count { it.unlocked } + "/" + raItems.size
         }
 
@@ -1061,7 +1061,7 @@ object SecondScreen {
          *  Uses the block glyphs rather than an emoji so it renders in the same weight as the
          *  surrounding text on every device, and a bolt while charging. */
         private fun batteryIcon(pct: Int, charging: Boolean): String = when {
-            charging -> "⚡"
+            charging -> "↯"
             pct >= 80 -> "▰▰▰▰"
             pct >= 60 -> "▰▰▰▱"
             pct >= 40 -> "▰▰▱▱"

@@ -55,13 +55,6 @@ internal val SETTINGS_CATEGORY_FIELDS: Map<SettingsCategory, List<String>> = map
         "audioOutputLatencyMs", "audioSwapChannels", "audioTimeStretch", "audioVolume",
         "spu2LightweightMix", "spu2NeonReverb",
     ),
-    // NetworkTab.kt
-    SettingsCategory.Network to listOf(
-        "dev9AutoGateway", "dev9AutoMask", "dev9Dns1", "dev9Dns2", "dev9EthApi", "dev9EthDevice",
-        "dev9EthEnable", "dev9EthHosts", "dev9EthLogDhcp", "dev9EthLogDns", "dev9Gateway",
-        "dev9HddEnable", "dev9HddFile", "dev9InterceptDhcp", "dev9Mask", "dev9ModeDns1",
-        "dev9ModeDns2", "dev9Ps2Ip", "ip", "url", "usbKeyboard",
-    ),
     // OverlayTab.kt
     SettingsCategory.OnScreen to listOf(
         "osdColor", "osdPosition", "osdScale", "osdShowCpu", "osdShowFps", "osdShowFrameTimes", "osdShowGpu",
@@ -93,7 +86,7 @@ internal val SETTINGS_CATEGORY_FIELDS: Map<SettingsCategory, List<String>> = map
         "syncToHostRefresh", "textureInsideRt", "textureOffsetX", "textureOffsetY",
         "unscaledPaletteDraw", "useBlitSwapChain", "vsyncQueueSize",
     ),
-    // Controls / Hotkeys / Skins / General / Info / Patches / About own no Settings fields —
+    // Controls / Hotkeys / General / Info / Patches / About own no Settings fields —
     // Controls keeps its binds and tunables in ControllerMappings and has its own reset row.
 )
 

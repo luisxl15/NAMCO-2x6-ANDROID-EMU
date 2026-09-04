@@ -444,7 +444,7 @@ data class GameInfo(
      *  cover so users can tell apart multiple regional versions of the same game. */
     val region: String? get() = serial?.let { gameDbRegion(it) ?: regionForSerial(it) }
 
-    /** Region as a flag emoji (🇺🇸 / 🇪🇺 / 🇯🇵 / …) for the cover label, or null.
+    /** Region as a short code (US / EU / JP / …) for the cover label, or null.
      *  Rendered ahead of the title so the region is always visible even when a
      *  long name wraps/ellipsizes. */
     val regionFlag: String? get() = region?.let { regionFlagFor(it) }
@@ -616,16 +616,18 @@ fun regionForSerial(serial: String): String? = when (serial.take(4).uppercase())
     else -> null
 }
 
-/** Map a region label to a flag emoji. Asia falls back to a globe. */
+/** Map a region label to the short code shown on a cover. Text, not a flag emoji: the label
+ *  sits inline with the title, and an emoji there renders at a different weight and colour
+ *  than everything around it. */
 fun regionFlagFor(region: String): String? = when (region) {
-    "USA" -> "🇺🇸"
-    "Europe" -> "🇪🇺"
-    "Japan" -> "🇯🇵"
-    "Korea" -> "🇰🇷"
-    "India" -> "🇮🇳"
-    "China" -> "🇨🇳"
-    "Hong Kong" -> "🇭🇰"
-    "Asia" -> "🌏"
+    "USA" -> "US"
+    "Europe" -> "EU"
+    "Japan" -> "JP"
+    "Korea" -> "KR"
+    "India" -> "IN"
+    "China" -> "CN"
+    "Hong Kong" -> "HK"
+    "Asia" -> "ASIA"
     else -> null
 }
 

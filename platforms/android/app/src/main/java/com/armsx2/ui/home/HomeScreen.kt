@@ -1031,7 +1031,7 @@ fun HomeScreen(
                 }
                 if (slots.isNotEmpty())
                 {
-                    GameMenuAction("💾", str("games.loadState"), "game-menu.loadstate") {
+                    GameMenuAction("▤", str("games.loadState"), "game-menu.loadstate") {
                         menuGame = null
                         // ★ The real Save Manager, not a bespoke list.
                         //
@@ -1049,7 +1049,7 @@ fun HomeScreen(
                 }
                 // Per-game BIOS: open the BIOS manager scoped to THIS game (no need to load it),
                 // since the BIOS manager isn't reachable from the in-game menu.
-                GameMenuAction("📀", str("bios.perGame.menu"), "game-menu.bios") {
+                GameMenuAction("◈", str("bios.perGame.menu"), "game-menu.bios") {
                     menuGame = null
                     com.armsx2.navigation.UiNavigator.navigate(com.armsx2.navigation.AppRoute.BiosManager(game))
                 }
@@ -1094,7 +1094,7 @@ fun HomeScreen(
                 // does per-game assignment whenever it is handed a game — until now the only
                 // caller that handed it one was the in-game menu, so from the library you got
                 // the global slots and no way to reach the per-game ones.
-                GameMenuAction("🗃️", str("memcard.perGame.menu"), "game-menu.memcard") {
+                GameMenuAction("▦", str("memcard.perGame.menu"), "game-menu.memcard") {
                     menuGame = null
                     com.armsx2.navigation.UiNavigator.navigate(
                         com.armsx2.navigation.AppRoute.MemoryCardManager(game))
@@ -1103,7 +1103,7 @@ fun HomeScreen(
                 // rebuilt, leaving HomeShortcuts with no call site at all (issue #335).
                 // pin() returns false only when the launcher can't pin — surface that.
                 val addToHomeFailed = str("games.addToHome.unsupported")
-                GameMenuAction("📌", str("games.addToHome"), "game-menu.pin") {
+                GameMenuAction("⊕", str("games.addToHome"), "game-menu.pin") {
                     menuGame = null
                     if (!com.armsx2.HomeShortcuts.pin(context, game))
                         Toast.makeText(context, addToHomeFailed, Toast.LENGTH_LONG).show()
@@ -1111,7 +1111,7 @@ fun HomeScreen(
                 // Only offered when the game is actually in Recently Played — this drops
                 // just this one entry, unlike the library-wide "Show Recently Played" toggle.
                 if (state.recentGames.any { it.uri == game.uri }) {
-                    GameMenuAction("🕐", str("games.removeRecent"), "game-menu.recent") {
+                    GameMenuAction("◴", str("games.removeRecent"), "game-menu.recent") {
                         viewModel.removeFromRecent(game)
                         menuGame = null
                     }
@@ -1123,7 +1123,7 @@ fun HomeScreen(
                 if (!game.uri.toString().endsWith(".elf", ignoreCase = true) &&
                     !game.extension.equals("ELF", ignoreCase = true)
                 ) {
-                    GameMenuAction("⚡", str("games.quickLoad"), "game-menu.quickload") {
+                    GameMenuAction("↯", str("games.quickLoad"), "game-menu.quickload") {
                         menuGame = null
                         quickLoadConfirm = game
                     }
@@ -1134,24 +1134,24 @@ fun HomeScreen(
                 if (game.uri.toString().endsWith(".elf", ignoreCase = true) ||
                     game.extension.equals("ELF", ignoreCase = true)
                 ) {
-                    GameMenuAction("💿", str("games.elfDisc"), "game-menu.elfdisc") {
+                    GameMenuAction("◎", str("games.elfDisc"), "game-menu.elfdisc") {
                         menuGame = null
                         discForElf = game
                         elfDiscPicker.launch(arrayOf("*/*"))
                     }
                 }
                 if (com.armsx2.QuickLoadSetup.isInstalledElf(game)) {
-                    GameMenuAction("🧹", str("games.quickLoad.remove"), "game-menu.quickload.remove") {
+                    GameMenuAction("⊖", str("games.quickLoad.remove"), "game-menu.quickload.remove") {
                         menuGame = null
                         quickLoadRemove = game
                     }
                 }
-                GameMenuAction("🏷️", str("games.categories"), "game-menu.categories") {
+                GameMenuAction("▱", str("games.categories"), "game-menu.categories") {
                     menuGame = null
                     categoryGame = game
                 }
                 val hidden = com.armsx2.HiddenGames.isHidden(game)
-                GameMenuAction(if (hidden) "◍" else "🚫", str(if (hidden) "games.unhide" else "games.hide"), "game-menu.hide") {
+                GameMenuAction(if (hidden) "◍" else "⊘", str(if (hidden) "games.unhide" else "games.hide"), "game-menu.hide") {
                     viewModel.setHidden(game, !hidden)
                     menuGame = null
                 }
@@ -1903,7 +1903,7 @@ private fun GameMetadata(game: GameInfo) {
             val shown = if (leadHardcore) p.hardcore else p.softcore
             val mastered = if (leadHardcore) p.masteredHardcore else p.masteredSoftcore
             Text(
-                "🏆 $shown/${p.total}",
+                "★ $shown/${p.total}",
                 color = when {
                     mastered && leadHardcore -> Color(0xFFFFC857)  // gold: mastered in hardcore
                     mastered -> Color(0xFFB9C2CC)                  // silver: completed in softcore

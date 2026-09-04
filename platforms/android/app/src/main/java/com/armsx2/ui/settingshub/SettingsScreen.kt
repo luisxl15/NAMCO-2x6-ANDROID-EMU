@@ -52,26 +52,28 @@ import kotlinx.coroutines.launch
 import com.armsx2.GameInfo
 import com.armsx2.i18n.str
 import com.armsx2.navigation.SettingsCategory
+import androidx.compose.ui.draw.clip
+import com.armsx2.ui.premium.MaterialLevel
+import com.armsx2.ui.premium.Palette
+import com.armsx2.ui.premium.Radii
+import com.armsx2.ui.premium.Type
+import com.armsx2.ui.premium.material
 import com.armsx2.ui.common.ArmsBackdrop
 import com.armsx2.ui.common.ArmsTopBar
-import com.armsx2.ui.common.GlassPanel
 import com.armsx2.ui.common.RoundAction
-import com.armsx2.ui.common.SectionTitle
 import com.armsx2.ui.settings.controllerFocusable
 import com.armsx2.ui.settings.AppTab
 import com.armsx2.ui.settings.AudioTab
 import com.armsx2.ui.settings.FixesTab
 import com.armsx2.ui.settings.HotkeysTab
-import com.armsx2.ui.settings.NetworkTab
 import com.armsx2.ui.settings.OverlayTab
 import com.armsx2.ui.settings.PadTab
 import com.armsx2.ui.settings.PerformanceTab
 import com.armsx2.ui.settings.RendererTab
 import com.armsx2.ui.settings.SegmentedRow
-import com.armsx2.ui.settings.SkinsTab
 import com.armsx2.ui.settings.LocalSettingsScrollState
 
-private data class SettingsSection(val category: SettingsCategory, val titleKey: String, val glyph: String)
+private data class SettingsSection(val category: SettingsCategory, val titleKey: String)
 
 /**
  * Lets L1/R1 flick between settings tabs, the way the old Refresh UI did.
@@ -335,14 +337,18 @@ private fun SettingsPanel(
     viewModel: SettingsViewModel,
     modifier: Modifier,
 ) {
-    GlassPanel(modifier = modifier.padding(horizontal = 8.dp), contentPadding = 16.dp) {
-        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-            SectionTitle(categoryTitle(category))
-            Spacer(Modifier.height(12.dp))
-            Box(Modifier.fillMaxWidth()) {
-                CategoryContent(category, viewModel)
-            }
-        }
+    // The panel is the card, and the rows inside it are flush — the grouped-list shape the row
+    // widgets were rebuilt for. It draws no opaque fill of its own so the backdrop stays visible
+    // through the material, which is the whole point of the glass.
+    Column(
+        modifier
+            .padding(horizontal = 14.dp)
+            .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.card))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Text(categoryTitle(category).uppercase(), style = Type.eyebrow, color = Palette.labelTertiary)
+        Spacer(Modifier.height(6.dp))
+        CategoryContent(category, viewModel)
     }
 }
 
@@ -384,36 +390,31 @@ private fun SettingsCategoryBar(
                     LaunchedEffect(active) {
                         if (active) runCatching { bringIntoView.bringIntoView() }
                     }
-                    FilterChip(
-                        modifier = Modifier.height(36.dp)
+                    // A plain capsule, filled when selected and bare text when not — the shape
+                    // Apple uses for a scrolling tab strip. No leading glyph: a symbol beside
+                    // every tab adds noise without telling you anything the word doesn't.
+                    Box(
+                        Modifier
+                            .height(34.dp)
                             .bringIntoViewRequester(bringIntoView)
+                            .clip(RoundedCornerShape(Radii.pill))
+                            .background(if (active) Palette.accent else Palette.materialUltraThin)
                             .controllerFocusable(
                                 "settings.chip.${section.category.name}",
-                                RoundedCornerShape(11.dp),
+                                RoundedCornerShape(Radii.pill),
                                 onConfirm = { onSelect(section.category) },
-                            ),
-                        selected = active,
-                        onClick = { onSelect(section.category) },
-                        label = { Text(str(section.titleKey), maxLines = 1, style = MaterialTheme.typography.labelLarge) },
-                        leadingIcon = {
-                            Box(Modifier.size(17.dp), contentAlignment = Alignment.Center) {
-                                Text(
-                                    section.glyph,
-                                    fontSize = 13.sp,
-                                    color = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        },
-                        shape = RoundedCornerShape(11.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = Color.Transparent,
-                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            iconColor = MaterialTheme.colorScheme.primary,
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
-                    )
+                            )
+                            .clickable { onSelect(section.category) }
+                            .padding(horizontal = 15.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            str(section.titleKey),
+                            maxLines = 1,
+                            style = Type.subheadline,
+                            color = if (active) Color.White else Palette.labelSecondary,
+                        )
+                    }
                 }
             }
             Spacer(Modifier.size(8.dp))
@@ -422,20 +423,16 @@ private fun SettingsCategoryBar(
 }
 
 private fun settingsSections() = listOf(
-    SettingsSection(SettingsCategory.General, "tab.app", "⌂"),
-    SettingsSection(SettingsCategory.Info, "tab.info", "ⓘ"),
-    SettingsSection(SettingsCategory.Performance, "tab.performance", "↯"),
-    SettingsSection(SettingsCategory.Graphics, "tab.renderer", "◫"),
-    SettingsSection(SettingsCategory.Audio, "tab.audio", "♫"),
-    SettingsSection(SettingsCategory.Controls, "tab.controls", "⌁"),
-    SettingsSection(SettingsCategory.Hotkeys, "tab.hotkeys", "⌘"),
-    // Skins sits with the control-related tabs rather than after On-Screen: it is controller
-    // artwork, so people look for it next to Controls and Shortcuts. Requested by Isshin.
-    SettingsSection(SettingsCategory.Skins, "tab.skins", "◈"),
-    SettingsSection(SettingsCategory.Network, "tab.network", "◎"),
-    SettingsSection(SettingsCategory.OnScreen, "tab.overlay", "⊕"),
-    SettingsSection(SettingsCategory.Advanced, "tab.fixes", "⌘"),
-    SettingsSection(SettingsCategory.Patches, "tab.patches", "✦"),
+    SettingsSection(SettingsCategory.General, "tab.app"),
+    SettingsSection(SettingsCategory.Info, "tab.info"),
+    SettingsSection(SettingsCategory.Performance, "tab.performance"),
+    SettingsSection(SettingsCategory.Graphics, "tab.renderer"),
+    SettingsSection(SettingsCategory.Audio, "tab.audio"),
+    SettingsSection(SettingsCategory.Controls, "tab.controls"),
+    SettingsSection(SettingsCategory.Hotkeys, "tab.hotkeys"),
+    SettingsSection(SettingsCategory.OnScreen, "tab.overlay"),
+    SettingsSection(SettingsCategory.Advanced, "tab.fixes"),
+    SettingsSection(SettingsCategory.Patches, "tab.patches"),
 )
 
 @Composable
@@ -448,9 +445,7 @@ private fun CategoryContent(category: SettingsCategory, viewModel: SettingsViewM
         SettingsCategory.Audio -> AudioTab(viewModel.settings)
         SettingsCategory.Controls -> PadTab(viewModel.settings)
         SettingsCategory.Hotkeys -> HotkeysTab(viewModel.settings)
-        SettingsCategory.Network -> NetworkTab(viewModel.settings)
         SettingsCategory.OnScreen -> OverlayTab(viewModel.settings)
-        SettingsCategory.Skins -> SkinsTab(viewModel.settings)
         SettingsCategory.Advanced -> FixesTab(viewModel.settings)
         SettingsCategory.Patches -> com.armsx2.ui.patches.PatchesSettingsTab(viewModel.uiState.value.game)
         SettingsCategory.About -> Unit
@@ -466,9 +461,7 @@ internal fun categoryTitle(category: SettingsCategory): String = when (category)
     SettingsCategory.Audio -> str("tab.audio")
     SettingsCategory.Controls -> str("tab.controls")
     SettingsCategory.Hotkeys -> str("tab.hotkeys")
-    SettingsCategory.Network -> str("tab.network")
     SettingsCategory.OnScreen -> str("tab.overlay")
-    SettingsCategory.Skins -> str("tab.skins")
     SettingsCategory.Advanced -> str("tab.fixes")
     SettingsCategory.Patches -> str("patches.dialog.patchesAndCheats")
     SettingsCategory.About -> str("about.title")

@@ -27,7 +27,7 @@ import com.armsx2.runtime.MainActivityRuntime
 import kotlinx.coroutines.flow.first
 
 /** A full manager screen shown as an overlay over the paused game (in-game menu). */
-enum class InGameScreen { Settings, Achievements, Memcard, Patches, Controls, Skins, Textures, SaveState, LoadState }
+enum class InGameScreen { Settings, Achievements, Memcard, Patches, Controls, Textures, SaveState, LoadState }
 
 object WindowImpl {
     val toolbarVisible = mutableStateOf(true)
@@ -177,14 +177,6 @@ object WindowImpl {
                             onBack = dismiss,
                         )
                         InGameScreen.Controls -> com.armsx2.ui.controls.ControllerManagerScreen(onBack = dismiss)
-                        // Straight to the Skins tab of the real settings hub rather than a
-                        // bespoke screen: it already has the scope plumbing, so opening it
-                        // WITH the running game is what surfaces the per-game skin toggle.
-                        InGameScreen.Skins -> com.armsx2.ui.settingshub.SettingsScreen(
-                            initialCategory = com.armsx2.navigation.SettingsCategory.Skins,
-                            game = MainActivityRuntime.currentGame.value,
-                            onBack = dismiss,
-                        )
                         // Texture packs were only reachable via All Settings -> Renderer,
                         // which is the worst place for them: the pack folder must match the
                         // RUNNING game's serial, so the screen is only meaningful with a game

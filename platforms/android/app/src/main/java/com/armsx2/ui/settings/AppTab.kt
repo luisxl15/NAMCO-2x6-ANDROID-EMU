@@ -53,6 +53,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.graphics.Brush
 import com.armsx2.ui.theme.LibraryBackgroundColorPreferences
 import com.armsx2.ui.theme.LibraryChromePreferences
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import com.armsx2.ui.premium.Palette
+import com.armsx2.ui.premium.Type
 import java.io.File
 
 @Composable
@@ -62,391 +66,24 @@ fun AppTab() {
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        // In-app GitHub-release updater. Github (sideload) flavor only: the play flavor's
-        // UpdaterEntry is a no-op stub and IN_APP_UPDATER is false, so no updater code or
-        // REQUEST_INSTALL_PACKAGES ships in the AAB (build-play-aab.sh also fails closed).
-        if (com.armsx2.BuildConfig.IN_APP_UPDATER) {
-            com.armsx2.update.UpdaterEntry()
-        }
-        Surface(
+        // No updater: this is an arcade fork, and the upstream releases it would offer are a
+        // different emulator that would replace the System 246/256 support with a plain PS2 build.
+
+        DisclosureRow(
+            id = "app.language",
+            label = str("app.language"),
+            value = if (I18n.selected == I18n.SYSTEM_CODE) str("app.language.system")
+                    else currentLanguage?.nativeName ?: "English",
             onClick = { UiNavigator.navigate(AppRoute.Language) },
-            modifier = Modifier.fillMaxWidth()
-                .controllerFocusable("app.language", RoundedCornerShape(20.dp), onConfirm = { UiNavigator.navigate(AppRoute.Language) }),
-            shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.46f)),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Surface(
-                    modifier = Modifier.size(46.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                        Text("◎", color = MaterialTheme.colorScheme.primary, fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(str("app.language"), style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        if (I18n.selected == I18n.SYSTEM_CODE) str("app.language.system") else currentLanguage?.nativeName ?: "English",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Text("›", color = MaterialTheme.colorScheme.primary, fontSize = 26.sp)
-            }
-        }
-
-        // Theme picker. NOT a SegmentedRow: that's a fixed-width Box, so eleven options would
-        // squeeze into unreadable slivers — this wraps instead. Driven straight off the enum so
-        // adding a colour needs no index bookkeeping; the old version mapped index<->mode by hand
-        // in two separate places, which is precisely how such pairs drift out of sync.
-        Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-            Text(str("app.theme"), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                verticalArrangement = Arrangement.spacedBy(7.dp),
-            ) {
-                // Material You needs Android 12. Hide it below that rather than letting it fall
-                // back silently — picking a theme and getting a different one reads as a bug.
-                ThemeMode.entries.filter {
-                    !it.requiresDynamicColor || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                }.forEach { theme ->
-                    val apply = { ThemePreferences.set(theme) }
-                    FilterChip(
-                        selected = ThemePreferences.mode.value == theme,
-                        onClick = apply,
-                        label = { Text(str("app.theme.${theme.name.lowercase()}")) },
-                        shape = RoundedCornerShape(11.dp),
-                        modifier = Modifier.controllerFocusable(
-                            "app.theme.${theme.name}",
-                            RoundedCornerShape(11.dp),
-                            onConfirm = apply,
-                        ),
-                    )
-                }
-            }
-
-            // OLED black is a MODIFIER on whichever theme is chosen above, not a theme of its own,
-            // so "OLED + purple" / "OLED + yellow" are possible (the standalone OLED chip stays as
-            // the neutral blue-accent preset). A chip rather than a ToggleRow so it lives with the
-            // theme chips and keeps the controllerFocusable registration pad navigation needs.
-            Spacer(Modifier.height(10.dp))
-            run {
-                val toggleOled = { ThemePreferences.setOledBase(!ThemePreferences.oledBase.value) }
-                FilterChip(
-                    selected = ThemePreferences.oledBase.value,
-                    onClick = toggleOled,
-                    label = { Text(str("app.theme.oledBase")) },
-                    shape = RoundedCornerShape(11.dp),
-                    modifier = Modifier.controllerFocusable(
-                        "app.theme.oledBase",
-                        RoundedCornerShape(11.dp),
-                        onConfirm = toggleOled,
-                    ),
-                )
-            }
-
-            // RGB picker, only while Custom is the active theme. The scheme is derived from
-            // this colour's hue with saturation/brightness clamped (see customScheme), so the
-            // accent stays recognisably what was picked without any channel combination being
-            // able to produce unreadable chrome.
-            if (ThemePreferences.mode.value == ThemeMode.Custom) {
-                val argb = ThemePreferences.customColor.value
-                Spacer(Modifier.height(10.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        modifier = Modifier.size(34.dp),
-                        shape = RoundedCornerShape(9.dp),
-                        color = Color(argb),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    ) {}
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        String.format("#%06X", 0xFFFFFF and argb),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                listOf(
-                    Triple("app.theme.custom.r", 16, android.graphics.Color.red(argb)),
-                    Triple("app.theme.custom.g", 8, android.graphics.Color.green(argb)),
-                    Triple("app.theme.custom.b", 0, android.graphics.Color.blue(argb)),
-                ).forEach { (labelKey, shift, value) ->
-                    IntSliderRow(
-                        label = str(labelKey),
-                        value = value,
-                        min = 0,
-                        max = 255,
-                        onChange = { channel ->
-                            // Replace just this channel, keeping alpha opaque.
-                            val cleared = argb and (0xFF shl shift).inv()
-                            ThemePreferences.setCustomColor(cleared or (channel shl shift) or (0xFF shl 24))
-                        },
-                    )
-                }
-            }
-        }
-
-        // Library background (wave) color. Separate from the theme accent above — that only tints
-        // the UI chrome; this recolors the animated backdrop itself, with the white waves riding
-        // over it. Unset = the built-in blue. Live: XmbGlView's GL thread reads the new color on
-        // its next frame (~33ms), so the backdrop updates as the sliders move.
-        Column(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-            Text(str("app.bgColor"), style = MaterialTheme.typography.titleMedium)
-            Text(
-                str("app.bgColor.desc"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            // Opt into the lightweight 2D animated backdrop everywhere (the same one older Mali /
-            // GL-fail devices already get) instead of the GLES3 XMB wave. The colour options below
-            // apply to it too. No effect if a custom background image is set.
-            ToggleRow(
-                label = str("app.bg.simple"),
-                value = com.armsx2.ui.home.LibraryBackground.animated2D.value,
-                description = str("app.bg.simple.desc"),
-                onChange = { com.armsx2.ui.home.LibraryBackground.setAnimated2D(it) },
-            )
-            // Flurry: Calum Robinson's 2002 screensaver, ported from ARMSX3 and offered as the
-            // backdrop.
-            //
-            // Off by default and said plainly in the description, because it is a live particle
-            // simulation rather than a still: this library shipped a looping video once and lost
-            // it in 2.5.9 when the continuous decode turned out to cost real performance. Opt-in
-            // for the same reason.
-            ToggleRow(
-                label = str("app.bg.flurry"),
-                value = com.armsx2.ui.home.LibraryBackground.flurry.value,
-                description = str("app.bg.flurry.desc"),
-                onChange = { com.armsx2.ui.home.LibraryBackground.setFlurry(it) },
-            )
-            if (com.armsx2.ui.home.LibraryBackground.flurry.value) {
-                // Which saver runs. They share one on/off above because only one background can
-                // draw at a time, and "animated background: on" reads better than seven switches.
-                // Flurry is Calum Robinson's (BSD-3-clause); the rest are Terry Welsh's Really
-                // Slick Screensavers (GPL-2.0-or-later).
-                val kind = com.armsx2.ui.home.LibraryBackground.saverKind.value
-                SegmentedGridRow(
-                    label = str("app.bg.saver"),
-                    options = listOf("Flurry", "Flux", "Plasma", "SolarWinds", "Hyperspace", "Lattice", "Skyrocket"),
-                    selectedIndex = kind,
-                    columns = 4,
-                    onChange = { com.armsx2.ui.home.LibraryBackground.setSaverKind(it) },
-                )
-                if (kind == 0) {
-                    // Values are Flurry's own preset enum; -1 is "insane" upstream and 99 is this
-                    // port's "pick one each time", so the list is not an index range.
-                    val presetValues = listOf(99, 0, 1, 2, 3, 4, 5, -1)
-                    SegmentedGridRow(
-                        label = str("app.bg.flurry.preset"),
-                        options = listOf(
-                            str("app.bg.flurry.random"), "Water", "Fire", "Psychedelic",
-                            "RGB", "Binary", "Classic", "Insane",
-                        ),
-                        selectedIndex = presetValues
-                            .indexOf(com.armsx2.ui.home.LibraryBackground.flurryPreset.value)
-                            .coerceAtLeast(0),
-                        columns = 4,
-                        onChange = {
-                            com.armsx2.ui.home.LibraryBackground.setFlurryPreset(presetValues[it])
-                        },
-                    )
-                } else if (kind != 4 && kind != 6) {
-                    // Hyperspace and Skyrocket ship no presets upstream, so they show no picker.
-                    // Six presets plus this port's 99 for "pick one each time", so not an index
-                    // range. Flux and SolarWinds ship their own named defaults; Plasma had none
-                    // upstream, so those are built from the settings its config dialog exposed.
-                    val rssValues = listOf(99, 1, 2, 3, 4, 5, 6)
-                    val names = when (kind) {
-                        1 -> listOf("Regular", "Hypnotic", "Insane", "Sparklers", "Paradigm", "Galactic")
-                        2 -> listOf("Classic", "Tight", "Wide", "Fast", "Slow drift", "Coarse")
-                        5 -> listOf("Regular", "Chainmail", "Brass Mesh", "Computer", "Slick", "Tasty")
-                        else -> listOf("Regular", "Cosmic Strings", "Cold Pricklies", "Space Fur", "Jiggly", "Undertow")
-                    }
-                    SegmentedGridRow(
-                        label = str("app.bg.flux.preset"),
-                        options = listOf(str("app.bg.flurry.random")) + names,
-                        selectedIndex = rssValues
-                            .indexOf(com.armsx2.ui.home.LibraryBackground.rssPreset.value)
-                            .coerceAtLeast(0),
-                        columns = 4,
-                        onChange = {
-                            com.armsx2.ui.home.LibraryBackground.setRssPreset(rssValues[it])
-                        },
-                    )
-                }
-            }
-            // Colour of the BAR itself (the rounded header pill), as opposed to the animated
-            // backdrop the rest of this section controls. Requested because the background picker
-            // is labelled "Library Bar Color" but recolours the background — so there was no way to
-            // colour the actual bar. "Default" hands it back to the theme.
-            run {
-                val barArgb = com.armsx2.ui.theme.LibraryChromePreferences.barColor.value
-                Spacer(Modifier.height(10.dp))
-                Text(str("app.barColor"), style = MaterialTheme.typography.titleMedium)
-                Text(
-                    str("app.barColor.desc"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(8.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
-                    verticalArrangement = Arrangement.spacedBy(7.dp),
-                ) {
-                    val clearBar = { com.armsx2.ui.theme.LibraryChromePreferences.setBarColor(0) }
-                    FilterChip(
-                        selected = barArgb == 0,
-                        onClick = clearBar,
-                        label = { Text(str("app.barColor.default")) },
-                        shape = RoundedCornerShape(11.dp),
-                        modifier = Modifier.controllerFocusable(
-                            "app.barColor.default", RoundedCornerShape(11.dp), onConfirm = clearBar,
-                        ),
-                    )
-                    com.armsx2.ui.theme.LibraryChromePreferences.BAR_PRESETS.forEach { preset ->
-                        val pick = { com.armsx2.ui.theme.LibraryChromePreferences.setBarColor(preset) }
-                        val selected = barArgb == preset
-                        Surface(
-                            onClick = pick,
-                            modifier = Modifier.size(34.dp)
-                                .controllerFocusable("app.barColor.$preset", RoundedCornerShape(9.dp), onConfirm = pick),
-                            shape = RoundedCornerShape(9.dp),
-                            color = Color(preset),
-                            border = BorderStroke(
-                                if (selected) 3.dp else 1.dp,
-                                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                            ),
-                        ) {}
-                    }
-                }
-            }
-            // Continuous RGB hue-cycle — same idea as the theme's RGB mode. While on, the fixed
-            // color (presets + sliders) doesn't apply, so it's hidden.
-            ToggleRow(
-                label = str("app.bgColor.rgb"),
-                value = LibraryBackgroundColorPreferences.rgbCycle.value,
-                description = str("app.bgColor.rgb.desc"),
-                onChange = { LibraryBackgroundColorPreferences.setRgbCycle(it) },
-            )
-            if (!LibraryBackgroundColorPreferences.rgbCycle.value) {
-            val customized = LibraryBackgroundColorPreferences.color.value != 0
-            val argb = if (customized) LibraryBackgroundColorPreferences.color.value
-                       else LibraryBackgroundColorPreferences.DefaultDisplayColor
-            val r = android.graphics.Color.red(argb)
-            val g = android.graphics.Color.green(argb)
-            val b = android.graphics.Color.blue(argb)
-            // Custom-slider mode: open when a non-preset colour is active, or the user taps "Custom".
-            val customOpen = remember {
-                mutableStateOf(customized && LibraryBackgroundColorPreferences.PRESETS.none { it == argb })
-            }
-            // Quick-pick presets (XMB palette) + a "Custom" chip that reveals the RGB sliders — the
-            // same shape as the theme colour picker. The active swatch (or Custom) is ringed.
-            Spacer(Modifier.height(9.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                verticalArrangement = Arrangement.spacedBy(7.dp),
-            ) {
-                LibraryBackgroundColorPreferences.PRESETS.forEach { preset ->
-                    val selected = !customOpen.value && preset == argb
-                    val pick = { customOpen.value = false; LibraryBackgroundColorPreferences.set(preset) }
-                    Surface(
-                        onClick = pick,
-                        modifier = Modifier.size(34.dp)
-                            .controllerFocusable("app.bgColor.preset.$preset", RoundedCornerShape(9.dp), onConfirm = pick),
-                        shape = RoundedCornerShape(9.dp),
-                        color = Color(preset),
-                        border = BorderStroke(
-                            if (selected) 3.dp else 1.dp,
-                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                        ),
-                    ) {}
-                }
-                val pickCustom = {
-                    customOpen.value = true
-                    if (!customized) LibraryBackgroundColorPreferences.set(LibraryBackgroundColorPreferences.DefaultDisplayColor)
-                }
-                FilterChip(
-                    selected = customOpen.value,
-                    onClick = pickCustom,
-                    label = { Text(str("app.theme.custom")) },
-                    shape = RoundedCornerShape(9.dp),
-                    modifier = Modifier.controllerFocusable("app.bgColor.custom", RoundedCornerShape(9.dp), onConfirm = pickCustom),
-                )
-            }
-            // Preview + RGB sliders only in Custom mode (mirrors the theme colour picker).
-            if (customOpen.value) {
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        modifier = Modifier.size(width = 66.dp, height = 34.dp),
-                        shape = RoundedCornerShape(9.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    ) {
-                        Box(
-                            Modifier.fillMaxSize().background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        Color(r * 0.20f / 255f, g * 0.20f / 255f, b * 0.20f / 255f, 1f),
-                                        Color(argb),
-                                    )
-                                )
-                            )
-                        )
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        String.format("#%06X", 0xFFFFFF and argb),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                listOf(
-                    Triple("app.theme.custom.r", 16, r),
-                    Triple("app.theme.custom.g", 8, g),
-                    Triple("app.theme.custom.b", 0, b),
-                ).forEach { (labelKey, shift, value) ->
-                    IntSliderRow(
-                        label = str(labelKey),
-                        value = value,
-                        min = 0,
-                        max = 255,
-                        onChange = { channel ->
-                            val cleared = argb and (0xFF shl shift).inv()
-                            LibraryBackgroundColorPreferences.set(cleared or (channel shl shift) or (0xFF shl 24))
-                        },
-                    )
-                }
-            }
-            if (customized) {
-                Spacer(Modifier.height(4.dp))
-                val reset = {
-                    customOpen.value = false
-                    LibraryBackgroundColorPreferences.reset()
-                }
-                OutlinedButton(
-                    onClick = reset,
-                    modifier = Modifier.controllerFocusable("app.bgColor.reset", onConfirm = reset),
-                ) { Text(str("action.reset")) }
-            }
-            }
-        }
-
-        ToggleRow(
-            label = str("app.bootLogo"),
-            value = BootLogoPreferences.enabled.value,
-            description = str("app.bootLogo.desc"),
-            onChange = { BootLogoPreferences.set(it) },
         )
+
+        // Removed: theme picker, animated backdrop (XMB wave / Flurry / screensavers), bar and
+        // background colours, boot logo, toolbar position and the library grid controls. Every one
+        // of them fed either the stock HomeScreen or the Material colour scheme, and the premium
+        // launcher owns both -- PremiumScheme wins in Theme.kt and PremiumHome draws its own
+        // backdrop -- so they were switches wired to nothing.
 
         BackupRestoreRows()
 
@@ -893,13 +530,6 @@ fun AppTab() {
             }
         }
 
-        SegmentedRow(
-            label = str("app.toolbarPosition"),
-            options = listOf(str("app.toolbarPosition.top"), str("app.toolbarPosition.bottom")),
-            selectedIndex = if (ToolbarPositionPreferences.atBottom.value) 1 else 0,
-            onChange = { ToolbarPositionPreferences.set(it == 1) },
-        )
-
         // Launcher/library rotation — independent of the per-game renderer rotation (Renderer tab).
         SegmentedRow(
             label = str("app.launcherRotation"),
@@ -917,13 +547,6 @@ fun AppTab() {
             },
         )
 
-        ToggleRow(
-            label = str("app.library.search"),
-            value = LibraryChromePreferences.showSearch.value,
-            description = str("app.library.search.desc"),
-            onChange = LibraryChromePreferences::setShowSearch,
-        )
-
         // Text entry: our own on-screen keyboard (default, gamepad-navigable) vs the Android IME.
         // Seeded via refreshUseSystemIme() because this row can compose before the keyboard has
         // ever been opened, which is the only other place the preference gets read.
@@ -937,40 +560,6 @@ fun AppTab() {
             )
         }
 
-        ToggleRow(
-            label = str("app.library.recents"),
-            value = LibraryChromePreferences.showRecents.value,
-            description = str("app.library.recents.desc"),
-            onChange = LibraryChromePreferences::setShowRecents,
-        )
-
-        // Moved off the library overflow menu, where it was the odd one out: every other
-        // library-appearance preference already lives here beside cover size and opacity.
-        ToggleRow(
-            label = str("games.overflow.gridNames"),
-            value = com.armsx2.GridLabels.show.value,
-            description = str("app.library.gridNames.desc"),
-            onChange = { com.armsx2.GridLabels.set(it) },
-        )
-
-        IntSliderRow(
-            label = str("app.library.coverSize"),
-            value = (com.armsx2.ui.UiScale.coverScale.value * 100f).toInt().coerceIn(75, 250),
-            min = 75,
-            max = 250,
-            valueFormatter = { "$it%" },
-            onChange = { com.armsx2.ui.UiScale.setCoverScale(it / 100f) },
-        )
-
-        IntSliderRow(
-            label = str("app.library.opacity"),
-            value = LibraryChromePreferences.libraryOpacity.value,
-            min = 20,
-            max = 100,
-            valueFormatter = { "$it%" },
-            onChange = LibraryChromePreferences::setLibraryOpacity,
-        )
-
         ClearCacheRow()
     }
 }
@@ -982,36 +571,82 @@ fun AppTab() {
 private fun ClearCacheRow() {
     val context = LocalContext.current
     var status by remember { mutableStateOf("") }
-    Surface(
+    ActionRow(
+        id = "app.clearCache",
+        label = str("app.clearCache"),
+        description = status.ifEmpty { str("app.clearCache.desc") },
         onClick = { status = clearAppCaches(context) },
+    )
+}
+
+/**
+ * A row that opens something else, the way an iOS settings row does: label on the left, the
+ * current value in secondary text on the right, a chevron to say there is somewhere to go. No
+ * icon tile — a coloured square per row turns a settings list into a wall of badges, and the
+ * label is already the thing being read.
+ */
+@Composable
+private fun DisclosureRow(id: String, label: String, value: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth()
-            .controllerFocusable("app.clearCache", RoundedCornerShape(20.dp), onConfirm = { status = clearAppCaches(context) }),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.46f)),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Surface(
-                modifier = Modifier.size(46.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                    Text("🧹", fontSize = 21.sp)
-                }
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(str("app.clearCache"), style = MaterialTheme.typography.titleMedium)
-                Text(
-                    status.ifEmpty { str("app.clearCache.desc") },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            .drawBehind {
+                drawLine(
+                    Palette.hairline,
+                    Offset(16.dp.toPx(), size.height),
+                    Offset(size.width, size.height),
+                    strokeWidth = 1f,
                 )
             }
+            .controllerFocusable(id, RoundedCornerShape(14.dp), onConfirm = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = Color.Transparent,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(label, style = Type.body, color = Palette.label, modifier = Modifier.weight(1f))
+            Text(value, style = Type.callout, color = Palette.labelSecondary)
+            Spacer(Modifier.width(6.dp))
+            Text("›", color = Palette.labelTertiary, fontSize = 20.sp)
+        }
+    }
+}
+
+/** A row that performs an action in place. Same shape as [DisclosureRow], without the chevron. */
+@Composable
+private fun ActionRow(
+    id: String,
+    label: String,
+    description: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth()
+            .drawBehind {
+                drawLine(
+                    Palette.hairline,
+                    Offset(16.dp.toPx(), size.height),
+                    Offset(size.width, size.height),
+                    strokeWidth = 1f,
+                )
+            }
+            .controllerFocusable(id, RoundedCornerShape(14.dp), onConfirm = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = Color.Transparent,
+    ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 13.dp)) {
+            Text(
+                label,
+                style = Type.body,
+                color = if (enabled) Palette.label else Palette.labelTertiary,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(description, style = Type.footnote, color = Palette.labelSecondary)
         }
     }
 }
@@ -1077,8 +712,8 @@ private fun BackupRestoreRows() {
         if (!busy) importer.launch(arrayOf("application/zip", "application/octet-stream"))
     }
 
-    BackupActionRow("💾", "app.backup.export", "app.backup.export.desc", status, busy, doExport)
-    BackupActionRow("📥", "app.backup.import", "app.backup.import.desc", "", busy, doImport)
+    BackupActionRow("app.backup.export", "app.backup.export.desc", status, busy, doExport)
+    BackupActionRow("app.backup.import", "app.backup.import.desc", "", busy, doImport)
 
     // Factory reset. Sits with Backup/Restore because Export is the thing to do first — the
     // prompt says so. Routed through GlobalConfirm rather than a local overlay: this row is
@@ -1093,51 +728,24 @@ private fun BackupRestoreRows() {
             ) { MainActivityRuntime.resetAppToDefaults(context) }
         }
     }
-    BackupActionRow("♻️", "app.reset", "app.reset.desc", "", busy, doReset)
+    BackupActionRow("app.reset", "app.reset.desc", "", busy, doReset)
 }
 
 @Composable
 private fun BackupActionRow(
-    emoji: String,
     labelKey: String,
     descKey: String,
     status: String,
     busy: Boolean,
     onClick: () -> Unit,
 ) {
-    Surface(
-        onClick = onClick,
+    ActionRow(
+        id = labelKey,
+        label = str(labelKey),
+        description = status.ifEmpty { str(descKey) },
         enabled = !busy,
-        modifier = Modifier.fillMaxWidth()
-            .controllerFocusable(labelKey, RoundedCornerShape(20.dp), onConfirm = onClick),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.46f)),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Surface(
-                modifier = Modifier.size(46.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                    Text(emoji, fontSize = 21.sp)
-                }
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(str(labelKey), style = MaterialTheme.typography.titleMedium)
-                Text(
-                    status.ifEmpty { str(descKey) },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
+        onClick = onClick,
+    )
 }
 
 /** Delete shader/pipeline caches (assetCopyRoot/cache) + the OS cache dir (Coil image
