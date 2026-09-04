@@ -113,6 +113,72 @@ object SteamGridDb {
         }
     }
 
+    /** One SteamGridDB entry a title matched. */
+    data class Match(val id: Int, val name: String)
+
+    /**
+     * Every game the term matches, not just the best one.
+     *
+     * The automatic path takes the first and stops, which is wrong twice over for arcade
+     * titles: the exact name often is not there ("Battle Gear 3 Tuned" matches "Battle Gear 3"),
+     * and the top match can be a different game entirely that happens to have no art at all
+     * ("Dragon Chronicle" -> "Dragon Chronicles: Black Tears", zero grids), which reads to the
+     * user as "no cover exists" when the right entry was three rows down.
+     */
+    suspend fun searchGames(term: String): Result<List<Match>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val q = URLEncoder.encode(term.trim(), "UTF-8")
+            val arr = get("/search/autocomplete/$q").getOrThrow().optJSONArray("data")
+                ?: return@runCatching emptyList()
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: continue
+                    val id = o.optInt("id").takeIf { it != 0 } ?: continue
+                    add(Match(id, o.optString("name").ifBlank { "#$id" }))
+                }
+            }
+        }
+    }
+
+    /** Every cover a game has, so the caller can show them and let a person choose. */
+    suspend fun coverCandidates(gameId: Int): Result<List<String>> =
+        candidates("/grids/game/$gameId?limit=40")
+
+    /** Every wide hero a game has. */
+    suspend fun heroCandidates(gameId: Int): Result<List<String>> =
+        candidates("/heroes/game/$gameId?limit=40")
+
+    private suspend fun candidates(path: String): Result<List<String>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val arr = get(path).getOrThrow().optJSONArray("data") ?: return@runCatching emptyList()
+            buildList {
+                for (i in 0 until arr.length()) {
+                    arr.optJSONObject(i)?.optString("url")?.takeIf { it.isNotBlank() }?.let(::add)
+                }
+            }
+        }
+    }
+
+    /** Store [url] as this game's cover. */
+    suspend fun applyCover(context: Context, game: GameInfo, url: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                if (!CustomCovers.setBytes(context, game, download(url))) {
+                    throw FailureException(Failure.Network("Não foi possível gravar a capa"))
+                }
+            }
+        }
+
+    /** Store [url] as this game's wide background art. */
+    suspend fun applyHero(context: Context, game: GameInfo, url: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                if (!HeroArt.setBytes(context, game, download(url))) {
+                    throw FailureException(Failure.Network("Não foi possível gravar a arte de fundo"))
+                }
+            }
+        }
+
     /** First hero (wide key-art) URL for [gameId]. */
     private fun firstHeroUrl(gameId: Int): String? {
         // 1920x620 is the shape the featured card crops to; fall back to whatever the game has.

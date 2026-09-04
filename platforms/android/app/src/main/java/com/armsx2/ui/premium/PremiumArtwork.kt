@@ -70,6 +70,8 @@ fun PremiumArtwork(
     var key by remember { mutableStateOf(SteamGridDb.apiKey.value) }
     var status by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // Which game is having its art picked by hand, and which kind. Null = the picker is closed.
+    var picking by remember { mutableStateOf<Pair<GameInfo, ArtKind>?>(null) }
     val coverVersion = CustomCovers.version.value
     val covers = remember(coverVersion) { CustomCovers.loadAll(context) }
 
@@ -173,19 +175,24 @@ fun PremiumArtwork(
                     ArtworkRow(
                         game = game,
                         hasCover = CustomCovers.matchIn(covers, game) != null,
-                        onFetch = {
-                            scope.launch {
-                                status = null
-                                SteamGridDb.fetchHero(context, game)
-                                SteamGridDb.fetchCover(context, game)
-                                    .onSuccess { status = "Capa atualizada: ${game.displayTitle(EnglishTitles.enabled.value)}" }
-                                    .onFailure { status = SteamGridDb.describe(it) }
-                            }
-                        },
+                        hasHero = com.armsx2.art.HeroArt.fileFor(context, game) != null,
+                        onPickCover = { status = null; picking = game to ArtKind.Cover },
+                        onPickHero = { status = null; picking = game to ArtKind.Hero },
                         onRemove = { CustomCovers.remove(context, game) },
                     )
                 }
             }
+        }
+
+        picking?.let { (game, kind) ->
+            ArtPicker(
+                game = game,
+                kind = kind,
+                onDismiss = { picking = null },
+                onApplied = {
+                    status = "Arte atualizada: ${game.displayTitle(EnglishTitles.enabled.value)}"
+                },
+            )
         }
     }
 }
@@ -194,7 +201,9 @@ fun PremiumArtwork(
 private fun ArtworkRow(
     game: GameInfo,
     hasCover: Boolean,
-    onFetch: () -> Unit,
+    hasHero: Boolean,
+    onPickCover: () -> Unit,
+    onPickHero: () -> Unit,
     onRemove: () -> Unit,
 ) {
     Row(
@@ -220,16 +229,22 @@ private fun ArtworkRow(
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             Text(
-                if (hasCover) "Capa personalizada" else "Sem capa",
+                listOf(
+                    if (hasCover) "capa" else null,
+                    if (hasHero) "fundo" else null,
+                ).filterNotNull().joinToString(" + ").ifEmpty { "Sem arte" }
+                    .replaceFirstChar(Char::uppercase),
                 style = Type.footnote,
-                color = if (hasCover) Palette.labelSecondary else Palette.labelTertiary,
+                color = if (hasCover || hasHero) Palette.labelSecondary else Palette.labelTertiary,
             )
         }
         if (hasCover) {
             PillButton("Remover", filled = false, onClick = onRemove)
             Spacer(Modifier.width(8.dp))
         }
-        PillButton(if (hasCover) "Trocar" else "Buscar", onClick = onFetch)
+        PillButton("Fundo", filled = false, onClick = onPickHero)
+        Spacer(Modifier.width(8.dp))
+        PillButton(if (hasCover) "Trocar" else "Capa", onClick = onPickCover)
     }
 }
 
