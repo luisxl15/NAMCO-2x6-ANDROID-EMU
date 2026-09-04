@@ -35,6 +35,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -478,55 +480,70 @@ private fun DetailPane(game: GameInfo, onLaunch: (GameInfo) -> Unit) {
             .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.card))
             .padding(24.dp),
     ) {
-        // Small on purpose. At 2:3 a cover grows in height twice as fast as in width, and this
-        // pane also carries a title that can run to three lines, a compatibility badge, a note,
-        // the button and two stats -- anything larger pushes the bottom of that off screen,
-        // present in the layout and never seen.
-        Box(
-            Modifier
-                .fillMaxWidth(0.40f)
-                .aspectRatio(0.72f)
-                .clip(RoundedCornerShape(Radii.tile)),
+        // The description scrolls, the button does not. What goes above it varies a lot -- a
+        // title can run to three lines, and Bloody Roar 3's compatibility note is a paragraph
+        // about which BIOS crashes it -- so sizing the cover to make everything fit was a game
+        // of shaving pixels that the next long note would lose anyway. Pinning Play to the
+        // bottom means the one control on this pane is always reachable, whatever is above it.
+        Column(
+            Modifier.weight(1f).verticalScroll(rememberScrollState()),
         ) {
-            CoverArt(game, Modifier.fillMaxSize())
-        }
+            // Kept small so the badge and its explanation land ABOVE the fold. The region
+            // scrolls, but a warning you have to scroll to find is a warning that does not do
+            // its job -- the whole point of it being here is that you read it before pressing
+            // Play. Scrolling is for the long notes, not for the verdict.
+            Box(
+                Modifier
+                    .fillMaxWidth(0.34f)
+                    .aspectRatio(0.72f)
+                    .clip(RoundedCornerShape(Radii.tile)),
+            ) {
+                CoverArt(game, Modifier.fillMaxSize())
+            }
 
-        Spacer(Modifier.height(18.dp))
-        Text(
-            game.displayTitle(EnglishTitles.enabled.value),
-            style = Type.title2, color = Palette.label,
-            maxLines = 3, overflow = TextOverflow.Ellipsis,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(metaLine(game), style = Type.footnote, color = Palette.labelSecondary)
+            Spacer(Modifier.height(18.dp))
+            Text(
+                game.displayTitle(EnglishTitles.enabled.value),
+                style = Type.title2, color = Palette.label,
+                maxLines = 3, overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(metaLine(game), style = Type.footnote, color = Palette.labelSecondary)
 
-        // What the project's tracker says about this board, and any warning attached to it.
-        // Shown before the Play button on purpose: "attract only" or "crashes on this BIOS" is
-        // worth reading BEFORE the boot, not after the black screen.
-        val compat = com.armsx2.data.library.ArcadeCompat.entryFor(LocalContext.current, game.serial)
-        if (compat != null) {
-            Spacer(Modifier.height(12.dp))
-            CompatBadge(compat.status)
-            if (compat.note.isNotBlank()) {
-                Spacer(Modifier.height(8.dp))
-                Text(compat.note, style = Type.footnote, color = Palette.accentBright, maxLines = 4)
+            // What the project's tracker says about this board, and any warning attached to it.
+            // Above the Play button on purpose: "only reaches the demo" or "crashes on this
+            // BIOS" is worth reading BEFORE the boot, not after the black screen.
+            val compat = com.armsx2.data.library.ArcadeCompat.entryFor(LocalContext.current, game.serial)
+            if (compat != null) {
+                Spacer(Modifier.height(12.dp))
+                CompatBadge(compat.status)
+                explain(compat.status)?.let {
+                    Spacer(Modifier.height(7.dp))
+                    Text(it, style = Type.footnote, color = Palette.labelSecondary)
+                }
+                if (compat.note.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(compat.note, style = Type.footnote, color = Palette.accentBright)
+                }
+            }
+
+            if (seconds > 0L || last > 0L) {
+                Spacer(Modifier.height(16.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (seconds > 0L) {
+                        DetailStat(Arc.performance, "Tempo de jogo", PlayTime.formatPlayed(seconds))
+                    }
+                    if (last > 0L) {
+                        DetailStat(Arc.refresh, "Última sessão", PlayTime.formatLastPlayed(last))
+                    }
+                }
             }
         }
 
-        Spacer(Modifier.height(18.dp))
+        // The scrolling region clips flush against this, so without a gap the last line of the
+        // description sits half-cut under the button.
+        Spacer(Modifier.height(16.dp))
         LaunchButton { onLaunch(game) }
-
-        if (seconds > 0L || last > 0L) {
-            Spacer(Modifier.height(16.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (seconds > 0L) {
-                    DetailStat(Arc.performance, "Tempo de jogo", PlayTime.formatPlayed(seconds))
-                }
-                if (last > 0L) {
-                    DetailStat(Arc.refresh, "Última sessão", PlayTime.formatLastPlayed(last))
-                }
-            }
-        }
     }
 }
 

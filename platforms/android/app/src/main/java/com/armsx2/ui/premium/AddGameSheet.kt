@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.armsx2.ui.settings.controllerFocusable
 import com.armsx2.data.library.AcgameWizard
 import com.armsx2.data.library.ArcadeCompat
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +65,17 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
     var done by remember { mutableStateOf(setOf<String>()) }
     var note by remember { mutableStateOf<String?>(null) }
 
+    // Claim the D-pad while this is up. The registry keeps an exclusive layer stack precisely so
+    // a modal's selection cannot walk out through its own scrim onto the screen behind it -- and
+    // without claiming one, every press here would be moving the library underneath a dialog the
+    // user is looking at. LocalNavLayer is what tells each control below which layer it is in;
+    // position in the tree is the only spelling of that which cannot be got wrong.
+    val navLayer = "add-game"
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        com.armsx2.ui.settings.SettingsControllerNav.pushLayer(navLayer)
+        onDispose { com.armsx2.ui.settings.SettingsControllerNav.popLayer(navLayer) }
+    }
+
     // Back closes this, not the screen behind it. Without it the key falls through to the
     // app's own handler and opens the drawer over a dialog that is still up.
     androidx.activity.compose.BackHandler(onBack = onDismiss)
@@ -73,6 +85,9 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
         loading = false
     }
 
+    androidx.compose.runtime.CompositionLocalProvider(
+        com.armsx2.ui.settings.LocalNavLayer provides navLayer,
+    ) {
     Box(
         Modifier
             .fillMaxSize()
@@ -105,6 +120,7 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
                         .size(36.dp)
                         .clip(RoundedCornerShape(Radii.pill))
                         .material(MaterialLevel.Thin, RoundedCornerShape(Radii.pill))
+                        .controllerFocusable("add.close", RoundedCornerShape(Radii.pill), onConfirm = onDismiss)
                         .clickable { onDismiss() },
                     contentAlignment = Alignment.Center,
                 ) { ArcIcon(Arc.close, tint = Palette.labelSecondary, size = 14.dp) }
@@ -150,6 +166,7 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
                 Text(it, style = Type.footnote, color = Palette.accentBright)
             }
         }
+    }
     }
 }
 
@@ -214,6 +231,10 @@ private fun CandidateRow(
                         style = Type.caption, color = Palette.labelTertiary,
                     )
                 }
+                explain(c.status)?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it, style = Type.caption, color = Palette.labelSecondary, maxLines = 2)
+                }
                 if (c.note.isNotBlank()) {
                     Spacer(Modifier.height(6.dp))
                     Text(c.note, style = Type.caption, color = Palette.accentBright, maxLines = 3)
@@ -236,6 +257,7 @@ private fun CandidateRow(
                 Modifier
                     .clip(RoundedCornerShape(Radii.pill))
                     .background(Palette.accent)
+                    .controllerFocusable("add.${candidate.gameId}", RoundedCornerShape(Radii.pill), onConfirm = onCreate)
                     .clickable(onClick = onCreate)
                     .padding(horizontal = 20.dp, vertical = 11.dp),
             ) { Text("Adicionar", style = Type.subheadline, color = Color.White) }

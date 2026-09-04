@@ -15,16 +15,18 @@ import com.armsx2.data.library.ArcadeCompat
 /**
  * How far a title is known to get, from the project's compatibility tracker.
  *
- * Worth stating plainly on the game itself. "Attract" is the distinction that matters and the one
- * no other part of the app can express: the board boots, the attract loop plays, and it never
- * reaches a game — which without a label reads as the emulator being broken rather than as a
- * known limit someone already recorded.
+ * The middle state is the one that matters and the one no other part of the app can express: the
+ * board boots, the demo loop plays, and it never reaches a game. The tracker calls that
+ * "attract", after the attract mode an arcade cabinet runs while nobody is playing — which is
+ * exactly right and completely opaque to anyone who has not run a cabinet. Translated literally
+ * it came out as "só atrai", which is not even jargon, just words. So the badge says what
+ * happens instead of what the state is called, and [explain] spells it out underneath.
  */
 @Composable
 fun CompatBadge(status: ArcadeCompat.Status, modifier: Modifier = Modifier) {
     val (label, tint) = when (status) {
         ArcadeCompat.Status.Playable -> "Jogável" to PLAYABLE
-        ArcadeCompat.Status.Attract -> "Só atrai" to ATTRACT
+        ArcadeCompat.Status.Attract -> "Só demonstração" to ATTRACT
         ArcadeCompat.Status.Untested -> "Não testado" to UNTESTED
         ArcadeCompat.Status.Unknown -> return
     }
@@ -36,6 +38,17 @@ fun CompatBadge(status: ArcadeCompat.Status, modifier: Modifier = Modifier) {
     ) {
         Text(label, style = Type.caption, color = tint)
     }
+}
+
+/**
+ * One line saying what the badge means, for the states where the word alone is not enough.
+ * Null for a playable game: there, the badge says everything and a sentence explaining that a
+ * game works is just noise.
+ */
+fun explain(status: ArcadeCompat.Status): String? = when (status) {
+    ArcadeCompat.Status.Attract -> "Liga e roda a demonstração, mas não chega a uma partida."
+    ArcadeCompat.Status.Untested -> "Ninguém reportou este jogo ainda. Pode funcionar."
+    ArcadeCompat.Status.Playable, ArcadeCompat.Status.Unknown -> null
 }
 
 // Not the accent red: this is a verdict, and colouring "playable" with the brand colour would

@@ -47,6 +47,7 @@ import coil.request.ImageRequest
 import com.armsx2.EnglishTitles
 import com.armsx2.GameInfo
 import com.armsx2.art.SteamGridDb
+import com.armsx2.ui.settings.controllerFocusable
 import kotlinx.coroutines.launch
 
 /** Which kind of art the picker is choosing. */
@@ -100,6 +101,17 @@ fun ArtPicker(
         }
     }
 
+    // Claim the D-pad while this is up. The registry keeps an exclusive layer stack precisely so
+    // a modal's selection cannot walk out through its own scrim onto the screen behind it -- and
+    // without claiming one, every press here would be moving the library underneath a dialog the
+    // user is looking at. LocalNavLayer is what tells each control below which layer it is in;
+    // position in the tree is the only spelling of that which cannot be got wrong.
+    val navLayer = "art-picker"
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        com.armsx2.ui.settings.SettingsControllerNav.pushLayer(navLayer)
+        onDispose { com.armsx2.ui.settings.SettingsControllerNav.popLayer(navLayer) }
+    }
+
     // Back closes this, not the screen behind it. Without it the key falls through to the
     // app's own handler and opens the drawer over a dialog that is still up.
     androidx.activity.compose.BackHandler(onBack = onDismiss)
@@ -125,6 +137,9 @@ fun ArtPicker(
         busy = false
     }
 
+    androidx.compose.runtime.CompositionLocalProvider(
+        com.armsx2.ui.settings.LocalNavLayer provides navLayer,
+    ) {
     Box(
         Modifier
             .fillMaxSize()
@@ -165,6 +180,7 @@ fun ArtPicker(
                         .size(36.dp)
                         .clip(RoundedCornerShape(Radii.pill))
                         .material(MaterialLevel.Thin, RoundedCornerShape(Radii.pill))
+                        .controllerFocusable("art.close", RoundedCornerShape(Radii.pill), onConfirm = onDismiss)
                         .clickable { onDismiss() },
                     contentAlignment = Alignment.Center,
                 ) { ArcIcon(Arc.close, tint = Palette.labelSecondary, size = 14.dp) }
@@ -202,7 +218,8 @@ fun ArtPicker(
                             Modifier
                                 .clip(RoundedCornerShape(Radii.pill))
                                 .background(if (on) Palette.accent else Palette.materialUltraThin)
-                                .clickable { chosen = match }
+                                .controllerFocusable("art.match.${match.id}", RoundedCornerShape(Radii.pill), onConfirm = { chosen = match })
+                        .clickable { chosen = match }
                                 .padding(horizontal = 14.dp, vertical = 8.dp),
                         ) {
                             Text(
@@ -260,6 +277,7 @@ fun ArtPicker(
             }
         }
     }
+    }
 }
 
 @Composable
@@ -270,6 +288,7 @@ private fun ArtOption(url: String, aspect: Float, applying: Boolean, onPick: () 
             .aspectRatio(aspect)
             .clip(RoundedCornerShape(Radii.tile))
             .border(1.dp, Palette.hairline, RoundedCornerShape(Radii.tile))
+            .controllerFocusable("art.opt.$url", RoundedCornerShape(Radii.tile), onConfirm = onPick)
             .clickable(enabled = !applying, onClick = onPick),
     ) {
         SubcomposeAsyncImage(
