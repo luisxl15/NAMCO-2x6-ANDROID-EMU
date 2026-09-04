@@ -96,6 +96,7 @@ fun PremiumLibrary(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var adding by remember { mutableStateOf(false) }
     var sort by rememberSaveable { mutableStateOf(LibrarySort.Recent) }
     var query by rememberSaveable { mutableStateOf("") }
 
@@ -156,6 +157,16 @@ fun PremiumLibrary(
                     style = Type.footnote, color = Palette.labelTertiary,
                 )
                 Spacer(Modifier.width(14.dp))
+                // Add a game: turns a folder already sitting in the ROM directory into an entry.
+                Box(
+                    Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .material(MaterialLevel.Thin, CircleShape)
+                        .clickable { adding = true },
+                    contentAlignment = Alignment.Center,
+                ) { ArcIcon(Arc.plus, tint = Palette.labelSecondary, size = 17.dp) }
+                Spacer(Modifier.width(8.dp))
                 // Rescan. There was no way to do this at all: the affordance used to live on the
                 // stock library toolbar, which the premium launcher replaced, so a game added to
                 // the ROM folder never appeared until the folder itself was changed -- the scan
@@ -223,6 +234,13 @@ fun PremiumLibrary(
                     }
                 }
             }
+        }
+
+        // Last inside the Box, so it draws over the screen it is covering. Placed before the
+        // content it would be painted under -- a dialog you can see the list through, and cannot
+        // press, because the list is on top of it.
+        if (adding) {
+            AddGameSheet(onDismiss = { adding = false }, onCreated = onRefresh)
         }
     }
 }
