@@ -837,7 +837,7 @@
   "about.architecture": "Arquitetura",
   "about.pageSize": "Página de memória",
   "about.pcsx2.title": "Projeto PCSX2",
-  "about.pcsx2.description": "O Namco System 246 EMU é baseado no emulador PCSX2 de código aberto.",
+  "about.pcsx2.description": "Construído sobre o PCSX2x6 (um fork do PCSX2, de onde vem o suporte ao arcade System 246/256) e sobre o ARMSX2 (o launcher Android e o trabalho de recompilador ARM64) — ambos projetos de código aberto derivados do PCSX2.",
   "about.repository.description": "Abra o código-fonte, as versões e o rastreador de problemas.",
   "friends.title": "Amigos",
   "friends.explain": "Vincule o Discord para mostrar o que você está jogando e ver quais amigos estão no Namco System 246 EMU. Usa seus amigos Discord existentes – Namco System 246 EMU não mantém nenhuma conta e não executa nenhum servidor. Somente enquanto o aplicativo estiver aberto.",

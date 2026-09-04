@@ -16,7 +16,7 @@
   "about.architecture": "Архітектура",
   "about.pageSize": "Сторінка пам’яті",
   "about.pcsx2.title": "Проєкт PCSX2",
-  "about.pcsx2.description": "Namco System 246 EMU створено на основі емулятора PCSX2 з відкритим кодом.",
+  "about.pcsx2.description": "Built on PCSX2x6 (a PCSX2 fork, which brings the System 246/256 arcade support) and on ARMSX2 (the Android launcher and the ARM64 recompiler work) — both open-source projects derived from PCSX2.",
   "about.repository.description": "Відкрийте вихідний код, випуски та засіб відстеження проблем.",
   "tab.app": "додаток",
   "tab.info": "Інформація",

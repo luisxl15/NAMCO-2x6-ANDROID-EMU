@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The launcher ground. NAMCO System 246/256 red rather than the console launcher's blue: the
-  icon is the first thing that says which emulator this is, and on a home screen it is competing
-  with a wallpaper, so it carries the colour rather than the mark.
+  Near-black, the same ground the launcher and the boot splash use.
+
+  It was NAMCO red for one build, which hid the mark completely: the wordmark's own ink is that
+  same red, so it was red on red. The plate is the backdrop the logo needs, not a second place to
+  put the brand colour.
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <gradient
         android:angle="315"
-        android:startColor="#6E0B14"
-        android:centerColor="#A5121F"
-        android:endColor="#C8202F" />
+        android:startColor="#FF070709"
+        android:centerColor="#FF121216"
+        android:endColor="#FF1B1B20" />
 </shape>

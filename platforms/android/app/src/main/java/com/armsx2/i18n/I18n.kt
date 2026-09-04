@@ -202,7 +202,7 @@ private val BASE_EN: Map<String, String> = mapOf(
     "about.architecture" to "Architecture",
     "about.pageSize" to "Memory page",
     "about.pcsx2.title" to "PCSX2 project",
-    "about.pcsx2.description" to "Namco System 246 EMU is built on the open-source PCSX2 emulator.",
+    "about.pcsx2.description" to "Built on PCSX2x6 (a PCSX2 fork, which brings the System 246/256 arcade support) and on ARMSX2 (the Android launcher and the ARM64 recompiler work) — both open-source projects derived from PCSX2.",
     // --- drawer About section: external links ---
     "about.section.header" to "About",
     "about.discord" to "Discord",

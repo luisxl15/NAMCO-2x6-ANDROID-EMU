@@ -5,11 +5,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,28 +22,21 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,26 +45,49 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.armsx2.R
 import com.armsx2.i18n.str
-import com.armsx2.ui.common.ArmsBackdrop
-import com.armsx2.ui.common.ArmsLogo
-import com.armsx2.ui.common.StatusChip
 import com.armsx2.ui.common.padFocusRing
-import com.armsx2.ui.theme.Success
+import com.armsx2.ui.premium.Arc
+import com.armsx2.ui.premium.ArcIcon
+import com.armsx2.ui.premium.AuroraBackground
+import com.armsx2.ui.premium.Branding
+import com.armsx2.ui.premium.MaterialLevel
+import com.armsx2.ui.premium.Palette
+import com.armsx2.ui.premium.Radii
+import com.armsx2.ui.premium.Type
+import com.armsx2.ui.premium.material
 
-private val setupStepKeys = listOf(
-    "setup.page.welcome.title",
-    "setup.step.appData.title",
-    "setup.page.bios.title",
-    "setup.page.roms.title",
-    "setup.button.applyFinish",
+/**
+ * First-run setup.
+ *
+ * Shaped like an installer rather than a slideshow: a progress rail down the left listing every
+ * step at once, and the current step's work on the right. The previous version set each step's
+ * title TWICE at the same time — once as a display-size headline filling the left half, again
+ * above the controls — so most of a landscape screen restated what the other half already said
+ * while the actual choices were squeezed into a narrow column. Here the left column earns its
+ * space by answering "how much of this is left", which is the one question a setup flow has to
+ * keep answering.
+ *
+ * The pages, the pickers and every ViewModel call are unchanged; this is the frame around them.
+ */
+
+private data class SetupStep(val titleKey: String, val icon: Int)
+
+private val SETUP_STEPS = listOf(
+    SetupStep("setup.page.welcome.title", Arc.info),
+    SetupStep("setup.step.appData.title", Arc.saves),
+    SetupStep("setup.page.bios.title", Arc.bios),
+    SetupStep("setup.page.roms.title", Arc.library),
+    SetupStep("setup.button.applyFinish", Arc.check),
 )
 
 @Composable
@@ -74,10 +95,8 @@ fun OnboardingScreen(viewModel: OnboardingViewModel = viewModel()) {
     val state = viewModel.state.value
     val canContinue = viewModel.canContinue()
     var swipeDistance by remember { mutableFloatStateOf(0f) }
-    // Item 7: BIOS onboarding is folder-based (refresh parity) — pick a folder and
-    // every valid BIOS inside is imported and made available here and in the BIOS
-    // settings tab. The button already reads "Pick a different folder"; this makes
-    // the action match. Single-file import still lives in the BIOS settings tab.
+    // BIOS onboarding is folder-based (refresh parity) — pick a folder and every valid BIOS
+    // inside is imported and made available here and in the BIOS settings tab.
     val biosPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         uri?.let(viewModel::importBiosFolder)
     }
@@ -85,9 +104,9 @@ fun OnboardingScreen(viewModel: OnboardingViewModel = viewModel()) {
         uri?.let(viewModel::addGameFolder)
     }
     // github flavor only: a third "Custom folder" data-root, with all-files access
-    // (MANAGE_EXTERNAL_STORAGE) like the old UI. The Play build stays SAF-scoped
-    // (Internal / SD only). Flow: grant all-files access if needed → pick a folder →
-    // resolve the tree URI to a POSIX path the native core can write to directly.
+    // (MANAGE_EXTERNAL_STORAGE). The Play build stays SAF-scoped (Internal / SD only).
+    // Flow: grant all-files access if needed -> pick a folder -> resolve the tree URI to a
+    // POSIX path the native core can write to directly.
     val context = androidx.compose.ui.platform.LocalContext.current
     val customFolderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         uri?.let { u ->
@@ -131,7 +150,9 @@ fun OnboardingScreen(viewModel: OnboardingViewModel = viewModel()) {
 
     LaunchedEffect(Unit) { viewModel.load() }
 
-    ArmsBackdrop {
+    Box(Modifier.fillMaxSize().background(Palette.ground)) {
+        AuroraBackground(Modifier.fillMaxSize())
+
         BoxWithConstraints(
             Modifier
                 .fillMaxSize()
@@ -146,8 +167,10 @@ fun OnboardingScreen(viewModel: OnboardingViewModel = viewModel()) {
                         onDragEnd = {
                             val threshold = size.width * 0.16f
                             when {
-                                swipeDistance > threshold && state.page > 0 && !state.busy -> viewModel.previous()
-                                swipeDistance < -threshold && state.page < setupStepKeys.lastIndex && canContinue && !state.busy -> viewModel.next()
+                                swipeDistance > threshold && state.page > 0 && !state.busy ->
+                                    viewModel.previous()
+                                swipeDistance < -threshold && state.page < SETUP_STEPS.lastIndex &&
+                                    canContinue && !state.busy -> viewModel.next()
                             }
                             swipeDistance = 0f
                         },
@@ -155,56 +178,21 @@ fun OnboardingScreen(viewModel: OnboardingViewModel = viewModel()) {
                     )
                 },
         ) {
-            val landscape = maxWidth > maxHeight && maxWidth >= 600.dp
-            if (landscape) {
-                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    LandscapeHero(
-                        page = state.page,
-                        modifier = Modifier.weight(0.92f).fillMaxHeight().padding(start = 8.dp, top = 16.dp, bottom = 16.dp),
-                    )
-                    Column(Modifier.weight(1.08f).fillMaxHeight().padding(end = 8.dp)) {
-                        Spacer(Modifier.height(18.dp))
-                        PageIndicator(state.page, Modifier.align(Alignment.CenterHorizontally))
-                        Spacer(Modifier.height(8.dp))
-                        AnimatedContent(
-                            targetState = state.page,
-                            modifier = Modifier.weight(1f),
-                            transitionSpec = {
-                                val direction = if (targetState > initialState) {
-                                    AnimatedContentTransitionScope.SlideDirection.Left
-                                } else {
-                                    AnimatedContentTransitionScope.SlideDirection.Right
-                                }
-                                (slideIntoContainer(direction, tween(320)) + fadeIn(tween(220))) togetherWith
-                                    (slideOutOfContainer(direction, tween(280)) + fadeOut(tween(180)))
-                            },
-                            label = "onboarding-landscape-page",
-                        ) { page ->
-                            PageViewport(compact = false) {
-                                WizardPage(page, state, viewModel, biosPicker = {
-                                    biosPicker.launch(null)
-                                }, folderPicker = { folderPicker.launch(null) }, onCustomStorage = onCustomStorage)
-                            }
-                        }
-                        NavigationBar(
-                            page = state.page,
-                            canContinue = viewModel.canContinue(),
-                            busy = state.busy,
-                            compact = false,
-                            onBack = viewModel::previous,
-                            onNext = if (state.page == setupStepKeys.lastIndex) viewModel::finish else viewModel::next,
-                        )
-                    }
+            // The rail needs room to be worth having. Below that the steps collapse to a slim
+            // progress bar above the content rather than squeezing two columns into one.
+            val wide = maxWidth >= 720.dp
+
+            Row(
+                Modifier.fillMaxSize().padding(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                if (wide) {
+                    StepRail(page = state.page, modifier = Modifier.width(268.dp).fillMaxHeight())
                 }
-            } else {
-                Column(Modifier.fillMaxSize()) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        ArmsLogo()
-                        Spacer(Modifier.weight(1f))
-                        PageIndicator(state.page)
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    if (!wide) {
+                        CompactProgress(state.page)
+                        Spacer(Modifier.height(16.dp))
                     }
                     AnimatedContent(
                         targetState = state.page,
@@ -218,21 +206,25 @@ fun OnboardingScreen(viewModel: OnboardingViewModel = viewModel()) {
                             (slideIntoContainer(direction, tween(320)) + fadeIn(tween(220))) togetherWith
                                 (slideOutOfContainer(direction, tween(280)) + fadeOut(tween(180)))
                         },
-                        label = "onboarding-portrait-page",
+                        label = "setup-page",
                     ) { page ->
-                        PageViewport(compact = true) {
-                            WizardPage(page, state, viewModel, biosPicker = {
-                                biosPicker.launch(null)
-                            }, folderPicker = { folderPicker.launch(null) }, onCustomStorage = onCustomStorage)
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            WizardPage(
+                                page = page,
+                                state = state,
+                                viewModel = viewModel,
+                                biosPicker = { biosPicker.launch(null) },
+                                folderPicker = { folderPicker.launch(null) },
+                                onCustomStorage = onCustomStorage,
+                            )
                         }
                     }
-                    NavigationBar(
+                    Footer(
                         page = state.page,
-                        canContinue = viewModel.canContinue(),
+                        canContinue = canContinue,
                         busy = state.busy,
-                        compact = true,
                         onBack = viewModel::previous,
-                        onNext = if (state.page == setupStepKeys.lastIndex) viewModel::finish else viewModel::next,
+                        onNext = if (state.page == SETUP_STEPS.lastIndex) viewModel::finish else viewModel::next,
                     )
                 }
             }
@@ -249,6 +241,279 @@ fun OnboardingScreen(viewModel: OnboardingViewModel = viewModel()) {
     }
 }
 
+// ---------------------------------------------------------------------------------------------
+// Frame
+// ---------------------------------------------------------------------------------------------
+
+/** The left column: the wordmark, then every step at once with the current one lit. */
+@Composable
+private fun StepRail(page: Int, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.card))
+            .padding(horizontal = 22.dp, vertical = 26.dp),
+    ) {
+        Image(
+            painter = painterResource(R.drawable.namco_2x6),
+            contentDescription = Branding.name,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.height(26.dp),
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(str("setup.welcome.subheading"), style = Type.footnote, color = Palette.labelTertiary)
+
+        Spacer(Modifier.height(30.dp))
+
+        SETUP_STEPS.forEachIndexed { index, step ->
+            RailStep(
+                index = index,
+                label = str(step.titleKey),
+                state = when {
+                    index < page -> RailState.Done
+                    index == page -> RailState.Current
+                    else -> RailState.Pending
+                },
+                last = index == SETUP_STEPS.lastIndex,
+            )
+        }
+    }
+}
+
+private enum class RailState { Done, Current, Pending }
+
+@Composable
+private fun RailStep(index: Int, label: String, state: RailState, last: Boolean) {
+    val marker by animateColorAsState(
+        when (state) {
+            RailState.Current -> Palette.accent
+            RailState.Done -> Palette.accent.copy(alpha = 0.30f)
+            RailState.Pending -> Color.Transparent
+        },
+        spring(),
+        label = "rail-marker",
+    )
+    Row {
+        // Marker column: the dot plus the rule tying it to the next one, so the steps read as
+        // one track rather than five loose rows.
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(marker)
+                    .then(
+                        if (state == RailState.Pending) {
+                            Modifier.border(1.dp, Palette.hairline, CircleShape)
+                        } else {
+                            Modifier
+                        },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (state == RailState.Done) {
+                    ArcIcon(Arc.check, tint = Color.White, size = 14.dp)
+                } else {
+                    Text(
+                        "${index + 1}",
+                        style = Type.caption,
+                        color = if (state == RailState.Current) Color.White else Palette.labelTertiary,
+                    )
+                }
+            }
+            if (!last) {
+                Box(
+                    Modifier
+                        .width(1.dp)
+                        .height(26.dp)
+                        .background(
+                            if (state == RailState.Done) {
+                                Palette.accent.copy(alpha = 0.30f)
+                            } else {
+                                Palette.hairline
+                            },
+                        ),
+                )
+            }
+        }
+        Spacer(Modifier.width(14.dp))
+        Text(
+            label,
+            style = if (state == RailState.Current) Type.headline else Type.subheadline,
+            color = when (state) {
+                RailState.Current -> Palette.label
+                RailState.Done -> Palette.labelSecondary
+                RailState.Pending -> Palette.labelTertiary
+            },
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 5.dp),
+        )
+    }
+}
+
+/** Narrow-screen stand-in for the rail: one bar per step, filled up to where you are. */
+@Composable
+private fun CompactProgress(page: Int) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        SETUP_STEPS.indices.forEach { index ->
+            val color by animateColorAsState(
+                if (index <= page) Palette.accent else Palette.materialThin,
+                spring(),
+                label = "compact-progress",
+            )
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(Radii.pill))
+                    .background(color),
+            )
+        }
+    }
+}
+
+/** Eyebrow, title and description — the same header on every step. */
+@Composable
+private fun StepHeader(page: Int, title: String, description: String) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            "${page + 1} / ${SETUP_STEPS.size}",
+            style = Type.eyebrow,
+            color = Palette.accentBright,
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(title, style = Type.largeTitle, color = Palette.label)
+        Spacer(Modifier.height(8.dp))
+        Text(description, style = Type.callout, color = Palette.labelSecondary)
+        Spacer(Modifier.height(26.dp))
+    }
+}
+
+@Composable
+private fun Footer(
+    page: Int,
+    canContinue: Boolean,
+    busy: Boolean,
+    onBack: () -> Unit,
+    onNext: () -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (page > 0) {
+            GhostPill(str("action.back"), enabled = !busy, onClick = onBack)
+        }
+        Spacer(Modifier.weight(1f))
+        PrimaryPill(
+            label = if (page == SETUP_STEPS.lastIndex) str("setup.button.letsGo") else str("setup.button.next"),
+            enabled = canContinue && !busy,
+            busy = busy,
+            onClick = onNext,
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Controls
+// ---------------------------------------------------------------------------------------------
+
+@Composable
+private fun PrimaryPill(label: String, enabled: Boolean, busy: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(Radii.pill))
+            .background(if (enabled) Palette.accent else Palette.materialThin)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padFocusRing(RoundedCornerShape(Radii.pill))
+            .padding(horizontal = 30.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (busy) {
+            CircularProgressIndicator(Modifier.size(15.dp), strokeWidth = 2.dp, color = Color.White)
+            Spacer(Modifier.width(10.dp))
+        }
+        Text(label, style = Type.headline, color = if (enabled) Color.White else Palette.labelTertiary)
+    }
+}
+
+@Composable
+private fun GhostPill(label: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(Radii.pill))
+            .material(MaterialLevel.Thin, RoundedCornerShape(Radii.pill))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padFocusRing(RoundedCornerShape(Radii.pill))
+            .padding(horizontal = 26.dp, vertical = 15.dp),
+    ) {
+        Text(label, style = Type.headline, color = Palette.labelSecondary)
+    }
+}
+
+/**
+ * A pickable option. Selection shows as an accent border and a check, not as a flooded
+ * container: these cards sit on translucent material over the aurora, and a solid fill on the
+ * chosen one would punch a hole in that.
+ */
+@Composable
+private fun OptionCard(
+    title: String,
+    detail: String,
+    icon: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val border by animateColorAsState(
+        if (selected) Palette.accentBright else Palette.hairline,
+        spring(),
+        label = "option-border",
+    )
+    Row(
+        modifier
+            .fillMaxWidth()
+            .defaultMinSize(minHeight = 74.dp)
+            .clip(RoundedCornerShape(Radii.tile))
+            .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.tile))
+            .border(if (selected) 1.5.dp else 1.dp, border, RoundedCornerShape(Radii.tile))
+            .clickable(onClick = onClick)
+            .padFocusRing(RoundedCornerShape(Radii.tile))
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ArcIcon(icon, tint = if (selected) Palette.accentBright else Palette.labelSecondary, size = 21.dp)
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = Type.headline, color = Palette.label)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                detail,
+                style = Type.footnote,
+                color = Palette.labelSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (selected) {
+            Spacer(Modifier.width(12.dp))
+            CheckDot()
+        }
+    }
+}
+
+@Composable
+private fun CheckDot() {
+    Box(
+        Modifier.size(22.dp).clip(CircleShape).background(Palette.accent),
+        contentAlignment = Alignment.Center,
+    ) { ArcIcon(Arc.check, tint = Color.White, size = 13.dp) }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Pages
+// ---------------------------------------------------------------------------------------------
+
 @Composable
 private fun WizardPage(
     page: Int,
@@ -259,118 +524,45 @@ private fun WizardPage(
     onCustomStorage: () -> Unit,
 ) {
     when (page) {
-        0 -> WelcomePage(compact = true)
-        1 -> StoragePage(state, compact = true, viewModel::selectStorage, onCustomStorage)
-        2 -> BiosPage(state, compact = true, onPick = biosPicker, onSelectBios = viewModel::selectBiosCandidate)
+        0 -> WelcomePage()
+        1 -> StoragePage(state, viewModel::selectStorage, onCustomStorage)
+        2 -> BiosPage(state, onPick = biosPicker, onSelectBios = viewModel::selectBiosCandidate)
         3 -> GamesPage(state, folderPicker, viewModel::removeGameFolder)
-        else -> ReadyPage(state, compact = true)
+        else -> ReadyPage(state)
     }
 }
 
 @Composable
-private fun LandscapeHero(page: Int, modifier: Modifier = Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(
-            modifier = Modifier.size(82.dp),
-            shape = RoundedCornerShape(26.dp),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-        ) { Box(contentAlignment = Alignment.Center) { ArmsLogo(showWordmark = false) } }
-        Spacer(Modifier.height(24.dp))
-        Text(
-            str(setupStepKeys[page]),
-            style = MaterialTheme.typography.displaySmall,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            str(if (page == 0) "setup.welcome.subheading" else "setup.recommended.subtitle"),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
+private fun WelcomePage() {
+    StepHeader(0, str("setup.welcome.heading"), str("setup.systemDir.intro"))
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        WelcomeLine(Arc.saves, str("setup.step.appData.title"), str("setup.step.appData.description.play"))
+        WelcomeLine(Arc.bios, str("setup.step.bios.title"), str("setup.step.bios.description"))
+        WelcomeLine(Arc.library, str("setup.step.rom.title"), str("setup.step.rom.description"))
     }
 }
 
 @Composable
-private fun PageIndicator(page: Int, modifier: Modifier = Modifier) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        setupStepKeys.indices.forEach { index ->
-            Surface(
-                modifier = Modifier.width(if (index == page) 26.dp else 8.dp).height(8.dp),
-                shape = CircleShape,
-                color = if (index == page) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-            ) {}
-        }
-    }
-}
-
-@Composable
-private fun PageViewport(compact: Boolean, content: @Composable () -> Unit) {
-    Box(
+private fun WelcomeLine(icon: Int, title: String, detail: String) {
+    Row(
         Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(
-                horizontal = 8.dp,
-                vertical = if (compact) 18.dp else 22.dp,
-            ),
+            .fillMaxWidth()
+            .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.tile))
+            .padding(horizontal = 18.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().widthIn(max = 860.dp)) {
-            content()
-        }
-    }
-}
-
-@Composable
-private fun WelcomePage(compact: Boolean) {
-    Column(
-        Modifier.fillMaxWidth(),
-        horizontalAlignment = if (compact) Alignment.Start else Alignment.CenterHorizontally,
-    ) {
-        Text(
-            str("setup.welcome.heading"),
-            style = MaterialTheme.typography.displayLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = if (compact) TextAlign.Start else TextAlign.Center,
-        )
-        Spacer(Modifier.height(9.dp))
-        Text(
-            str("setup.systemDir.intro"),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = if (compact) TextAlign.Start else TextAlign.Center,
-        )
-        Spacer(Modifier.height(if (compact) 22.dp else 30.dp))
-        if (compact) {
-            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                SetupBenefit("01", str("setup.step.appData.title"))
-                SetupBenefit("02", str("setup.step.bios.title"))
-                SetupBenefit("03", str("setup.step.rom.title"))
-            }
-        } else {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SetupBenefit("01", str("setup.step.appData.title"), Modifier.weight(1f))
-                SetupBenefit("02", str("setup.step.bios.title"), Modifier.weight(1f))
-                SetupBenefit("03", str("setup.step.rom.title"), Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun SetupBenefit(number: String, text: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = 66.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.68f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
-    ) {
-        Row(Modifier.padding(horizontal = 18.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(number, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
-            Spacer(Modifier.width(11.dp))
-            Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+        ArcIcon(icon, tint = Palette.accentBright, size = 20.dp)
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = Type.headline, color = Palette.label)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                detail,
+                style = Type.footnote,
+                color = Palette.labelSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -378,374 +570,262 @@ private fun SetupBenefit(number: String, text: String, modifier: Modifier = Modi
 @Composable
 private fun StoragePage(
     state: OnboardingUiState,
-    compact: Boolean,
     onSelect: (StorageLocation) -> Unit,
     onCustom: () -> Unit,
 ) {
-    SetupPage(str("setup.step.appData.title"), str("setup.step.appData.description.play")) {
-        if (compact) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                StorageChoices(state, onSelect, onCustom)
-            }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                StorageChoices(state, onSelect, onCustom)
-            }
+    StepHeader(1, str("setup.step.appData.title"), str("setup.step.appData.description.play"))
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        OptionCard(
+            title = str("setup.storageChooser.internalShort"),
+            detail = str("setup.systemDir.appPrivateSubtitle"),
+            icon = Arc.saves,
+            selected = state.systemLocation == StorageLocation.Internal,
+            onClick = { onSelect(StorageLocation.Internal) },
+        )
+        OptionCard(
+            title = str("setup.systemDir.sdCard"),
+            detail = str("setup.step.appData.description.play"),
+            icon = Arc.memcard,
+            selected = state.systemLocation == StorageLocation.SdCard,
+            onClick = { onSelect(StorageLocation.SdCard) },
+        )
+        // github APK only: custom folder with all-files access.
+        if (com.armsx2.BuildConfig.STORAGE_ALL_FILES) {
+            OptionCard(
+                title = str("setup.storageChooser.customShort"),
+                detail = str("setup.storageChooser.customSubtitle"),
+                icon = Arc.folder,
+                selected = state.systemLocation == StorageLocation.Custom,
+                onClick = onCustom,
+            )
         }
     }
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.StorageChoices(
-    state: OnboardingUiState,
-    onSelect: (StorageLocation) -> Unit,
-    onCustom: () -> Unit,
-) {
-    ChoiceCard(
-        title = str("setup.storageChooser.internalShort"),
-        detail = str("setup.systemDir.appPrivateSubtitle"),
-        glyph = "▣",
-        selected = state.systemLocation == StorageLocation.Internal,
-        onClick = { onSelect(StorageLocation.Internal) },
-        modifier = Modifier.fillMaxWidth(),
-    )
-    ChoiceCard(
-        title = str("setup.systemDir.sdCard"),
-        detail = str("setup.step.appData.description.play"),
-        glyph = "▤",
-        selected = state.systemLocation == StorageLocation.SdCard,
-        onClick = { onSelect(StorageLocation.SdCard) },
-        modifier = Modifier.fillMaxWidth(),
-    )
-    // github APK only: custom folder with all-files access (like the old UI).
-    if (com.armsx2.BuildConfig.STORAGE_ALL_FILES) {
-        ChoiceCard(
-            title = str("setup.storageChooser.customShort"),
-            detail = str("setup.storageChooser.customSubtitle"),
-            glyph = "▦",
-            selected = state.systemLocation == StorageLocation.Custom,
-            onClick = onCustom,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-}
-
-@Composable
-private fun androidx.compose.foundation.layout.RowScope.StorageChoices(
-    state: OnboardingUiState,
-    onSelect: (StorageLocation) -> Unit,
-    onCustom: () -> Unit,
-) {
-    ChoiceCard(
-        title = str("setup.storageChooser.internalShort"),
-        detail = str("setup.systemDir.appPrivateSubtitle"),
-        glyph = "▣",
-        selected = state.systemLocation == StorageLocation.Internal,
-        onClick = { onSelect(StorageLocation.Internal) },
-        modifier = Modifier.weight(1f),
-    )
-    ChoiceCard(
-        title = str("setup.systemDir.sdCard"),
-        detail = str("setup.step.appData.description.play"),
-        glyph = "▤",
-        selected = state.systemLocation == StorageLocation.SdCard,
-        onClick = { onSelect(StorageLocation.SdCard) },
-        modifier = Modifier.weight(1f),
-    )
-    if (com.armsx2.BuildConfig.STORAGE_ALL_FILES) {
-        ChoiceCard(
-            title = str("setup.storageChooser.customShort"),
-            detail = str("setup.storageChooser.customSubtitle"),
-            glyph = "▦",
-            selected = state.systemLocation == StorageLocation.Custom,
-            onClick = onCustom,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun BiosPage(state: OnboardingUiState, compact: Boolean, onPick: () -> Unit, onSelectBios: (BiosCandidate) -> Unit) {
-    SetupPage(str("setup.page.bios.title"), str("setup.step.bios.description")) {
+private fun BiosPage(state: OnboardingUiState, onPick: () -> Unit, onSelectBios: (BiosCandidate) -> Unit) {
+    StepHeader(2, str("setup.page.bios.title"), str("setup.step.bios.description"))
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         when {
-            state.biosInfo == null -> {
-                ChoiceCard(
-                    title = str("setup.bios.selectTitle"),
-                    detail = str("setup.step.bios.description"),
-                    glyph = "◉",
-                    selected = false,
-                    onClick = onPick,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            // A folder import turned up several BIOSes — let the user pick the active
-            // one right here instead of accepting the auto-selected first entry.
+            state.biosInfo == null -> OptionCard(
+                title = str("setup.bios.selectTitle"),
+                detail = str("setup.button.choose"),
+                icon = Arc.folder,
+                selected = false,
+                onClick = onPick,
+            )
+            // A folder import turned up several BIOSes — let the user pick the active one here
+            // instead of accepting the auto-selected first entry.
             state.biosOptions.size > 1 -> {
-                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Text(
-                        "${state.biosOptions.size} ${str("setup.bios.multipleFound")}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Text(
+                    "${state.biosOptions.size} ${str("setup.bios.multipleFound")}",
+                    style = Type.footnote,
+                    color = Palette.labelSecondary,
+                )
+                state.biosOptions.forEach { candidate ->
+                    BiosRow(
+                        candidate = candidate,
+                        selected = candidate.path == state.selectedBiosPath,
+                        onClick = { onSelectBios(candidate) },
                     )
-                    state.biosOptions.forEach { candidate ->
-                        BiosOptionRow(
-                            candidate = candidate,
-                            selected = candidate.path == state.selectedBiosPath,
-                            onClick = { onSelectBios(candidate) },
-                        )
-                    }
-                    OutlinedButton(onClick = onPick, modifier = Modifier.fillMaxWidth()) { Text(str("setup.button.pickDifferentFolder")) }
                 }
+                GhostPill(str("setup.button.pickDifferentFolder"), enabled = true, onClick = onPick)
             }
             else -> {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)),
-                ) {
-                    if (compact) {
-                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            BiosDetails(state)
-                            OutlinedButton(onClick = onPick, modifier = Modifier.fillMaxWidth()) { Text(str("setup.button.pickDifferentFolder")) }
-                        }
-                    } else {
-                        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) { BiosDetails(state) }
-                            Spacer(Modifier.width(14.dp))
-                            OutlinedButton(onClick = onPick) { Text(str("setup.button.choose")) }
-                        }
-                    }
-                }
+                SelectedBios(state)
+                GhostPill(str("setup.button.pickDifferentFolder"), enabled = true, onClick = onPick)
             }
         }
         if (state.busy) {
-            Spacer(Modifier.height(18.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.width(10.dp))
-                Text(str("setup.bios.scanning"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(17.dp), strokeWidth = 2.dp, color = Palette.accentBright)
+                Spacer(Modifier.width(12.dp))
+                Text(str("setup.bios.scanning"), style = Type.footnote, color = Palette.labelSecondary)
             }
         }
     }
 }
 
 @Composable
-private fun BiosOptionRow(candidate: BiosCandidate, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            1.dp,
-            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-        ),
+private fun BiosRow(candidate: BiosCandidate, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radii.tile))
+            .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.tile))
+            .border(
+                if (selected) 1.5.dp else 1.dp,
+                if (selected) Palette.accentBright else Palette.hairline,
+                RoundedCornerShape(Radii.tile),
+            )
+            .clickable(onClick = onClick)
+            .padFocusRing(RoundedCornerShape(Radii.tile))
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(candidate.info.regionFlag, fontSize = 26.sp)
+        RegionBadge(candidate.info.regionFlag)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                candidate.name,
+                style = Type.subheadline,
+                color = Palette.label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                listOfNotNull(candidate.info.description, candidate.info.versionString).joinToString(" · "),
+                style = Type.footnote,
+                color = Palette.labelSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (selected) {
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(candidate.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    listOfNotNull(candidate.info.description, candidate.info.versionString).joinToString(" · "),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (selected) {
-                Spacer(Modifier.width(10.dp))
-                StatusChip(str("setup.status.biosSelected"), Success)
-            }
+            CheckDot()
         }
     }
 }
 
 @Composable
-private fun BiosDetails(state: OnboardingUiState, modifier: Modifier = Modifier) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Text(state.biosInfo?.regionFlag.orEmpty(), fontSize = 32.sp)
-        Spacer(Modifier.width(13.dp))
+private fun SelectedBios(state: OnboardingUiState) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radii.tile))
+            .material(MaterialLevel.Thin, RoundedCornerShape(Radii.tile))
+            .border(1.5.dp, Palette.accentBright, RoundedCornerShape(Radii.tile))
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RegionBadge(state.biosInfo?.regionFlag.orEmpty())
+        Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Text(state.biosName ?: str("setup.bios.selectTitle"), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                state.biosName ?: str("setup.bios.selectTitle"),
+                style = Type.headline,
+                color = Palette.label,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
             Text(
                 listOfNotNull(state.biosInfo?.description, state.biosInfo?.versionString).joinToString(" · "),
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                style = MaterialTheme.typography.bodySmall,
+                style = Type.footnote,
+                color = Palette.labelSecondary,
                 maxLines = 2,
             )
         }
-        StatusChip(str("setup.status.biosSelected"), Success)
+        Spacer(Modifier.width(12.dp))
+        CheckDot()
+    }
+}
+
+/** The BIOS region, set as the short code BiosInfo now returns rather than a flag emoji. */
+@Composable
+private fun RegionBadge(code: String) {
+    Box(
+        Modifier
+            .defaultMinSize(minWidth = 46.dp)
+            .clip(RoundedCornerShape(Radii.chip))
+            .background(Palette.materialThin)
+            .padding(horizontal = 9.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(code, style = Type.caption, color = Palette.label, maxLines = 1)
     }
 }
 
 @Composable
 private fun GamesPage(state: OnboardingUiState, onAdd: () -> Unit, onRemove: (String) -> Unit) {
-    SetupPage(str("setup.page.roms.title"), str("setup.step.rom.description")) {
-        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            state.gameFolders.forEach { raw ->
-                val label = Uri.parse(raw).lastPathSegment?.substringAfterLast(':')?.ifBlank { null } ?: raw
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)),
-                ) {
-                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("▦", color = MaterialTheme.colorScheme.primary, fontSize = 20.sp)
-                        Spacer(Modifier.width(12.dp))
-                        Text(label, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        TextButton(onClick = { onRemove(raw) }) { Text(str("setup.button.remove"), color = MaterialTheme.colorScheme.error) }
-                    }
-                }
-            }
-            OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                Text(if (state.gameFolders.isEmpty()) str("setup.button.pickRomsFolder") else str("setup.button.addAnotherFolder"))
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReadyPage(state: OnboardingUiState, compact: Boolean) {
-    SetupPage(str("setup.button.applyFinish"), str("games.scanningRoms")) {
-        if (compact) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SummaryCard(str("setup.step.appData.title"), when (state.systemLocation) { StorageLocation.Internal -> str("setup.storageChooser.internalShort"); StorageLocation.SdCard -> str("setup.systemDir.sdCard"); StorageLocation.Custom -> str("setup.storageChooser.customShort") })
-                SummaryCard(str("setup.step.bios.title"), state.biosInfo?.versionString ?: str("setup.status.notSelected"))
-                SummaryCard(str("setup.step.rom.title"), state.gameFolders.size.toString())
-            }
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SummaryCard(str("setup.step.appData.title"), when (state.systemLocation) { StorageLocation.Internal -> str("setup.storageChooser.internalShort"); StorageLocation.SdCard -> str("setup.systemDir.sdCard"); StorageLocation.Custom -> str("setup.storageChooser.customShort") }, Modifier.weight(1f))
-                SummaryCard(str("setup.step.bios.title"), state.biosInfo?.versionString ?: str("setup.status.notSelected"), Modifier.weight(1f))
-                SummaryCard(str("setup.step.rom.title"), state.gameFolders.size.toString(), Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun SetupPage(title: String, description: String, content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxWidth()) {
-        Text(title, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface)
-        Spacer(Modifier.height(6.dp))
-        Text(description, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(24.dp))
-        content()
-    }
-}
-
-@Composable
-private fun ChoiceCard(
-    title: String,
-    detail: String,
-    glyph: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.defaultMinSize(minHeight = 96.dp)
-            .padFocusRing(RoundedCornerShape(20.dp)),
-        shape = RoundedCornerShape(20.dp),
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-        border = BorderStroke(
-            if (selected) 2.dp else 1.dp,
-            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.42f),
-        ),
-    ) {
-        Row(Modifier.padding(horizontal = 18.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(
-                modifier = Modifier.size(56.dp),
-                shape = CircleShape,
-                color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surface,
+    StepHeader(3, str("setup.page.roms.title"), str("setup.step.rom.description"))
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        state.gameFolders.forEach { raw ->
+            val label = Uri.parse(raw).lastPathSegment?.substringAfterLast(':')?.ifBlank { null } ?: raw
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.tile))
+                    .padding(start = 18.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(glyph, color = MaterialTheme.colorScheme.primary, fontSize = 23.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                Spacer(Modifier.height(2.dp))
-                Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (selected) {
-                Spacer(Modifier.width(10.dp))
-                Text("✓", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                ArcIcon(Arc.folder, tint = Palette.accentBright, size = 19.dp)
+                Spacer(Modifier.width(16.dp))
+                Text(
+                    label,
+                    style = Type.subheadline,
+                    color = Palette.label,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    str("setup.button.remove"),
+                    style = Type.footnote,
+                    color = Palette.accentBright,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(Radii.pill))
+                        .clickable { onRemove(raw) }
+                        .padFocusRing(RoundedCornerShape(Radii.pill))
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                )
             }
         }
+        OptionCard(
+            title = if (state.gameFolders.isEmpty()) {
+                str("setup.button.pickRomsFolder")
+            } else {
+                str("setup.button.addAnotherFolder")
+            },
+            detail = str("setup.step.rom.description"),
+            icon = Arc.plus,
+            selected = false,
+            onClick = onAdd,
+        )
     }
 }
 
 @Composable
-private fun SummaryCard(title: String, value: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = 72.dp),
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.74f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.36f)),
-    ) {
-        Row(Modifier.padding(17.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            Text(value, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-        }
+private fun ReadyPage(state: OnboardingUiState) {
+    StepHeader(4, str("setup.button.applyFinish"), str("games.scanningRoms"))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        SummaryTile(
+            str("setup.step.appData.title"),
+            when (state.systemLocation) {
+                StorageLocation.Internal -> str("setup.storageChooser.internalShort")
+                StorageLocation.SdCard -> str("setup.systemDir.sdCard")
+                StorageLocation.Custom -> str("setup.storageChooser.customShort")
+            },
+            Arc.saves,
+            Modifier.weight(1f),
+        )
+        SummaryTile(
+            str("setup.step.bios.title"),
+            state.biosInfo?.versionString ?: str("setup.status.notSelected"),
+            Arc.bios,
+            Modifier.weight(1f),
+        )
+        SummaryTile(
+            str("setup.step.rom.title"),
+            state.gameFolders.size.toString(),
+            Arc.library,
+            Modifier.weight(1f),
+        )
     }
 }
 
 @Composable
-private fun NavigationBar(
-    page: Int,
-    canContinue: Boolean,
-    busy: Boolean,
-    compact: Boolean,
-    onBack: () -> Unit,
-    onNext: () -> Unit,
-) {
-    Row(
-        Modifier.fillMaxWidth().padding(
-            horizontal = 8.dp,
-            vertical = if (compact) 12.dp else 15.dp,
-        ),
-        verticalAlignment = Alignment.CenterVertically,
+private fun SummaryTile(title: String, value: String, icon: Int, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.tile))
+            .padding(18.dp),
     ) {
-        if (page > 0) {
-            // Filled, matching the primary action's height and corner radius. As a bare TextButton
-            // it read as body text next to a solid button, so on the folder steps people missed it.
-            // Tonal rather than primary keeps the forward action the obvious one.
-            Button(
-                onClick = onBack,
-                enabled = !busy,
-                modifier = Modifier.defaultMinSize(minHeight = 56.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(),
-            ) { Text(str("action.back")) }
-        } else {
-            Text(
-                str("setup.welcome.subheading"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Spacer(Modifier.weight(1f))
-        Button(
-            onClick = onNext,
-            enabled = canContinue && !busy,
-            modifier = Modifier.defaultMinSize(minHeight = 56.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-        ) {
-            if (busy) {
-                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                Spacer(Modifier.width(8.dp))
-            }
-            // "Next", not "Confirm": the welcome page literally says "Hit Next to get started", and
-            // these steps advance a wizard rather than commit anything. Reported by Rei Ayanami.
-            Text(if (page == setupStepKeys.lastIndex) str("setup.button.letsGo") else str("setup.button.next"), fontWeight = FontWeight.Bold)
-        }
+        ArcIcon(icon, tint = Palette.accentBright, size = 19.dp)
+        Spacer(Modifier.height(14.dp))
+        Text(title, style = Type.footnote, color = Palette.labelSecondary)
+        Spacer(Modifier.height(3.dp))
+        Text(value, style = Type.title3, color = Palette.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

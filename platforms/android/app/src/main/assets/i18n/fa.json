@@ -17,7 +17,7 @@
   "about.architecture": "معماری",
   "about.pageSize": "صفحه حافظه",
   "about.pcsx2.title": "پروژه PCSX2",
-  "about.pcsx2.description": "Namco System 246 EMU بر پایه شبیه‌ساز متن‌باز PCSX2 ساخته شده است.",
+  "about.pcsx2.description": "Built on PCSX2x6 (a PCSX2 fork, which brings the System 246/256 arcade support) and on ARMSX2 (the Android launcher and the ARM64 recompiler work) — both open-source projects derived from PCSX2.",
   "about.repository.description": "کد منبع، نسخه‌ها و ردیاب مشکل را باز کنید.",
   "tab.app": "برنامه",
   "tab.info": "اطلاعات",

@@ -17,12 +17,13 @@ object Branding {
     const val name = "Namco System 246 EMU"
     const val tagline = "Emulação de arcade NAMCO System 246/256 para Android."
 
-    /** The author's GitHub, the one link the About page carries. */
-    const val repository = "jessicanataliagta"
-    const val repositoryUrl = "https://github.com/jessicanataliagta"
-
-    /** Shown as text, not as a link. The emulator core is PCSX2 (LGPL/GPL), and dropping the
-     *  attribution along with the link would be wrong regardless of what the About page looks
-     *  like -- so the credit stays even though the clickable card is gone. */
-    const val basedOn = "PCSX2"
+    /**
+     * What this is built from, shown as text rather than as links.
+     *
+     * The chain is real and worth stating in full: the arcade support comes from PCSX2x6, a fork
+     * of PCSX2; the Android launcher and the ARM64 recompiler work come from ARMSX2, also built
+     * on PCSX2. All three are open source, and the credit stays whatever the About page looks
+     * like -- the emulator core is not ours to take credit for.
+     */
+    const val basedOn = "PCSX2x6 (fork do PCSX2) e ARMSX2, ambos baseados no PCSX2"
 }

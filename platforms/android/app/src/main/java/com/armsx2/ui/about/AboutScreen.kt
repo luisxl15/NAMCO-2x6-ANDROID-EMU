@@ -37,12 +37,10 @@ import com.armsx2.ui.common.ArmsTopBar
 import com.armsx2.ui.common.GlassPanel
 import com.armsx2.ui.common.RoundAction
 
-private val RepositoryUrl = com.armsx2.ui.premium.Branding.repositoryUrl
 
 @Composable
 fun AboutScreen(onBack: () -> Unit, viewModel: AboutViewModel = viewModel()) {
     val state = viewModel.state.value
-    val uriHandler = LocalUriHandler.current
     LaunchedEffect(Unit) { viewModel.load() }
 
     ArmsBackdrop {
@@ -106,13 +104,6 @@ fun AboutScreen(onBack: () -> Unit, viewModel: AboutViewModel = viewModel()) {
                         }
                         hardware(Modifier.fillMaxWidth())
                     }
-                    ProjectCard(
-                        title = str("about.repository.title"),
-                        repository = com.armsx2.ui.premium.Branding.repository,
-                        description = str("about.repository.description"),
-                        icon = Arc.library,
-                        onOpen = { uriHandler.openUri(RepositoryUrl) },
-                    )
                     Text(
                         str("about.pcsx2.description"),
                         style = MaterialTheme.typography.bodySmall,
@@ -121,58 +112,6 @@ fun AboutScreen(onBack: () -> Unit, viewModel: AboutViewModel = viewModel()) {
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ProjectCard(
-    title: String,
-    repository: String,
-    description: String,
-    @androidx.annotation.DrawableRes icon: Int,
-    modifier: Modifier = Modifier,
-    secondary: Boolean = false,
-    onOpen: () -> Unit,
-) {
-    val accent = if (secondary) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
-    Surface(
-        onClick = onOpen,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = accent.copy(alpha = 0.10f),
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.46f)),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 15.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Surface(
-                modifier = Modifier.size(48.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = accent.copy(alpha = 0.14f),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    ArcIcon(icon, tint = accent, size = 20.dp)
-                }
-            }
-            Spacer(Modifier.size(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    repository,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = accent,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            ArcIcon(Arc.external, tint = accent, size = 19.dp)
         }
     }
 }

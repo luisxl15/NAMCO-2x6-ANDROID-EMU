@@ -838,6 +838,6 @@
   "about.architecture": "아키텍처",
   "about.pageSize": "메모리 페이지",
   "about.pcsx2.title": "PCSX2 프로젝트",
-  "about.pcsx2.description": "Namco System 246 EMU는 오픈 소스 PCSX2 에뮬레이터를 기반으로 합니다.",
+  "about.pcsx2.description": "Built on PCSX2x6 (a PCSX2 fork, which brings the System 246/256 arcade support) and on ARMSX2 (the Android launcher and the ARM64 recompiler work) — both open-source projects derived from PCSX2.",
   "about.repository.description": "소스 코드, 릴리스 및 이슈 추적기를 엽니다."
 }

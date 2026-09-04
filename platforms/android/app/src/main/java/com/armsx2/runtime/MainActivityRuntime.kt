@@ -366,6 +366,31 @@ open class MainActivityRuntime : ComponentActivity() {
         }
 
         /**
+         * The bare filesystem path behind a storage document URI, or null when there is none.
+         *
+         * ExternalStorageProvider document ids are "<volume>:<relative path>", which maps onto
+         * a real path directly. Guarded on canRead() rather than exists(): under scoped storage
+         * the Java File API will still report a shared-storage file as existing while the core's
+         * fopen() gets EACCES, so exists() would hand over a path the emulator cannot open and
+         * trade one silent failure for another. Without the read, the content URI is kept and
+         * the ordinary (non-arcade) loader path handles it.
+         */
+        fun resolveDocumentUriToPosix(uriString: String?): String? {
+            val raw = uriString ?: return null
+            if (!raw.startsWith("content://")) return null
+            val uri = runCatching { raw.toUri() }.getOrNull() ?: return null
+            if (uri.authority != "com.android.externalstorage.documents") return null
+            val docId = runCatching {
+                android.provider.DocumentsContract.getDocumentId(uri)
+            }.getOrNull() ?: return null
+            val parts = docId.split(":", limit = 2)
+            if (parts.size != 2) return null
+            val (volumeId, relPath) = parts
+            val path = if (volumeId == "primary") "/storage/emulated/0/$relPath" else "/storage/$volumeId/$relPath"
+            return path.takeIf { runCatching { File(it).canRead() }.getOrDefault(false) }
+        }
+
+        /**
          * Probe the resolved POSIX path for emucore-compatible write
          * access. Creates a `.armsx2-write-probe` file, deletes it,
          * returns true on success.
@@ -1024,7 +1049,14 @@ open class MainActivityRuntime : ComponentActivity() {
             // onVmRunning once the game's CRC is set). Set here — not in start() — so
             // a manual Reset Game (which re-enters start() directly) doesn't re-load.
             pendingAutoLoadOnBoot = prefs.getBoolean("autoLoadOnBoot", false)
-            m_szGamefile = uri
+            // Hand the core a real path whenever one exists behind the URI. An arcade .acgame
+            // is not a self-contained file: the loader takes its DIRECTORY and looks there for
+            // the dongle, the CHD and the boot ELF. Given a SAF document URI it derives a
+            // basedir that exists nowhere ("content:/…/document/NM00004"), finds no dongle and
+            // stops -- which is a black screen with no error for the player. The file:// case
+            // was already unwrapped by each caller; this covers the content:// one in the one
+            // place every caller passes through.
+            m_szGamefile = resolveDocumentUriToPosix(uri) ?: uri
             synchronized(vmLifecycleLock) {
                 if (eState.value != EmuState.STOPPED || vmStopInProgress || vmRunLoopActive) {
                     vmRestartAfterStop = true
