@@ -59,6 +59,11 @@ object ArcadeBios {
         "NM00002" to Rule("este jogo trava com a BIOS oficial COH-H (A-000-010)") { isOfficialSonyCohH(it) },
     )
 
+    /** The games a rule speaks for. Exposed so a test can check each one against the shipped
+     *  compatibility list -- a rule whose note has disappeared from the tracker is acting on
+     *  something nobody documents any more. */
+    internal val ruledGames: Set<String> get() = RULES.keys
+
     /** What to do about the BIOS for this boot. */
     sealed interface Decision {
         /** Nothing known against the current choice. */

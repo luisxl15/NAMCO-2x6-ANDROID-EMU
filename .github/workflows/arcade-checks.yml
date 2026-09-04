@@ -1,0 +1,79 @@
+# Fast checks for the arcade fork.
+#
+# This is deliberately NOT another APK build. The upstream pipeline (build-all.yml) already
+# compiles the Android target on every push, and duplicating a two-hour native build in this fork
+# would cost twice as much and tell us nothing new.
+#
+# What it does not do is run a single test, and the arcade layer's characteristic failure is a
+# silent one: a bad merge leaves the manifest writer guessing the board again, or the
+# compatibility asset parsing as empty, and the app still builds, still installs, still opens --
+# it just quietly stops knowing things. That is what this job catches, in about two minutes of
+# JVM time, with no device and no game.
+#
+# Deliberately a NEW FILE rather than a step added to build-all.yml: FORK.md's first rule. A file
+# upstream does not have can never conflict with upstream.
+name: Arcade checks
+
+on:
+  push:
+    paths:
+      - 'platforms/android/**'
+      - '.github/workflows/arcade-checks.yml'
+  pull_request:
+    paths:
+      - 'platforms/android/**'
+      - '.github/workflows/arcade-checks.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: arcade-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Arcade unit tests (JVM)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: platforms/android
+    steps:
+      # No submodules: nothing here compiles native code.
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      # Even a JVM-only task configures the Android extension, which resolves ndkVersion. Same
+      # versions build-all.yml installs: the NDK default AGP picks, and the CMake pinned in
+      # build.gradle.kts.
+      - name: Install NDK + CMake
+        run: yes | sdkmanager "ndk;28.2.13676358" "cmake;3.31.6" >/dev/null || true
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('platforms/android/**/*.gradle.kts', 'platforms/android/gradle/libs.versions.toml') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      # The boot chain's Kotlin half: .acgame manifest generation, the compatibility list (both
+      # the parse and the file we actually ship), and the BIOS rules that stop a known-bad boot.
+      - name: Run unit tests
+        run: ./gradlew --no-daemon :app:testGithubDebugUnitTest
+
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: arcade-test-report
+          path: platforms/android/app/build/reports/tests/testGithubDebugUnitTest
+          if-no-files-found: warn

@@ -56,8 +56,17 @@ object ArcadeCompat {
     }
 
     private fun parse(context: Context): Map<String, Entry> = runCatching {
-        val text = context.assets.open("compat/arcade_compat.json")
-            .bufferedReader().use { it.readText() }
+        parseJson(context.assets.open("compat/arcade_compat.json").bufferedReader().use { it.readText() })
+    }.getOrDefault(emptyMap())
+
+    /**
+     * The parse, separated from where the bytes come from so it can be tested on the JVM.
+     *
+     * Worth testing: a silent parse failure here degrades to "no badge, no note, and the add-game
+     * wizard guessing the board again", which looks like a missing feature rather than a broken
+     * asset. That is exactly the shape of bug an upstream merge introduces and nobody notices.
+     */
+    internal fun parseJson(text: String): Map<String, Entry> = runCatching {
         val games = JSONObject(text).optJSONObject("games") ?: return emptyMap()
         buildMap {
             games.keys().forEach { id ->

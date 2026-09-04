@@ -415,6 +415,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
 
     testImplementation(libs.junit)
+    // The real org.json on the unit-test classpath. Android's stub jar throws "Stub!" from every
+    // method, and our JSON parse is wrapped in runCatching, so without this the compatibility
+    // list would silently parse as empty in tests -- the exact failure the tests exist to catch.
+    testImplementation("org.json:json:20231013")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     debugImplementation(libs.androidx.compose.ui.tooling)

@@ -101,6 +101,21 @@ git merge armsx2-upstream/main          # or rebase, if you prefer a linear hist
 ```
 
 Resolve only the files the report listed. For each, this document says what we put there; keep
-our hook and take upstream's surrounding changes. Then build both ABIs and boot one arcade game
-end to end — the boot chain (dongle staged → ACATA opens the CHD → `proverb.elf` loads → SRAM
-found) is what a bad merge breaks first, and it breaks silently.
+our hook and take upstream's surrounding changes. Then:
+
+```bash
+cd platforms/android && ./gradlew :app:testGithubDebugUnitTest
+```
+
+Those tests exist because the boot chain (dongle staged -> ACATA opens the CHD -> `proverb.elf`
+loads -> SRAM found) is what a bad merge breaks first, and it breaks *silently*: the app still
+builds, still installs, still opens. They cover the half of that chain which is ordinary Kotlin
+and needs no device -- the `.acgame` the wizard writes, the compatibility list (the parse and the
+asset we actually ship), and the BIOS rules -- so a merge that reverts one of them fails the build
+instead of waiting for someone to notice a black screen. `.github/workflows/arcade-checks.yml`
+runs the same command on every push that touches `platforms/android/`; it is a new file, not a
+step bolted onto upstream's `build-all.yml`, and it does not rebuild the APK because upstream's
+pipeline already does.
+
+The other half is native and still needs a device: build the APK and boot one arcade game end to
+end.
