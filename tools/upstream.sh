@@ -16,7 +16,8 @@ set -euo pipefail
 # The upstream commit this fork's own work starts from. Everything after it is ours.
 FORK_BASE="6e1e8f0a18f2f5bbcd2e75344d89ff6ba03b5616"
 
-case "${1:-armsx2}" in
+MODE="${1:-armsx2}"
+case "$MODE" in
   armsx2)  REMOTE="armsx2-upstream"; URL="https://github.com/ARMSX2/ARMSX2.git"; BRANCH="main" ;;
   pcsx2x6) REMOTE="pcsx2x6-upstream"; URL="https://github.com/PS2Homebrew-arcade/pcsx2x6.git"; BRANCH="master" ;;
   *) echo "uso: $0 [armsx2|pcsx2x6]" >&2; exit 2 ;;
@@ -29,6 +30,44 @@ echo "buscando $REMOTE ..."
 # The branch may be named differently; try the configured one, then the remote's HEAD.
 git fetch --quiet "$REMOTE" "$BRANCH" 2>/dev/null || git fetch --quiet "$REMOTE"
 UP="$(git rev-parse --verify --quiet "$REMOTE/$BRANCH" || git rev-parse "$REMOTE/HEAD")"
+
+# pcsx2x6 is NOT an ancestor of this tree. It and ARMSX2 are separate forks of PCSX2, so
+# diffing our fork point against pcsx2x6's tip compares two different histories and reports ten
+# thousand "changed" files -- true, and useless. What we actually take from pcsx2x6 is the arcade
+# delta, so the question there is "what changed in the arcade code since we transplanted it".
+# That needs a recorded pcsx2x6 commit and a path filter; both live below.
+ARCADE_PATHS=(
+  "pcsx2/DEV9"
+  "pcsx2/VMManager.cpp"
+  "pcsx2/IopBios.cpp" "pcsx2/IopMem.cpp" "pcsx2/IopModuleNames.cpp" "pcsx2/IopHw.h"
+  "pcsx2/Input/InputManager.cpp" "pcsx2/USB/usb-lightgun/guncon2.cpp"
+  "pcsx2/GameList.cpp" "pcsx2/Config.h" "pcsx2/Pcsx2Config.cpp"
+  "bin/resources/GameIndex.yaml"
+)
+if [ "$MODE" = "pcsx2x6" ]; then
+  STAMP="$(dirname "$0")/pcsx2x6-base.txt"
+  if [ ! -f "$STAMP" ]; then
+    echo "$UP" > "$STAMP"
+    echo "Primeira execucao: gravei $UP em $(basename "$STAMP")."
+    echo "Daqui para a frente este relatorio mostra o que mudou no codigo de arcade desde agora."
+    echo "Se voce sabe de qual commit do pcsx2x6 o transplante veio, coloque-o nesse arquivo."
+    exit 0
+  fi
+  FROM="$(tr -d '[:space:]' < "$STAMP")"
+  echo
+  echo "arcade do pcsx2x6, de $FROM ate $(git log -1 --format='%h %ad' --date=short "$UP")"
+  echo
+  CHANGED="$(git diff --name-only "$FROM".."$UP" -- "${ARCADE_PATHS[@]}" 2>/dev/null || true)"
+  if [ -z "$CHANGED" ]; then
+    echo "Nada mudou no codigo de arcade nesse intervalo."
+    exit 0
+  fi
+  git diff --numstat "$FROM".."$UP" -- "${ARCADE_PATHS[@]}" |
+    awk '{ printf "%6d  %s", $1+$2, $3; print "" }' | sort -rn
+  echo
+  echo "FORK.md diz o que cada um desses arquivos carrega do nosso lado."
+  exit 0
+fi
 
 # Files this fork modified in files that already existed upstream. Added files are ours alone
 # and can never conflict, so they are deliberately not counted here.
