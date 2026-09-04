@@ -171,14 +171,14 @@ private fun TopBar(onOpenMenu: () -> Unit, onSettings: () -> Unit) {
         Spacer(Modifier.weight(1f))
         Text(clock, style = Type.headline, color = Palette.label)
         Spacer(Modifier.width(14.dp))
-        GlyphButton("⚙", onSettings)
+        GlyphButton(Arc.settings, onSettings)
         Spacer(Modifier.width(8.dp))
-        GlyphButton("☰", onOpenMenu)
+        GlyphButton(Arc.menu, onOpenMenu)
     }
 }
 
 @Composable
-private fun GlyphButton(glyph: String, onClick: () -> Unit) {
+private fun GlyphButton(@androidx.annotation.DrawableRes icon: Int, onClick: () -> Unit) {
     Box(
         Modifier
             .size(38.dp)
@@ -186,7 +186,7 @@ private fun GlyphButton(glyph: String, onClick: () -> Unit) {
             .clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        Text(glyph, color = Palette.labelSecondary, fontSize = 17.sp)
+        ArcIcon(icon, tint = Palette.labelSecondary, size = 19.dp)
     }
 }
 
@@ -254,7 +254,7 @@ private fun PlayButton(onPlay: () -> Unit) {
             .padding(horizontal = 26.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("▶", color = Color.White, fontSize = 14.sp)
+        ArcIcon(Arc.play, tint = Color.White, size = 15.dp)
         Spacer(Modifier.width(9.dp))
         Text("Jogar", style = Type.headline, color = Color.White)
     }
@@ -304,16 +304,16 @@ private fun RecentRow(games: List<GameInfo>, selectedIndex: Int, onSelect: (Int)
 @Composable
 private fun DestinationRow(onLibrary: () -> Unit, onNavigate: (AppRoute) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Destination("Biblioteca", "▦", Modifier.weight(1f)) { onLibrary() }
-        Destination("Memory Cards", "▤", Modifier.weight(1f)) { onNavigate(AppRoute.MemoryCardManager()) }
-        Destination("BIOS", "◈", Modifier.weight(1f)) { onNavigate(AppRoute.BiosManager()) }
-        Destination("Controles", "◎", Modifier.weight(1f)) { onNavigate(AppRoute.ControllerManager) }
-        Destination("Saves", "▧", Modifier.weight(1f)) { onNavigate(AppRoute.SaveManager) }
+        Destination("Biblioteca", Arc.library, Modifier.weight(1f)) { onLibrary() }
+        Destination("Memory Cards", Arc.memcard, Modifier.weight(1f)) { onNavigate(AppRoute.MemoryCardManager()) }
+        Destination("BIOS", Arc.bios, Modifier.weight(1f)) { onNavigate(AppRoute.BiosManager()) }
+        Destination("Controles", Arc.controls, Modifier.weight(1f)) { onNavigate(AppRoute.ControllerManager) }
+        Destination("Saves", Arc.saves, Modifier.weight(1f)) { onNavigate(AppRoute.SaveManager) }
     }
 }
 
 @Composable
-private fun Destination(label: String, glyph: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun Destination(label: String, @androidx.annotation.DrawableRes icon: Int, modifier: Modifier = Modifier, onClick: () -> Unit) {
     var pressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         if (pressed) 0.97f else 1f,
@@ -327,7 +327,7 @@ private fun Destination(label: String, glyph: String, modifier: Modifier = Modif
             .padding(horizontal = 14.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(glyph, color = Palette.accentBright, fontSize = 16.sp)
+        ArcIcon(icon, tint = Palette.accentBright, size = 18.dp)
         Spacer(Modifier.width(9.dp))
         Text(label, style = Type.footnote, color = Palette.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }

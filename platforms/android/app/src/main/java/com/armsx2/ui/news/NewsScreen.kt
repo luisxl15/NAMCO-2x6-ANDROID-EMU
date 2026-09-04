@@ -1,5 +1,6 @@
 package com.armsx2.ui.news
 
+import com.armsx2.ui.premium.Arc
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
@@ -58,11 +59,11 @@ fun NewsScreen(onBack: () -> Unit, viewModel: NewsViewModel = viewModel()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             ArmsTopBar(
                 title = str("news.title"),
-                leading = { RoundAction("←", str("action.back"), onBack) },
+                leading = { RoundAction(Arc.back, str("action.back"), onBack) },
                 actions = {
                     // Named, not a trailing lambda: RoundAction's last parameter is glyphColor, so
                     // a trailing lambda binds there rather than to onClick.
-                    RoundAction("⟳", str("news.refresh"), onClick = { viewModel.load(force = true) })
+                    RoundAction(Arc.refresh, str("news.refresh"), onClick = { viewModel.load(force = true) })
                 },
             )
 

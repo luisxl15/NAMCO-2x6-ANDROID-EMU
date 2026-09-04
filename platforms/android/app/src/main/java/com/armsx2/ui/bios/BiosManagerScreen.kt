@@ -1,5 +1,6 @@
 package com.armsx2.ui.bios
 
+import com.armsx2.ui.premium.Arc
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -82,7 +83,7 @@ fun BiosManagerScreen(onBack: () -> Unit, game: GameInfo? = null, viewModel: Bio
         ) {
             ArmsTopBar(
                 title = str("setup.page.bios.title"),
-                leading = { RoundAction("←", str("action.back"), onBack) },
+                leading = { RoundAction(Arc.back, str("action.back"), onBack) },
                 actions = {
                     var actionsAnchor by remember {
                         mutableStateOf(androidx.compose.ui.geometry.Offset.Zero)
@@ -98,7 +99,7 @@ fun BiosManagerScreen(onBack: () -> Unit, game: GameInfo? = null, viewModel: Bio
                         },
                     ) {
                         RoundAction(
-                            glyph = "⋮",
+                            icon = Arc.more,
                             description = str("games.toolbar.more"),
                             onClick = { actionsMenuExpanded = true },
                             selected = actionsMenuExpanded,

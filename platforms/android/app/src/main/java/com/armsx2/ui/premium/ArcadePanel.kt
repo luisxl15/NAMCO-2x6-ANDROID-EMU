@@ -90,9 +90,23 @@ fun ArcadePanel(modifier: Modifier = Modifier) {
                     runCatching { NativeApp.jvsToggleDipSwitch(DIP_TEST) }
                     testOn = runCatching { NativeApp.jvsGetDipSwitchState(DIP_TEST) }.getOrDefault(!testOn)
                 }
-                Chip("✕", accent = false) { expanded = false }
+                IconChip(Arc.close) { expanded = false }
             }
         }
+    }
+}
+
+/** Chip variant carrying an icon instead of a word — the close affordance. */
+@Composable
+private fun IconChip(@androidx.annotation.DrawableRes icon: Int, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(Radii.pill))
+            .material(MaterialLevel.Thick, RoundedCornerShape(Radii.pill))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        ArcIcon(icon, tint = Palette.label, size = 14.dp)
     }
 }
 

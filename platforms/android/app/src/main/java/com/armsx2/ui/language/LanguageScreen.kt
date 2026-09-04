@@ -1,5 +1,6 @@
 package com.armsx2.ui.language
 
+import com.armsx2.ui.premium.Arc
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -52,7 +53,7 @@ fun LanguageScreen(
                 ArmsTopBar(
                     title = str("app.language"),
                     subtitle = str("app.language.desc"),
-                    leading = { RoundAction("←", str("action.back"), onBack) },
+                    leading = { RoundAction(Arc.back, str("action.back"), onBack) },
                 )
                 I18n.languages.forEach { language ->
                     val selected = language.code == I18n.selected

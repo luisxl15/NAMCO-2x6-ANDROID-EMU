@@ -126,17 +126,17 @@ fun ArmsBackdrop(
 @Composable
 fun ArmsLogo(modifier: Modifier = Modifier, showWordmark: Boolean = true, iconSize: Dp = 42.dp) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        // The ARMSX2 tower mark (bagas's logo), circle-cropped so its dark square
-        // corners don't show — matches the round hero render.
+        // The System 246/256 wordmark the launcher already leads with, rather than a separate
+        // app mark: one identity across the home screen, the About page and the task switcher.
         Image(
-            painter = painterResource(id = R.drawable.savetowerforeground),
-            contentDescription = "ARMSX2",
-            modifier = Modifier.size(iconSize).clip(CircleShape),
+            painter = painterResource(id = R.drawable.namco_2x6),
+            contentDescription = com.armsx2.ui.premium.Branding.name,
+            modifier = Modifier.height(iconSize * 0.72f),
         )
         if (showWordmark) {
             Spacer(Modifier.width(12.dp))
             Text(
-                text = "ARMSX2",
+                text = com.armsx2.ui.premium.Branding.name,
                 color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Black,
@@ -269,7 +269,7 @@ fun GlassPanel(
 
 @Composable
 fun RoundAction(
-    glyph: String,
+    @androidx.annotation.DrawableRes icon: Int,
     description: String,
     onClick: () -> Unit,
     selected: Boolean = false,
@@ -320,29 +320,15 @@ fun RoundAction(
         border = actionBorder,
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(
-                // Empirical nudge. Font metrics alone don't land these glyphs on the optical
-                // centre: arrows and symbols like ← ↺ ⌕ carry no descender, so their ink sits
-                // above the baseline-derived box centre and they read low once the box itself is
-                // centred. Removing the font padding (below) fixes the box; this fixes the ink.
-                // Tuned against the back arrow, which is the most-looked-at of the set.
-                modifier = Modifier.offset(y = (-1.5).dp),
-                text = glyph,
-                color = glyphColor
+            // A drawn icon rather than a text glyph. The old version needed an empirical vertical
+            // nudge and three font sizes keyed off string length, because a symbol character sits
+            // wherever the device font puts it relative to the baseline. A vector on a 24dp grid
+            // is centred by its own bounds, so it just lands.
+            com.armsx2.ui.premium.ArcIcon(
+                icon,
+                tint = glyphColor
                     ?: if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                fontSize = when {
-                    glyph.length >= 3 -> 13.sp
-                    glyph.length == 2 -> 18.sp
-                    else -> 22.sp
-                },
-                fontWeight = FontWeight.Bold,
-                // The Box centres the text's LAYOUT BOX, but Android pads that box with the
-                // font's full ascent/descent by default, so a glyph with no descender (←, ↑, ⌕)
-                // doesn't land where the eye expects. Dropping the font padding is the part of
-                // this that is unambiguously right. A first attempt also added
-                // LineHeightStyle(Center + Trim.Both) on top, which overshot and pushed the
-                // arrow BELOW centre — trimming the leading and re-centring double-corrects.
-                style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)),
+                size = buttonSize * 0.46f,
             )
         }
     }

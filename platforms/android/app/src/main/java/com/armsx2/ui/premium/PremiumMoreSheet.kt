@@ -36,26 +36,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.armsx2.navigation.AppRoute
 
-private data class MoreItem(val label: String, val glyph: String, val route: AppRoute)
+private data class MoreItem(val label: String, @androidx.annotation.DrawableRes val icon: Int, val route: AppRoute)
 private data class MoreGroup(val title: String, val items: List<MoreItem>)
 
 private val GROUPS = listOf(
     MoreGroup(
         "SISTEMA",
         listOf(
-            MoreItem("Configurações", "⚙", AppRoute.Settings()),
-            MoreItem("BIOS", "◈", AppRoute.BiosManager()),
-            MoreItem("Memory Cards", "▤", AppRoute.MemoryCardManager()),
-            MoreItem("Controles", "◎", AppRoute.ControllerManager),
-            MoreItem("Saves", "▧", AppRoute.SaveManager),
+            MoreItem("Configurações", Arc.settings, AppRoute.Settings()),
+            MoreItem("BIOS", Arc.bios, AppRoute.BiosManager()),
+            MoreItem("Memory Cards", Arc.memcard, AppRoute.MemoryCardManager()),
+            MoreItem("Controles", Arc.controls, AppRoute.ControllerManager),
+            MoreItem("Saves", Arc.saves, AppRoute.SaveManager),
         ),
     ),
     MoreGroup(
         "CONTEÚDO",
         listOf(
-            MoreItem("Capas", "▣", AppRoute.Artwork),
-            MoreItem("Patches", "✦", AppRoute.PatchManager),
-            MoreItem("Texturas", "▩", AppRoute.TextureManager),
+            MoreItem("Capas", Arc.artwork, AppRoute.Artwork),
+            MoreItem("Patches", Arc.patches, AppRoute.PatchManager),
+            MoreItem("Texturas", Arc.textures, AppRoute.TextureManager),
         ),
     ),
     // No News, Friends or Retro Achievements: all three are online account services built around
@@ -64,8 +64,8 @@ private val GROUPS = listOf(
     MoreGroup(
         "APP",
         listOf(
-            MoreItem("Idioma", "◐", AppRoute.Language),
-            MoreItem("Sobre", "ⓘ", AppRoute.About),
+            MoreItem("Idioma", Arc.language, AppRoute.Language),
+            MoreItem("Sobre", Arc.info, AppRoute.About),
         ),
     ),
 )
@@ -149,7 +149,8 @@ private fun MoreRow(item: MoreItem, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start,
     ) {
-        Text(item.glyph, color = Palette.accentBright, fontSize = 16.sp, modifier = Modifier.width(30.dp))
+        ArcIcon(item.icon, tint = Palette.accentBright, size = 19.dp)
+        Spacer(Modifier.width(14.dp))
         Text(item.label, style = Type.body, color = Palette.label)
     }
 }

@@ -55,6 +55,8 @@ import com.armsx2.ui.theme.LibraryBackgroundColorPreferences
 import com.armsx2.ui.theme.LibraryChromePreferences
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import com.armsx2.ui.premium.Arc
+import com.armsx2.ui.premium.ArcIcon
 import com.armsx2.ui.premium.Palette
 import com.armsx2.ui.premium.Type
 import java.io.File
@@ -261,7 +263,7 @@ fun AppTab() {
                                 RoundedCornerShape(11.dp),
                                 onConfirm = up,
                             ),
-                        ) { Text("▲") }
+                        ) { ArcIcon(Arc.chevronUp, tint = Palette.label, size = 15.dp) }
                         Spacer(Modifier.width(6.dp))
                         OutlinedButton(
                             onClick = down,
@@ -271,7 +273,7 @@ fun AppTab() {
                                 RoundedCornerShape(11.dp),
                                 onConfirm = down,
                             ),
-                        ) { Text("▼") }
+                        ) { ArcIcon(Arc.chevronDown, tint = Palette.label, size = 15.dp) }
                     }
                 }
             }
@@ -609,7 +611,7 @@ private fun DisclosureRow(id: String, label: String, value: String, onClick: () 
             Text(label, style = Type.body, color = Palette.label, modifier = Modifier.weight(1f))
             Text(value, style = Type.callout, color = Palette.labelSecondary)
             Spacer(Modifier.width(6.dp))
-            Text("›", color = Palette.labelTertiary, fontSize = 20.sp)
+            ArcIcon(Arc.chevronRight, tint = Palette.labelTertiary, size = 15.dp)
         }
     }
 }

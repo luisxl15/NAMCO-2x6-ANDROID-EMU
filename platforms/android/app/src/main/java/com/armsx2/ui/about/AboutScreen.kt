@@ -1,5 +1,6 @@
 package com.armsx2.ui.about
 
+import com.armsx2.ui.premium.Arc
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,13 +30,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.armsx2.i18n.str
+import com.armsx2.ui.premium.ArcIcon
 import com.armsx2.ui.common.ArmsBackdrop
 import com.armsx2.ui.common.ArmsLogo
 import com.armsx2.ui.common.ArmsTopBar
 import com.armsx2.ui.common.GlassPanel
 import com.armsx2.ui.common.RoundAction
 
-private const val RepositoryUrl = "https://github.com/ARMSX2/ARMSX2"
+private val RepositoryUrl = com.armsx2.ui.premium.Branding.repositoryUrl
 private const val Pcsx2RepositoryUrl = "https://github.com/PCSX2/pcsx2"
 
 @Composable
@@ -48,7 +50,7 @@ fun AboutScreen(onBack: () -> Unit, viewModel: AboutViewModel = viewModel()) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             ArmsTopBar(
                 title = str("about.title"),
-                leading = { RoundAction("←", str("action.back"), onBack) },
+                leading = { RoundAction(Arc.back, str("action.back"), onBack) },
             )
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val compact = maxWidth < 760.dp
@@ -108,16 +110,16 @@ fun AboutScreen(onBack: () -> Unit, viewModel: AboutViewModel = viewModel()) {
                     if (compact) {
                         ProjectCard(
                             title = str("about.repository.title"),
-                            repository = "ARMSX2/ARMSX2",
+                            repository = com.armsx2.ui.premium.Branding.repository,
                             description = str("about.repository.description"),
-                            glyph = "⌘",
+                            icon = Arc.library,
                             onOpen = { uriHandler.openUri(RepositoryUrl) },
                         )
                         ProjectCard(
                             title = str("about.pcsx2.title"),
                             repository = "PCSX2/pcsx2",
                             description = str("about.pcsx2.description"),
-                            glyph = "PS2",
+                            icon = Arc.pcsx2,
                             secondary = true,
                             onOpen = { uriHandler.openUri(Pcsx2RepositoryUrl) },
                         )
@@ -125,9 +127,9 @@ fun AboutScreen(onBack: () -> Unit, viewModel: AboutViewModel = viewModel()) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             ProjectCard(
                                 title = str("about.repository.title"),
-                                repository = "ARMSX2/ARMSX2",
+                                repository = com.armsx2.ui.premium.Branding.repository,
                                 description = str("about.repository.description"),
-                                glyph = "⌘",
+                                icon = Arc.library,
                                 modifier = Modifier.weight(1f),
                                 onOpen = { uriHandler.openUri(RepositoryUrl) },
                             )
@@ -135,7 +137,7 @@ fun AboutScreen(onBack: () -> Unit, viewModel: AboutViewModel = viewModel()) {
                                 title = str("about.pcsx2.title"),
                                 repository = "PCSX2/pcsx2",
                                 description = str("about.pcsx2.description"),
-                                glyph = "PS2",
+                                icon = Arc.pcsx2,
                                 modifier = Modifier.weight(1f),
                                 secondary = true,
                                 onOpen = { uriHandler.openUri(Pcsx2RepositoryUrl) },
@@ -168,7 +170,7 @@ private fun ProjectCard(
     title: String,
     repository: String,
     description: String,
-    glyph: String,
+    @androidx.annotation.DrawableRes icon: Int,
     modifier: Modifier = Modifier,
     secondary: Boolean = false,
     onOpen: () -> Unit,
@@ -191,7 +193,7 @@ private fun ProjectCard(
                 color = accent.copy(alpha = 0.14f),
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(glyph, color = accent, fontSize = if (glyph.length > 2) 13.sp else 22.sp, fontWeight = FontWeight.Bold)
+                    ArcIcon(icon, tint = accent, size = 20.dp)
                 }
             }
             Spacer(Modifier.size(12.dp))
@@ -210,7 +212,7 @@ private fun ProjectCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text("↗", color = accent, fontSize = 22.sp)
+            ArcIcon(Arc.external, tint = accent, size = 19.dp)
         }
     }
 }

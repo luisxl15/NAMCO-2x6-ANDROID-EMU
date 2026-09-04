@@ -1,5 +1,6 @@
 package com.armsx2.ui.controls
 
+import com.armsx2.ui.premium.Arc
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -63,8 +64,8 @@ fun ControllerManagerScreen(onBack: () -> Unit, viewModel: ControllerManagerView
             ArmsTopBar(
                 title = str("tab.controls"),
                 subtitle = str("pad.editing.description"),
-                leading = { RoundAction("←", str("action.back"), onBack) },
-                actions = { RoundAction("↺", str("action.reset"), viewModel::resetPlayer) },
+                leading = { RoundAction(Arc.back, str("action.back"), onBack) },
+                actions = { RoundAction(Arc.reset, str("action.reset"), viewModel::resetPlayer) },
             )
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val compact = maxWidth < 840.dp

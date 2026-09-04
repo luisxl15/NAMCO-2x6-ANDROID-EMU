@@ -35,6 +35,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.ui.draw.drawBehind
+import com.armsx2.ui.premium.Arc
+import com.armsx2.ui.premium.ArcIcon
 import com.armsx2.ui.premium.Palette
 import com.armsx2.ui.premium.Radii
 import com.armsx2.ui.premium.Type
@@ -616,7 +618,7 @@ fun CollapsibleSection(
         // All-caps eyebrow, the way a grouped list sets its group headers — quiet enough that
         // the settings themselves stay the loudest thing on the page.
         Text(title.uppercase(), style = Type.eyebrow, color = Palette.labelTertiary, modifier = Modifier.weight(1f))
-        Text(if (expanded) "▾" else "▸", color = Palette.labelTertiary, fontSize = 13.sp)
+        ArcIcon(if (expanded) Arc.chevronDown else Arc.chevronRight, tint = Palette.labelTertiary, size = 14.dp)
     }
     // Collapsed content is not composed at all, so its rows also drop out of the controller-focus
     // registry — a pad cannot land on a setting the user cannot see.
@@ -1213,7 +1215,7 @@ internal fun InfoHint(title: String, message: String) {
             .clickable { open = true },
         contentAlignment = Alignment.Center,
     ) {
-        Text("ⓘ", color = Palette.labelTertiary, fontSize = 15.sp)
+        ArcIcon(Arc.info, tint = Palette.labelTertiary, size = 16.dp)
     }
     if (open) {
         androidx.compose.runtime.DisposableEffect(Unit) {

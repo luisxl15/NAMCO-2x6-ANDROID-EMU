@@ -85,7 +85,7 @@ fun PremiumArtwork(
                         .padding(horizontal = 16.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("‹", color = Palette.labelSecondary, fontSize = 18.sp)
+                    ArcIcon(Arc.chevronLeft, tint = Palette.labelSecondary, size = 16.dp)
                     Spacer(Modifier.width(7.dp))
                     Text("Início", style = Type.footnote, color = Palette.labelSecondary)
                 }

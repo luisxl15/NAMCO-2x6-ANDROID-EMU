@@ -1,5 +1,6 @@
 package com.armsx2.ui.saves
 
+import com.armsx2.ui.premium.Arc
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -130,11 +131,11 @@ fun SaveStatePickerScreen(mode: SaveMode, onBack: () -> Unit) {
             ArmsTopBar(
                 title = if (mode == SaveMode.Save) str("savestate.title.save")
                 else str("savestate.title.loadManage"),
-                leading = { RoundAction("←", str("action.back"), onBack, controllerId = "save.back") },
+                leading = { RoundAction(Arc.back, str("action.back"), onBack, controllerId = "save.back") },
                 actions = {
-                    RoundAction("⤓", str("savestate.import"), onClick = { importLauncher.launch(arrayOf("*/*")) }, controllerId = "save.import")
+                    RoundAction(Arc.importFile, str("savestate.import"), onClick = { importLauncher.launch(arrayOf("*/*")) }, controllerId = "save.import")
                     RoundAction(
-                        "⊖",
+                        Arc.delete,
                         str("savestate.delete.mode"),
                         onClick = { deleteMode = !deleteMode; notice = null; failure = null },
                         selected = deleteMode,

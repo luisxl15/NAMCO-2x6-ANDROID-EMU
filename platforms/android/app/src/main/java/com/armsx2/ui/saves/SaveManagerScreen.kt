@@ -1,5 +1,6 @@
 package com.armsx2.ui.saves
 
+import com.armsx2.ui.premium.Arc
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -64,13 +65,13 @@ fun SaveManagerScreen(onBack: () -> Unit, viewModel: SaveManagerViewModel = view
             item {
                 ArmsTopBar(
                     title = str("savestate.title.loadManage"),
-                    leading = { RoundAction("←", str("action.back"), onBack) },
+                    leading = { RoundAction(Arc.back, str("action.back"), onBack) },
                     actions = {
-                        RoundAction("⤓", str("savestate.import"), onClick = { importLauncher.launch(arrayOf("*/*")) })
+                        RoundAction(Arc.importFile, str("savestate.import"), onClick = { importLauncher.launch(arrayOf("*/*")) })
                         if (state.saves.isNotEmpty()) {
-                            RoundAction("▣", str("savestate.backup"), viewModel::backupAll)
+                            RoundAction(Arc.archive, str("savestate.backup"), viewModel::backupAll)
                         }
-                        RoundAction("↻", str("games.card.refresh"), viewModel::refresh)
+                        RoundAction(Arc.refresh, str("games.card.refresh"), viewModel::refresh)
                     },
                     horizontalPadding = 0.dp,
                 )

@@ -1,5 +1,6 @@
 package com.armsx2.ui.home
 
+import com.armsx2.ui.premium.Arc
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.foundation.layout.heightIn
@@ -451,7 +452,7 @@ fun HomeScreen(
                     },
                     leading = {
                         RoundAction(
-                            "☰",
+                            Arc.menu,
                             str("games.overflow.openNavigation"),
                             onOpenMenu,
                             selected = tb && tbi == 0,
@@ -475,7 +476,7 @@ fun HomeScreen(
                                 android.content.res.Configuration.ORIENTATION_PORTRAIT,
                         )
                         RoundAction(
-                            "↻",
+                            Arc.refresh,
                             str("games.card.refresh"),
                             viewModel::refresh,
                             selected = tb && tbi == 1,
@@ -483,9 +484,9 @@ fun HomeScreen(
                         )
                         RoundAction(
                             when (state.layout) {
-                                LibraryLayout.Grid -> "☷"
-                                LibraryLayout.List -> "▦"
-                                LibraryLayout.Shelf -> "▤"
+                                LibraryLayout.Grid -> Arc.library
+                                LibraryLayout.List -> Arc.list
+                                LibraryLayout.Shelf -> Arc.shelf
                             },
                             str("games.toolbar.rows"),
                             viewModel::toggleLayout,
@@ -506,7 +507,7 @@ fun HomeScreen(
                             },
                         ) {
                             RoundAction(
-                                "⋮",
+                                Arc.more,
                                 str("games.toolbar.more"),
                                 { overflowMenu = true },
                                 selected = overflowMenu || tb && tbi == 3,

@@ -1,5 +1,6 @@
 package com.armsx2.ui.memorycards
 
+import com.armsx2.ui.premium.Arc
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.text.font.FontWeight
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -88,12 +89,12 @@ fun MemoryCardScreen(onBack: () -> Unit, game: GameInfo? = null, viewModel: Memo
             item {
                 ArmsTopBar(
                     title = str("memcard.title"),
-                    leading = { RoundAction("←", str("action.back"), onBack) },
+                    leading = { RoundAction(Arc.back, str("action.back"), onBack) },
                     actions = {
-                        RoundAction("＋", str("memcard.newCard"), { createDialog = true })
-                        RoundAction("⇩", str("action.import"), { importer.launch(arrayOf("application/octet-stream", "*/*")) })
-                        RoundAction("▣", str("memcard.importFolder"), { folderImporter.launch(null) })
-                        RoundAction("↻", str("games.card.refresh"), viewModel::refresh)
+                        RoundAction(Arc.plus, str("memcard.newCard"), { createDialog = true })
+                        RoundAction(Arc.importFile, str("action.import"), { importer.launch(arrayOf("application/octet-stream", "*/*")) })
+                        RoundAction(Arc.archive, str("memcard.importFolder"), { folderImporter.launch(null) })
+                        RoundAction(Arc.refresh, str("games.card.refresh"), viewModel::refresh)
                     },
                     horizontalPadding = 0.dp,
                 )

@@ -1,5 +1,6 @@
 package com.armsx2.ui.patches
 
+import com.armsx2.ui.premium.Arc
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -85,12 +86,12 @@ fun PatchManagerScreen(onBack: () -> Unit, game: GameInfo? = null, viewModel: Pa
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             ArmsTopBar(
                 title = str("patches.dialog.patchesAndCheats"),
-                leading = { RoundAction("←", str("action.back"), onBack) },
+                leading = { RoundAction(Arc.back, str("action.back"), onBack) },
                 actions = {
-                    RoundAction("＋", str("action.import"), { picker.launch(arrayOf("text/plain", "application/octet-stream", "*/*")) })
-                    RoundAction("🗀", str("patches.import.folder"), { folderPicker.launch(null) })
-                    RoundAction("✎", str("patches.editor.new"), viewModel::newEditor)
-                    RoundAction("↻", str("games.card.refresh"), viewModel::refresh)
+                    RoundAction(Arc.plus, str("action.import"), { picker.launch(arrayOf("text/plain", "application/octet-stream", "*/*")) })
+                    RoundAction(Arc.folder, str("patches.import.folder"), { folderPicker.launch(null) })
+                    RoundAction(Arc.edit, str("patches.editor.new"), viewModel::newEditor)
+                    RoundAction(Arc.refresh, str("games.card.refresh"), viewModel::refresh)
                 },
             )
             PatchDisclaimer()
@@ -259,8 +260,8 @@ fun PatchesSettingsTab(game: GameInfo? = null, viewModel: PatchManagerViewModel 
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            RoundAction("＋", str("action.import"), { picker.launch(arrayOf("text/plain", "application/octet-stream", "*/*")) })
-            RoundAction("↻", str("games.card.refresh"), viewModel::refresh)
+            RoundAction(Arc.plus, str("action.import"), { picker.launch(arrayOf("text/plain", "application/octet-stream", "*/*")) })
+            RoundAction(Arc.refresh, str("games.card.refresh"), viewModel::refresh)
         }
         PatchDisclaimer()
         OnlineBrowser(state, viewModel, game, Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp))

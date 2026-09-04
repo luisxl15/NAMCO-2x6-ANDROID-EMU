@@ -137,13 +137,16 @@ object BackupManager {
                     zip.closeEntry()
                 }
             }
-            if (files == 0) BackupResult(false, "not an ARMSX2 backup")
+            if (files == 0) BackupResult(false, "not a System 246 backup")
             else BackupResult(true, "$files files")
         }.getOrElse { BackupResult(false, it.message ?: "restore failed") }
     }
 
+    // The name the save dialog offers. The MANIFEST and entry names inside the zip keep their
+    // original spelling on purpose: renaming those would make every backup already on the
+    // device unreadable, and the only thing a user ever sees is this filename.
     fun suggestedName(context: Context): String =
-        "ARMSX2-backup-${appVersion(context)}.zip"
+        "System246-backup-${appVersion(context)}.zip"
 
     private fun appVersion(context: Context): String = runCatching {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown"

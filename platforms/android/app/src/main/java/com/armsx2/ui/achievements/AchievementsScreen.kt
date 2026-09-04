@@ -1,5 +1,6 @@
 package com.armsx2.ui.achievements
 
+import com.armsx2.ui.premium.Arc
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -83,7 +84,7 @@ fun AchievementsScreen(onBack: () -> Unit, viewModel: AchievementsViewModel = vi
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             ArmsTopBar(
                 title = "RetroAchievements",
-                leading = { RoundAction("←", str("action.back"), onBack) },
+                leading = { RoundAction(Arc.back, str("action.back"), onBack) },
                 actions = {
                     if (state.loggedIn) {
                         if (state.avatarUrl.isNotBlank()) {
@@ -97,7 +98,7 @@ fun AchievementsScreen(onBack: () -> Unit, viewModel: AchievementsViewModel = vi
                         // Both totals: hardcore points (red) and softcore points (blue).
                         StatusChip("${state.score} HC", Danger)
                         StatusChip("${state.softcoreScore} SC")
-                        RoundAction("↻", str("games.card.refresh"), viewModel::refresh)
+                        RoundAction(Arc.refresh, str("games.card.refresh"), viewModel::refresh)
                     }
                 },
             )

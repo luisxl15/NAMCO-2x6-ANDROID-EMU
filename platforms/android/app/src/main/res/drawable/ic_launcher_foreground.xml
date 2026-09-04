@@ -1,19 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  savetowerforeground is a fully pre-composed icon (tower + its own dark radial
-  background) that fills the whole 1024px square. Dropping it straight into an
-  adaptive-icon <foreground> with gravity="fill" stretches it across the entire
-  108dp layer, so the launcher mask (which only shows the centre ~72dp safe zone)
-  crops the dark margins and zooms hard into the tower. Inset the artwork so the
-  full composition lands inside the safe zone and the tower keeps its breathing
-  room; the ~18% margin shows the solid #01071C adaptive background, which matches
-  the artwork's dark edges so the seam is invisible.
+  An upright cabinet: marquee, screen, control panel. Drawn inside the centre 72dp of the 108dp
+  adaptive layer, which is the only part every launcher mask is guaranteed to show — the previous
+  foreground was a pre-composed 1024px square whose own dark background got cropped by the mask.
+
+  A silhouette rather than a wordmark, because "246" set as type is unreadable at the 48px this
+  is actually rendered at on a home screen.
 -->
-<inset xmlns:android="http://schemas.android.com/apk/res/android"
-    android:inset="18%">
-    <bitmap
-        android:antialias="true"
-        android:dither="true"
-        android:gravity="fill"
-        android:src="@drawable/savetowerforeground" />
-</inset>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Cabinet body -->
+    <path
+        android:pathData="M35,27h38a4,4 0 0,1 4,4v46a4,4 0 0,1 -4,4H35a4,4 0 0,1 -4,-4V31a4,4 0 0,1 4,-4z"
+        android:fillColor="#FFFFFFFF"/>
+    <!-- Marquee, screen and control panel cut out of it -->
+    <path
+        android:pathData="M37,33h34v7H37z"
+        android:fillColor="#FFA5121F"/>
+    <path
+        android:pathData="M38,45h32a1,1 0 0,1 1,1v17a1,1 0 0,1 -1,1H38a1,1 0 0,1 -1,-1V46a1,1 0 0,1 1,-1z"
+        android:fillColor="#FF6E0B14"/>
+    <!-- Joystick and two buttons on the panel -->
+    <path
+        android:pathData="M44,73m-3,0a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"
+        android:fillColor="#FFA5121F"/>
+    <path
+        android:pathData="M55,73m-2.4,0a2.4,2.4 0 1,0 4.8,0a2.4,2.4 0 1,0 -4.8,0"
+        android:fillColor="#FFA5121F"/>
+    <path
+        android:pathData="M64,73m-2.4,0a2.4,2.4 0 1,0 4.8,0a2.4,2.4 0 1,0 -4.8,0"
+        android:fillColor="#FFA5121F"/>
+</vector>

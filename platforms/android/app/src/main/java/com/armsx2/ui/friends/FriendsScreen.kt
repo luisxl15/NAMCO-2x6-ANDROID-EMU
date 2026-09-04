@@ -1,5 +1,6 @@
 package com.armsx2.ui.friends
 
+import com.armsx2.ui.premium.Arc
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -73,7 +74,7 @@ fun FriendsScreen(onBack: () -> Unit) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             ArmsTopBar(
                 title = str("friends.title"),
-                leading = { RoundAction("←", str("action.back"), onClick = onBack) },
+                leading = { RoundAction(Arc.back, str("action.back"), onClick = onBack) },
             )
             FriendsPanel(Modifier.padding(horizontal = 8.dp))
         }

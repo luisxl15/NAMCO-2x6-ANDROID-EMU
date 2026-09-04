@@ -53,6 +53,8 @@ import com.armsx2.GameInfo
 import com.armsx2.i18n.str
 import com.armsx2.navigation.SettingsCategory
 import androidx.compose.ui.draw.clip
+import com.armsx2.ui.premium.Arc
+import com.armsx2.ui.premium.ArcIcon
 import com.armsx2.ui.premium.MaterialLevel
 import com.armsx2.ui.premium.Palette
 import com.armsx2.ui.premium.Radii
@@ -210,7 +212,7 @@ fun SettingsScreen(
                     leading = {
                         // Registered in the settings nav so a controller reaches it (up from the chips).
                         Box(Modifier.controllerFocusable("settings.action.back", CircleShape, onConfirm = onBack)) {
-                            RoundAction("←", str("action.back"), onBack)
+                            RoundAction(Arc.back, str("action.back"), onBack)
                         }
                     },
                     actions = {
@@ -220,13 +222,13 @@ fun SettingsScreen(
                         scopeGame?.let { g ->
                             Box(Modifier.controllerFocusable("settings.action.play", CircleShape, onConfirm = { playScoped(g) })) {
                                 RoundAction(
-                                    "▶", str("action.play"), { playScoped(g) },
-                                    glyphColor = androidx.compose.ui.graphics.Color(0xFF3DDC84),
+                                    Arc.play, str("action.play"), { playScoped(g) },
+                                    glyphColor = Palette.accentBright,
                                 )
                             }
                         }
                         Box(Modifier.controllerFocusable("settings.action.search", CircleShape, onConfirm = openSearch)) {
-                            RoundAction("⌕", str("action.search"), openSearch)
+                            RoundAction(Arc.search, str("action.search"), openSearch)
                         }
                         // Only offer Reset where there is something to reset. Controls owns no
                         // Settings fields (its state lives in ControllerMappings) but IS
@@ -236,7 +238,7 @@ fun SettingsScreen(
                         if (categoryHasResettableSettings(displayedCategory) ||
                             displayedCategory == SettingsCategory.Controls) {
                             Box(Modifier.controllerFocusable("settings.action.reset", CircleShape, onConfirm = { showReset = true })) {
-                                RoundAction("↺", str("action.reset"), { showReset = true })
+                                RoundAction(Arc.reset, str("action.reset"), { showReset = true })
                             }
                         }
                     },
@@ -322,7 +324,7 @@ private fun BoxScope.SettingsScrollTopButton(scroll: ScrollState) {
     if (show) {
         Box(Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 22.dp)) {
             RoundAction(
-                glyph = "↑",
+                icon = Arc.arrowUp,
                 description = str("action.scrollTop"),
                 onClick = { scope.launch { scroll.animateScrollTo(0) } },
                 buttonSize = 52.dp,
