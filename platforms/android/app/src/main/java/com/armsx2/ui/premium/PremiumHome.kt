@@ -211,7 +211,12 @@ private fun HeroCard(game: GameInfo, onPlay: () -> Unit, modifier: Modifier = Mo
             // the title and the button sit on flat colour and stay readable whatever the picture
             // happens to be doing behind them.
             SubcomposeAsyncImage(
-                model = ImageRequest.Builder(context).data(hero).crossfade(true).build(),
+                model = ImageRequest.Builder(context)
+                    .data(hero)
+                    .memoryCacheKey(fileCacheKey(hero))
+                    .diskCacheKey(fileCacheKey(hero))
+                    .crossfade(true)
+                    .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 alignment = Alignment.CenterEnd,
@@ -452,7 +457,12 @@ fun CoverArt(game: GameInfo, modifier: Modifier = Modifier) {
     ) {
         if (custom != null) {
             SubcomposeAsyncImage(
-                model = ImageRequest.Builder(context).data(custom).crossfade(true).build(),
+                model = ImageRequest.Builder(context)
+                    .data(custom)
+                    .memoryCacheKey(fileCacheKey(custom))
+                    .diskCacheKey(fileCacheKey(custom))
+                    .crossfade(true)
+                    .build(),
                 contentDescription = game.displayTitle(EnglishTitles.enabled.value),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -508,3 +518,14 @@ private fun greeting(): String = when (Calendar.getInstance().get(Calendar.HOUR_
     in 12..17 -> "Boa tarde"
     else -> "Boa noite"
 }
+
+/**
+ * A cache key that changes when the FILE changes.
+ *
+ * The image loader keys a local file by its path alone, so a cover replaced in place keeps
+ * serving whatever was decoded the first time -- including a bitmap decoded from a partial
+ * download, which then survives in memory long after the file on disk is complete. Folding the
+ * size and timestamp in makes a rewritten file a different request.
+ */
+internal fun fileCacheKey(file: java.io.File): String =
+    file.path + ":" + file.lastModified() + ":" + file.length()

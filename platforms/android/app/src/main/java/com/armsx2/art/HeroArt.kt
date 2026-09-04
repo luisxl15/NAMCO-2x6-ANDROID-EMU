@@ -33,9 +33,17 @@ object HeroArt {
         File(dir(context), key(game) + ".png").takeIf { it.isFile && it.length() > 0L }
 
     fun setBytes(context: Context, game: GameInfo, bytes: ByteArray): Boolean = runCatching {
+        if (bytes.isEmpty()) return false
         val target = File(dir(context), key(game) + ".png")
         target.parentFile?.mkdirs()
-        target.writeBytes(bytes)
+        // Staged and renamed, for the same reason as CustomCovers.setBytes: the version bump
+        // recomposes immediately, and a reader must never catch a half-written file.
+        val staging = File(target.parentFile, target.name + ".part")
+        staging.outputStream().use { it.write(bytes) }
+        if (!staging.renameTo(target)) {
+            staging.copyTo(target, overwrite = true)
+            staging.delete()
+        }
         version.intValue++
         true
     }.getOrDefault(false)

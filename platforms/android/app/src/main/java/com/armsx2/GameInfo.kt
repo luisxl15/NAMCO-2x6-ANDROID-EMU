@@ -556,7 +556,17 @@ object CustomCovers {
         remove(context, game)
         val target = targetFor(context, game)
         target.parentFile?.mkdirs()
-        target.outputStream().use { it.write(bytes) }
+        // Written to a sibling and renamed, never straight into place. The version bump below
+        // recomposes every cover on screen, and a reader that arrives while the bytes are still
+        // going down decodes a PARTIAL png -- which the image loader then caches under this
+        // path, so the game keeps showing a broken cover long after the file on disk is whole.
+        // A rename is atomic on the same filesystem: readers see the old file or the new one.
+        val staging = File(target.parentFile, target.name + ".part")
+        staging.outputStream().use { it.write(bytes) }
+        if (!staging.renameTo(target)) {
+            staging.copyTo(target, overwrite = true)
+            staging.delete()
+        }
         (target.isFile && target.length() > 0L).also { if (it) version.value++ }
     }.getOrDefault(false)
 
