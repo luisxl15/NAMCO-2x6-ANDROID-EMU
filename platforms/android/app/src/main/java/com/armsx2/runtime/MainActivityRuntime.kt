@@ -2158,16 +2158,14 @@ open class MainActivityRuntime : ComponentActivity() {
         // Emulation (game OR BIOS) uses the renderer rotation, resolved per-game when there is a
         // game and global otherwise; the launcher/library uses its own app-level rotation
         // (AetherSX2-style split). Both share the 0/1/2/3 mapping below.
-        val orientation = if (emulationOwnsOrientation)
-            com.armsx2.config.ConfigStore.resolveForGame(currentGame.value?.settingsKey).orientation
-        else
-            com.armsx2.ui.theme.LauncherOrientationPreferences.mode.value
-        val requested = when (orientation) {
-            1 -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            2 -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-            3 -> ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
-            else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        }
+        // Landscape, always. An arcade cabinet is horizontal, every System 246/256 title
+        // renders 4:3 or wider, and the launcher is laid out for a wide screen -- so there is no
+        // orientation to resolve per game or per preference any more. SENSOR_LANDSCAPE still
+        // lets the device flip between the two landscape directions, which is what someone
+        // rotating a handheld actually wants; it just never resolves to portrait.
+        // The manifest declares the same on both activities, so this only matters for the
+        // in-game path, which reassigns requestedOrientation as settings change.
+        val requested = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         // ★ Only ASSIGN when it actually changes. Writing requestedOrientation makes Android
         // re-evaluate orientation even when the value is identical, and with the default
         // SCREEN_ORIENTATION_UNSPECIFIED there is no lock to hold it — so a handheld device can
@@ -2572,7 +2570,7 @@ open class MainActivityRuntime : ComponentActivity() {
                 androidx.compose.runtime.LaunchedEffect(eState.value, com.armsx2.LibraryMusic.enabled.value) {
                     if (eState.value == EmuState.STOPPED) {
                         // RETRY, don't fire once. LibraryMusic defers to whatever is already
-                        // playing, and on a cold boot that is OUR OWN splash: boot_intro.mp4
+                        // playing, and on a cold boot that used to be OUR OWN splash video
                         // carries an audio track and MainActivity is launched from the video's
                         // completion callback, so the stream is still tearing down when this
                         // first runs. A single attempt loses that race and never retries —

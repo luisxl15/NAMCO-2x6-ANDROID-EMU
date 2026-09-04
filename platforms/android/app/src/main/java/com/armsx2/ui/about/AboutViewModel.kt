@@ -40,7 +40,8 @@ class AboutViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val details = withContext(Dispatchers.Default) { collectDeviceDetails(getApplication()) }
             state.value = state.value.copy(
-                coreVersion = runCatching { NativeApp.getBuildVersion() }.getOrDefault("—"),
+                // This fork versions itself, rather than reporting the upstream core's build hash.
+                coreVersion = "1.0",
                 soc = details.soc,
                 gpu = details.gpu,
                 cpu = details.cpu,

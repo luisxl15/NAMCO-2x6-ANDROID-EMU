@@ -22,11 +22,12 @@ import org.json.JSONObject
 import java.io.File
 
 class GameLibraryRepository(private val context: Context) {
-    private val gameExtensions = setOf(
-        "iso", "chd", "cso", "zso", "gz", "bin", "mdf", "img", "nrg", "dump", "elf",
-        // ARCADE (pcsx2x6): NAMCO System 246/256 manifest files.
-        "acgame",
-    )
+    // Arcade only. This build exists for NAMCO System 246/256, and a `.acgame` manifest is the
+    // only thing it can boot end to end -- the dongle, the ACATA image and the JVS mode all come
+    // from that file. Console discs are left to the emulator this was forked from rather than
+    // half-supported here, so an ISO in the same folder is simply not a game as far as the
+    // library is concerned.
+    private val gameExtensions = setOf("acgame")
 
     // Recent-games export runs off the launch/UI thread; exportLock serialises the file
     // write so a quick play-then-remove can't interleave two writers on the same file.

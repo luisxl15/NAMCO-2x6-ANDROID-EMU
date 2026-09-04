@@ -14,10 +14,15 @@ package com.armsx2.ui.premium
  * already on the device and forcing a reinstall.
  */
 object Branding {
-    const val name = "System 246"
+    const val name = "Namco System 246 EMU"
     const val tagline = "Emulação de arcade NAMCO System 246/256 para Android."
 
-    /** The fork this is built from -- the arcade work, not the console launcher. */
-    const val repository = "PS2Homebrew-arcade/pcsx2x6"
-    const val repositoryUrl = "https://github.com/PS2Homebrew-arcade/pcsx2x6"
+    /** The author's GitHub, the one link the About page carries. */
+    const val repository = "jessicanataliagta"
+    const val repositoryUrl = "https://github.com/jessicanataliagta"
+
+    /** Shown as text, not as a link. The emulator core is PCSX2 (LGPL/GPL), and dropping the
+     *  attribution along with the link would be wrong regardless of what the About page looks
+     *  like -- so the credit stays even though the clickable card is gone. */
+    const val basedOn = "PCSX2"
 }

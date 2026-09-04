@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Themed-icon layer (Android 13+). The launcher fills this shape with one flat colour, so the
+  wordmark bitmap cannot be used here: re-tinted flat it collapses into an unreadable slab. A
+  cabinet silhouette survives the treatment, which is the point of a monochrome layer.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:pathData="M35,27h38a4,4 0 0,1 4,4v46a4,4 0 0,1 -4,4H35a4,4 0 0,1 -4,-4V31a4,4 0 0,1 4,-4zM37,33v7h34v-7zM38,45a1,1 0 0,0 -1,1v17a1,1 0 0,0 1,1h32a1,1 0 0,0 1,-1V46a1,1 0 0,0 -1,-1z"
+        android:fillColor="#FFFFFFFF" android:fillType="evenOdd"/>
+    <path android:pathData="M44,73m-3,0a3,3 0 1,0 6,0a3,3 0 1,0 -6,0" android:fillColor="#FFFFFFFF"/>
+    <path android:pathData="M55,73m-2.4,0a2.4,2.4 0 1,0 4.8,0a2.4,2.4 0 1,0 -4.8,0" android:fillColor="#FFFFFFFF"/>
+    <path android:pathData="M64,73m-2.4,0a2.4,2.4 0 1,0 4.8,0a2.4,2.4 0 1,0 -4.8,0" android:fillColor="#FFFFFFFF"/>
+</vector>

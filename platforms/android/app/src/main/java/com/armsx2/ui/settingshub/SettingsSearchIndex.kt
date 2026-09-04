@@ -16,7 +16,6 @@ private val BASE_SEARCH_INDEX: List<SettingsSearchEntry> = listOf(
     SettingsSearchEntry("app.backup.export", true, SettingsCategory.General),
     SettingsSearchEntry("app.backup.import", true, SettingsCategory.General),
     SettingsSearchEntry("app.blockHome", true, SettingsCategory.General),
-    SettingsSearchEntry("app.launcherRotation", true, SettingsCategory.General),
     SettingsSearchEntry("app.menuSfx", true, SettingsCategory.General),
     SettingsSearchEntry("update.includeNightly", true, SettingsCategory.General),
     SettingsSearchEntry("perf.fix.skipBios", true, SettingsCategory.Advanced),

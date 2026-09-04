@@ -38,7 +38,6 @@ import com.armsx2.ui.common.GlassPanel
 import com.armsx2.ui.common.RoundAction
 
 private val RepositoryUrl = com.armsx2.ui.premium.Branding.repositoryUrl
-private const val Pcsx2RepositoryUrl = "https://github.com/PCSX2/pcsx2"
 
 @Composable
 fun AboutScreen(onBack: () -> Unit, viewModel: AboutViewModel = viewModel()) {
@@ -107,57 +106,18 @@ fun AboutScreen(onBack: () -> Unit, viewModel: AboutViewModel = viewModel()) {
                         }
                         hardware(Modifier.fillMaxWidth())
                     }
-                    if (compact) {
-                        ProjectCard(
-                            title = str("about.repository.title"),
-                            repository = com.armsx2.ui.premium.Branding.repository,
-                            description = str("about.repository.description"),
-                            icon = Arc.library,
-                            onOpen = { uriHandler.openUri(RepositoryUrl) },
-                        )
-                        ProjectCard(
-                            title = str("about.pcsx2.title"),
-                            repository = "PCSX2/pcsx2",
-                            description = str("about.pcsx2.description"),
-                            icon = Arc.pcsx2,
-                            secondary = true,
-                            onOpen = { uriHandler.openUri(Pcsx2RepositoryUrl) },
-                        )
-                    } else {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            ProjectCard(
-                                title = str("about.repository.title"),
-                                repository = com.armsx2.ui.premium.Branding.repository,
-                                description = str("about.repository.description"),
-                                icon = Arc.library,
-                                modifier = Modifier.weight(1f),
-                                onOpen = { uriHandler.openUri(RepositoryUrl) },
-                            )
-                            ProjectCard(
-                                title = str("about.pcsx2.title"),
-                                repository = "PCSX2/pcsx2",
-                                description = str("about.pcsx2.description"),
-                                icon = Arc.pcsx2,
-                                modifier = Modifier.weight(1f),
-                                secondary = true,
-                                onOpen = { uriHandler.openUri(Pcsx2RepositoryUrl) },
-                            )
-                        }
-                    }
-                    // The library music is CC0, so no attribution is legally required — the
-                    // author asks for credit and it costs nothing to give it.
-                    Text(
-                        str("app.credits.music"),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    ProjectCard(
+                        title = str("about.repository.title"),
+                        repository = com.armsx2.ui.premium.Branding.repository,
+                        description = str("about.repository.description"),
+                        icon = Arc.library,
+                        onOpen = { uriHandler.openUri(RepositoryUrl) },
                     )
-                    // Bundled menu sound effects — also CC0, credited voluntarily.
                     Text(
-                        str("app.credits.sfx"),
+                        str("about.pcsx2.description"),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                     )
                 }
             }

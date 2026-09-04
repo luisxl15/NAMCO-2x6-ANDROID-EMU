@@ -1,10 +1,10 @@
 package com.armsx2
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.View
-import android.widget.VideoView
+import android.view.animation.DecelerateInterpolator
+import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.core.view.WindowCompat
@@ -12,11 +12,15 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
 /**
- * Boot splash: plays the bundled ARMSX2 intro video (res/raw/boot_intro.mp4) once per
- * process, then hands off to Main. Tapping, the Back button, a hard timeout, and any
- * playback error all fall through to the app so a bad codec or slow decode never
- * strands the user on a black screen. The splash is opt-out via the "ui.bootLogo"
- * preference (App settings, default on) — when disabled it launches Main immediately.
+ * Boot splash: the wordmark, fading up over a loading indicator, once per process, then Main.
+ *
+ * This used to play a bundled intro video of the emulator this was forked from — the wrong
+ * branding, and an mp4 decode spun up at the slowest moment in the app's life, which is why it
+ * needed error and timeout escapes to keep a bad codec from stranding the user on black. Two
+ * views and a fade need none of that; the only timing left is how long it shows.
+ *
+ * Tapping still skips it, and it shows once per process, so coming back from a game does not
+ * replay it.
  */
 class BootSplashActivity : ComponentActivity() {
     private var launchedMain = false
@@ -30,9 +34,7 @@ class BootSplashActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         applyImmersiveUi()
 
-        val prefs = getSharedPreferences("ARMSX2", MODE_PRIVATE)
-        val bootLogoEnabled = prefs.getBoolean("ui.bootLogo", true)
-        if (!bootLogoEnabled || playedThisProcess) {
+        if (playedThisProcess) {
             launchMainAndFinish()
             return
         }
@@ -44,25 +46,24 @@ class BootSplashActivity : ComponentActivity() {
 
         setContentView(R.layout.activity_boot_splash)
         rootView = findViewById(R.id.boot_splash_root)
-        val videoView = findViewById<VideoView?>(R.id.boot_splash_video)
         rootView?.apply {
             setOnClickListener { launchMainAndFinish() }
-            postDelayed(timeoutRunnable, HARD_TIMEOUT_MS)
+            postDelayed(timeoutRunnable, SPLASH_MS)
         }
-        if (videoView != null) {
-            videoView.setOnClickListener { launchMainAndFinish() }
-            videoView.setVideoURI(Uri.parse("android.resource://$packageName/${R.raw.boot_intro}"))
-            videoView.setOnPreparedListener { mp ->
-                mp.isLooping = false
-                videoView.start()
-            }
-            videoView.setOnCompletionListener { launchMainAndFinish() }
-            videoView.setOnErrorListener { _, _, _ ->
-                launchMainAndFinish()
-                true
-            }
-        } else {
-            launchMainAndFinish()
+
+        // Fade and settle, rather than a hard cut: the window is already black, so the mark
+        // arriving is the only motion on screen and an instant appearance reads as a flicker.
+        findViewById<ImageView?>(R.id.boot_splash_logo)?.apply {
+            alpha = 0f
+            scaleX = 0.94f
+            scaleY = 0.94f
+            animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(520L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
         }
     }
 
@@ -120,6 +121,8 @@ class BootSplashActivity : ComponentActivity() {
 
     private companion object {
         var playedThisProcess = false
-        const val HARD_TIMEOUT_MS = 6000L
+
+        /** Long enough to read the mark, short enough that nobody waits on it. */
+        const val SPLASH_MS = 1700L
     }
 }

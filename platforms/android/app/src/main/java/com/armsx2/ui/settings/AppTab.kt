@@ -532,22 +532,8 @@ fun AppTab() {
             }
         }
 
-        // Launcher/library rotation — independent of the per-game renderer rotation (Renderer tab).
-        SegmentedRow(
-            label = str("app.launcherRotation"),
-            options = listOf(
-                str("app.launcherRotation.device"),
-                str("app.launcherRotation.landscape"),
-                str("app.launcherRotation.portrait"),
-                str("app.launcherRotation.auto"),
-            ),
-            selectedIndex = LauncherOrientationPreferences.mode.value.coerceIn(0, 3),
-            description = str("app.launcherRotation.desc"),
-            onChange = {
-                LauncherOrientationPreferences.set(it)
-                MainActivityRuntime.instance?.applyEmulationOrientation()  // live-apply (no game running)
-            },
-        )
+        // No rotation setting: the app is locked to landscape (manifest + applyEmulationOrientation),
+        // so a portrait option here would be a switch that does nothing.
 
         // Text entry: our own on-screen keyboard (default, gamepad-navigable) vs the Android IME.
         // Seeded via refreshUseSystemIme() because this row can compose before the keyboard has

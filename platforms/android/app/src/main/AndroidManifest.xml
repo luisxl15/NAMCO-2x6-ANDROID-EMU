@@ -67,6 +67,7 @@
 
         <activity
             android:name=".BootSplashActivity"
+            android:screenOrientation="sensorLandscape"
             android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|uiMode|screenSize|smallestScreenSize"
             android:hardwareAccelerated="true"
             android:exported="true"
@@ -88,6 +89,7 @@
 
         <activity
             android:name=".Main"
+            android:screenOrientation="sensorLandscape"
             android:launchMode="singleTop"
             android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|density"
             android:hardwareAccelerated="true"
