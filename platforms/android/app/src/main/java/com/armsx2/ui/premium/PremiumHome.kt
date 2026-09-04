@@ -264,7 +264,7 @@ private fun HeroCard(game: GameInfo, onPlay: () -> Unit, modifier: Modifier = Mo
             Box(
                 Modifier
                     .fillMaxHeight()
-                    .aspectRatio(0.72f)
+                    .aspectRatio(CoverAspect)
                     .clip(RoundedCornerShape(Radii.tile)),
             ) {
                 CoverArt(game, Modifier.fillMaxSize())
@@ -382,7 +382,7 @@ private fun RecentRow(games: List<GameInfo>, selectedIndex: Int, onSelect: (Int)
                 Box(
                     Modifier
                         .fillMaxWidth()
-                        .aspectRatio(0.72f)
+                        .aspectRatio(CoverAspect)
                         .clip(RoundedCornerShape(Radii.chip))
                         .alpha(if (isSelected) 1f else 0.55f),
                 ) {
@@ -450,6 +450,16 @@ private fun Destination(
 }
 
 /**
+ * The shape every cover slot is cut to.
+ *
+ * 2:3, because that is what both sources actually produce -- the arcade set renders its cases at
+ * 582x889 and SteamGridDB's grids are 600x900. The slots were 0.72, which is wider, so Crop
+ * scaled each cover to fill the width and took roughly a tenth of its height off the top and
+ * bottom: the case art lost its spine label and its footer.
+ */
+internal const val CoverAspect = 2f / 3f
+
+/**
  * Cover art, with a branded fallback: arcade titles have no cover in the online database, so
  * rather than an empty rectangle they get the NAMCO mark over a tinted field.
  */
@@ -479,7 +489,9 @@ fun CoverArt(game: GameInfo, modifier: Modifier = Modifier) {
                     .crossfade(true)
                     .build(),
                 contentDescription = game.displayTitle(EnglishTitles.enabled.value),
-                contentScale = ContentScale.Crop,
+                // Fit, not Crop: the slot is 2:3 and so is the art, but a source that is a
+                // little off should letterbox by a pixel rather than lose an edge.
+                contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
                 error = { NamcoPlate() },
                 loading = { NamcoPlate() },
@@ -490,7 +502,7 @@ fun CoverArt(game: GameInfo, modifier: Modifier = Modifier) {
             SubcomposeAsyncImage(
                 model = ImageRequest.Builder(context).data(cover).crossfade(true).build(),
                 contentDescription = game.displayTitle(EnglishTitles.enabled.value),
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
                 // A 404 (common for anything not in the repo) lands here rather than leaving a
                 // blank rectangle.

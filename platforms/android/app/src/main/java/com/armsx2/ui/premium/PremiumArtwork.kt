@@ -230,7 +230,7 @@ private fun ArtworkRow(
         Box(
             Modifier
                 .height(64.dp)
-                .aspectRatio(0.72f)
+                .aspectRatio(CoverAspect)
                 .clip(RoundedCornerShape(8.dp)),
         ) {
             CoverArt(game, Modifier.fillMaxSize())

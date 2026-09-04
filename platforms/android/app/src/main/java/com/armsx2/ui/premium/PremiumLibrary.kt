@@ -437,7 +437,7 @@ private fun LibraryCard(game: GameInfo, selected: Boolean, onClick: () -> Unit) 
             Modifier
                 .scale(scale)
                 .fillMaxWidth()
-                .aspectRatio(0.72f)
+                .aspectRatio(CoverAspect)
                 .clip(RoundedCornerShape(Radii.tile))
                 .then(
                     if (selected) {
@@ -495,7 +495,7 @@ private fun DetailPane(game: GameInfo, onLaunch: (GameInfo) -> Unit) {
             Box(
                 Modifier
                     .fillMaxWidth(0.34f)
-                    .aspectRatio(0.72f)
+                    .aspectRatio(CoverAspect)
                     .clip(RoundedCornerShape(Radii.tile)),
             ) {
                 CoverArt(game, Modifier.fillMaxSize())
