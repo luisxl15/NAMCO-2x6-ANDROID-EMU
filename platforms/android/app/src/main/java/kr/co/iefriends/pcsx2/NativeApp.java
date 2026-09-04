@@ -418,6 +418,18 @@ public class NativeApp {
 	public static native boolean jvsGetDipSwitchState(int index);
 	/** "none", "default", "lightgun", "fighting", "drive", "drum", "touch", "standard", "twinstick" */
 	public static native String jvsGetModeName();
+
+	/* ARCADE lightgun (Time Crisis 3/4, Vampire Night, Cobra). These games aim through the JVS
+	 * board, not through the USB GunCon 2, and their trigger/pedal/start are different JVS bits
+	 * per game -- so send an ACTION and let the native side resolve it from the game's mapping.
+	 * Aiming needs no new call: usbLightgunAim writes the same pointer slot the JVS gun reads. */
+	public static final int JVS_GUN_TRIGGER = 0;
+	/** Pedal on the cabinets that have one; on Vampire Night, the aim-away-from-screen reload. */
+	public static final int JVS_GUN_RELOAD = 1;
+	public static final int JVS_GUN_START = 2;
+	/** True only while an arcade lightgun game is running. */
+	public static native boolean jvsGunActive();
+	public static native void jvsGunButton(int player, int action, boolean pressed);
 	/** Local co-op: hot-plug a 2nd DualShock2 into PS2 port 2 when a second physical
 	 *  controller joins. Idempotent; briefly parks the VM to rebuild the pad list. */
 	public static native void enablePad2();

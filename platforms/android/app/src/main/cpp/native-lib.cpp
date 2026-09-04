@@ -1265,6 +1265,65 @@ Java_kr_co_iefriends_pcsx2_NativeApp_jvsSetButton(JNIEnv*, jclass, jint p_player
     ACJV::SetButtonState(player, mask, p_pressed == JNI_TRUE);
 }
 
+// ---- ARCADE lightgun ----------------------------------------------------------------
+//
+// Time Crisis 3/4, Vampire Night and Cobra aim through the JVS board, NOT through the USB
+// GunCon 2. Aiming needs nothing new -- ACJV::UpdateLightgunFromMouse reads pointer 0, which is
+// the same slot usbLightgunAim already writes -- but the BUTTONS are per-game JVS bits, and the
+// reload is not even a button on every cabinet: Time Crisis has a physical pedal, Vampire Night
+// reloads by aiming away from the screen (its camera board reports "lost").
+//
+// So the Kotlin side sends an ACTION and this resolves it through the game's GunMapping. Keeping
+// that table on this side is the point: it is populated from the same issue #9 research as the
+// rest of the arcade layer, and a UI that hardcoded "reload = JVS button 6" would be right for
+// Time Crisis 3 and wrong for the other three.
+enum class JvsGunAction : jint { Trigger = 0, Reload = 1, Start = 2 };
+
+static bool JvsGunReady() {
+    return JvsReady() && ACJV::GetMode() == JVS_MODE::LIGHTGUN;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_jvsGunActive(JNIEnv*, jclass) {
+    return JvsGunReady() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_jvsGunButton(JNIEnv*, jclass, jint p_player, jint p_action,
+                                                  jboolean p_pressed) {
+    if (!JvsGunReady())
+        return;
+    const u32 player = (p_player == 1) ? 1u : 0u;
+    const bool pressed = (p_pressed == JNI_TRUE);
+    const GunMapping& gm = ACJV::GetGunMapping();
+    u16 mask = 0;
+    switch (static_cast<JvsGunAction>(p_action)) {
+        case JvsGunAction::Trigger:
+            mask = player ? gm.p2_trigger : gm.p1_trigger;
+            if (mask == 0)
+                mask = JVS_BTN_2; // the default mapping's trigger
+            break;
+        case JvsGunAction::Start:
+            mask = player ? gm.p2_start : gm.p1_start;
+            // 0 means the game uses the standard START switch rather than a per-player one.
+            if (mask == 0)
+                mask = JVS_BTN_START;
+            break;
+        case JvsGunAction::Reload:
+            // No pedal on this cabinet: reload the way the machine does it, by reporting the gun
+            // aimed away from the screen for as long as the button is held.
+            if (gm.pedal == 0) {
+                ACJV::SetGunForceOffscreen(pressed);
+                return;
+            }
+            mask = gm.pedal;
+            break;
+        default:
+            return;
+    }
+    ACJV::SetButtonState(player, mask, pressed);
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_kr_co_iefriends_pcsx2_NativeApp_jvsToggleDipSwitch(JNIEnv*, jclass, jint p_index) {
     if (!JvsReady() || p_index < 0 || static_cast<u32>(p_index) >= ACJV::NUM_DIP_SWITCHES)

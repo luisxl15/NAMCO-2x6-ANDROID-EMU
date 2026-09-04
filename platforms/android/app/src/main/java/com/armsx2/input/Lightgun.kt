@@ -27,6 +27,21 @@ object Lightgun {
 
     /** Mirrors the pref so Compose recomposes. */
     val enabled = mutableStateOf(false)
+
+    /**
+     * True while an ARCADE lightgun game is running (Time Crisis 3/4, Vampire Night, Cobra).
+     *
+     * Those four aim through the JVS board, not through a USB GunCon 2, so there is no device to
+     * attach and no setting to find -- and asking the player to enable a USB gun for a cabinet
+     * that never had one would be asking them to guess. The core knows the game is a gun game
+     * (ACJV resolves the mode from the gameid), so the aim layer simply turns itself on.
+     *
+     * Set by the aim layer's poll; ACJV only goes live once the game has booted far enough.
+     */
+    val arcade = mutableStateOf(false)
+
+    /** Whether the touchscreen is currently a gun, by either route. */
+    val active: Boolean get() = enabled.value || arcade.value
     /** USB port index: 0 = Port 1, 1 = Port 2. */
     val port = mutableStateOf(0)
 
@@ -99,7 +114,7 @@ object Lightgun {
      * and our SurfaceView spans the window, so touch coordinates already are those.
      */
     fun aim(x: Float, y: Float) {
-        if (!enabled.value) return
+        if (!active) return
         runCatching { NativeApp.usbLightgunAim(x, y) }
     }
 
@@ -111,11 +126,25 @@ object Lightgun {
      * the games are unplayable past the first magazine.
      */
     fun trigger(down: Boolean, x: Float, y: Float, widthPx: Float, heightPx: Float) {
-        if (!enabled.value) return
+        if (!active) return
         if (down == triggerDown) return
         triggerDown = down
         val margin = minOf(widthPx, heightPx) * EDGE_RELOAD_FRAC
         val offscreen = x <= margin || y <= margin || x >= widthPx - margin || y >= heightPx - margin
+        if (arcade.value) {
+            // The cabinet's own reload: a pedal where the machine had one, and the
+            // aimed-away-from-the-screen report where it did not. Which of the two this is gets
+            // decided natively, from the running game's JVS mapping.
+            val action = if (offscreen) NativeApp.JVS_GUN_RELOAD else NativeApp.JVS_GUN_TRIGGER
+            runCatching { NativeApp.jvsGunButton(0, action, down) }
+            if (!down) {
+                runCatching {
+                    NativeApp.jvsGunButton(0, NativeApp.JVS_GUN_TRIGGER, false)
+                    NativeApp.jvsGunButton(0, NativeApp.JVS_GUN_RELOAD, false)
+                }
+            }
+            return
+        }
         val bind = if (offscreen) NativeApp.GUNCON_SHOOT_OFFSCREEN else NativeApp.GUNCON_TRIGGER
         runCatching { NativeApp.usbLightgunButton(port.value, bind, down) }
         // Release BOTH on lift: a drag that starts on-screen and ends in the reload margin would
@@ -132,6 +161,23 @@ object Lightgun {
     fun button(bind: Int, down: Boolean) {
         if (!enabled.value) return
         runCatching { NativeApp.usbLightgunButton(port.value, bind, down) }
+    }
+
+    /** Press/release a cabinet gun control. [action] is one of NativeApp.JVS_GUN_*. */
+    fun arcadeButton(action: Int, down: Boolean) {
+        if (!arcade.value) return
+        runCatching { NativeApp.jvsGunButton(0, action, down) }
+    }
+
+    /**
+     * Refresh [arcade] from the core.
+     *
+     * Polled rather than pushed: ACJV is only live once the game has booted, and the same is true
+     * in reverse when the VM stops, at which point the layer must let go of the screen again.
+     */
+    fun refreshArcade() {
+        val on = runCatching { NativeApp.jvsGunActive() }.getOrDefault(false)
+        if (on != arcade.value) arcade.value = on
     }
 
     /** Buttons offered on screen, as (binding, label). Mirrors NetherSX2's gun overlay. */

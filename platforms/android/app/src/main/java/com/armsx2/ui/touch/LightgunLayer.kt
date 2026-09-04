@@ -20,7 +20,16 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
 import com.armsx2.input.Lightgun
+import com.armsx2.ui.premium.Arc
+import kotlinx.coroutines.delay
+import kr.co.iefriends.pcsx2.NativeApp
 
 /**
  * Touchscreen aiming for the GunCon 2.
@@ -35,7 +44,15 @@ import com.armsx2.input.Lightgun
  */
 @Composable
 fun LightgunLayer(widthPx: Float, heightPx: Float) {
-    if (!Lightgun.enabled.value) return
+    // Arcade gun games turn this on by themselves -- see Lightgun.arcade. Polled because ACJV is
+    // not live until the game has booted, and stops being live when the VM does.
+    LaunchedEffect(Unit) {
+        while (true) {
+            Lightgun.refreshArcade()
+            delay(1000)
+        }
+    }
+    if (!Lightgun.active) return
     if (widthPx <= 0f || heightPx <= 0f) return
 
     Box(
@@ -84,28 +101,41 @@ fun LightgunLayer(widthPx: Float, heightPx: Float) {
  */
 @Composable
 fun LightgunButtons() {
-    if (!Lightgun.enabled.value) return
+    if (!Lightgun.active) return
     Box(Modifier.fillMaxSize()) {
         Column(
             Modifier.align(Alignment.CenterEnd).padding(end = 10.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Lightgun.overlayButtons().forEach { (bind, label) ->
-                GunButton(label) { down -> Lightgun.button(bind, down) }
+            if (Lightgun.arcade.value) {
+                // A cabinet has no A/B/C and no calibration step -- it has a trigger, a reload,
+                // and the start button on the panel. Reload gets an icon rather than a word: the
+                // touch-an-edge gesture works too, but nothing on screen would have said so.
+                GunIconButton(Arc.reset) { down ->
+                    Lightgun.arcadeButton(NativeApp.JVS_GUN_RELOAD, down)
+                }
+                GunButton("START", wide = true) { down ->
+                    Lightgun.arcadeButton(NativeApp.JVS_GUN_START, down)
+                }
+            } else {
+                Lightgun.overlayButtons().forEach { (bind, label) ->
+                    GunButton(label) { down -> Lightgun.button(bind, down) }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun GunButton(label: String, onPress: (Boolean) -> Unit) {
+private fun GunButton(label: String, wide: Boolean = false, onPress: (Boolean) -> Unit) {
     val opacity = TouchControls.opacity.floatValue
+    val shape = if (wide) RoundedCornerShape(23.dp) else CircleShape
     Box(
         Modifier
-            .size(46.dp)
-            .background(Color(0x33000000).copy(alpha = 0.35f * opacity), CircleShape)
-            .border(1.dp, Color.White.copy(alpha = 0.45f * opacity), CircleShape)
+            .then(if (wide) Modifier.width(74.dp).height(46.dp) else Modifier.size(46.dp))
+            .background(Color(0x33000000).copy(alpha = 0.35f * opacity), shape)
+            .border(1.dp, Color.White.copy(alpha = 0.45f * opacity), shape)
             .pointerInput(label) {
                 awaitPointerEventScope {
                     while (true) {
@@ -137,6 +167,47 @@ private fun GunButton(label: String, onPress: (Boolean) -> Unit) {
             color = Color.White.copy(alpha = opacity),
             fontSize = if (label.length > 3) 10.sp else 15.sp,
             fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+/** Same button, carrying an icon — for a control whose name would not fit or would not travel. */
+@Composable
+private fun GunIconButton(@androidx.annotation.DrawableRes icon: Int, onPress: (Boolean) -> Unit) {
+    val opacity = TouchControls.opacity.floatValue
+    Box(
+        Modifier
+            .size(46.dp)
+            .background(Color(0x33000000).copy(alpha = 0.35f * opacity), CircleShape)
+            .border(1.dp, Color.White.copy(alpha = 0.45f * opacity), CircleShape)
+            .pointerInput(icon) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val ev = awaitPointerEvent()
+                        val ch = ev.changes.firstOrNull { it.changedToDown() }
+                        if (ch != null) {
+                            onPress(true)
+                            TouchControls.noteTouchInteraction()
+                            ch.consume()
+                            val id = ch.id
+                            while (true) {
+                                val next = awaitPointerEvent()
+                                val nc = next.changes.firstOrNull { it.id == id }
+                                nc?.consume()
+                                if (nc == null || !nc.pressed) break
+                            }
+                            onPress(false)
+                        }
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painterResource(icon),
+            contentDescription = null,
+            tint = Color.White.copy(alpha = opacity),
+            modifier = Modifier.size(22.dp),
         )
     }
 }

@@ -70,7 +70,7 @@ arcade check — so upstream changes around them usually apply cleanly.
 | `platforms/android/.../i18n/I18n.kt` | **One hook**, in `get()`, calling `BrandStrings.resolve`. Nothing else. The string tables themselves are untouched. |
 | `platforms/android/.../runtime/MainActivityRuntime.kt` | `resolveDocumentUriToPosix` and its use in `launchGame` (an arcade `.acgame` needs a real path, not a SAF URI), landscape locking in `applyEmulationOrientation`, and one call into `ArcadeBios.decide` where the effective BIOS is resolved. |
 | `platforms/android/.../data/library/GameLibraryRepository.kt` | `.acgame` parsing, arcade payload-dir collapse, and the arcade-only extension set. |
-| `platforms/android/app/src/main/cpp/native-lib.cpp` | The JVS bridge: pad → JVS, and the six JNI entry points the arcade panel calls. |
+| `platforms/android/app/src/main/cpp/native-lib.cpp` | The JVS bridge: pad → JVS, the JNI entry points the arcade panel calls, and the lightgun bridge (an action → the running game's JVS trigger/pedal/start bits, resolved from `ACJV::GetGunMapping`). |
 | `platforms/android/.../navigation/AppNavigation.kt`, `AppRoute.kt` | Routes to the premium screens; removed Network/Skins categories. |
 | `platforms/android/.../ui/premium/*` | **New files.** The whole launcher: home, library, art picker, add-game sheet, icon set, silver trace, branding. |
 | `platforms/android/.../ui/settings/*`, `ui/emulation/*`, `ui/common/ArmsComponents.kt` | Restyled to the premium system, icons instead of glyphs, and removals (Network, Skins, Achievements, Friends, disc swap). **This is the fork's largest UI delta and the most likely place to conflict.** |
