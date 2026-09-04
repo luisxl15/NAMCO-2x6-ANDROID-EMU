@@ -107,7 +107,9 @@ fun PremiumArtwork(
                 Text("SteamGridDB", style = Type.headline, color = Palette.label)
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    "Cole sua chave da API pessoal. Você a obtém em steamgriddb.com → perfil → preferences → API.",
+                    "Opcional. As capas dos jogos de arcade vêm de um acervo indexado por gameid " +
+                        "e não precisam de chave. Ela serve para as artes de fundo e para os " +
+                        "títulos que o acervo ainda não cobre.",
                     style = Type.footnote, color = Palette.labelSecondary,
                 )
                 Spacer(Modifier.height(12.dp))
@@ -134,27 +136,39 @@ fun PremiumArtwork(
                     busy = true
                     status = null
                     scope.launch {
-                        var ok = 0
-                        var fail = 0
+                        var fromArcade = 0
+                        var fromGrid = 0
+                        var missing = 0
                         var lastError: String? = null
                         for (g in games) {
-                            // Never overwrite art the user already has — this button is for
-                            // filling gaps, not for replacing choices.
-                            // The hero is fetched even when a cover already exists: they are
-                            // separate pictures, and the featured card wants the wide one.
+                            // The wide hero only exists on SteamGridDB, and is fetched even when
+                            // a cover is already present: they are different pictures, and the
+                            // featured card wants the wide one.
                             if (com.armsx2.art.HeroArt.fileFor(context, g) == null) {
                                 SteamGridDb.fetchHero(context, g)
                             }
+                            // Never overwrite art already there -- this button fills gaps, it
+                            // does not replace choices.
                             if (CustomCovers.matchIn(covers, g) != null) continue
+
+                            // The arcade repository first: it is keyed by gameid, so it cannot
+                            // return the wrong game, and it needs no API key. SteamGridDb is the
+                            // fallback for the ids it does not carry.
+                            if (com.armsx2.art.ArcadeCovers.fetch(context, g)) {
+                                fromArcade++
+                                continue
+                            }
                             SteamGridDb.fetchCover(context, g)
-                                .onSuccess { ok++ }
-                                .onFailure { fail++; lastError = SteamGridDb.describe(it) }
+                                .onSuccess { fromGrid++ }
+                                .onFailure { missing++; lastError = SteamGridDb.describe(it) }
                         }
                         busy = false
+                        val got = fromArcade + fromGrid
                         status = when {
-                            ok == 0 && fail == 0 -> "Todos os jogos já têm capa."
-                            fail == 0 -> "$ok capa(s) baixada(s)."
-                            else -> "$ok baixada(s), $fail sem sucesso. ${lastError.orEmpty()}"
+                            got == 0 && missing == 0 -> "Todos os jogos já têm capa."
+                            got == 0 -> "Nenhuma capa encontrada. ${lastError.orEmpty()}"
+                            missing == 0 -> "$got capa(s): $fromArcade do acervo arcade, $fromGrid do SteamGridDB."
+                            else -> "$got baixada(s), $missing sem capa em nenhuma fonte."
                         }
                     }
                 }
