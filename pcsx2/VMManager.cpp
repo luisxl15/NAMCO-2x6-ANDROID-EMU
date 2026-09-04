@@ -3353,6 +3353,16 @@ void VMManager::SetPaused(bool paused)
 
 	Console.WriteLn(paused ? "(VMManager) Pausing..." : "(VMManager) Resuming...");
 	SetState(paused ? VMState::Paused : VMState::Running);
+
+	// Flush the arcade board's backup while we are stopped and consistent.
+	//
+	// ACSRAM is otherwise only written on a clean shutdown, which on Android is the one exit
+	// that is NOT guaranteed: the OS kills a backgrounded emulator whenever it wants memory,
+	// and the settings the operator just entered through the TEST menu go with it -- back to the
+	// backup-error screen next boot, with nothing to say why. Pausing is where the app lands
+	// before it is backgrounded, and the write is 32KB.
+	if (paused && IsArcadeGame())
+		ACSRAM::WriteFile();
 }
 
 GSVSyncMode VMManager::GetEffectiveVSyncMode()

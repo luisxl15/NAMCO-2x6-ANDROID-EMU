@@ -30,6 +30,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -40,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +51,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -74,6 +78,15 @@ import com.armsx2.art.HeroArt
  * cover launching it. Tap-to-launch straight off the grid would make the pane unreachable by
  * touch, and one tap away from starting an emulator is a low bar for a mis-tap.
  */
+
+/** How the grid is ordered. Kept small on purpose: three answers cover what anyone asks of a
+ *  library -- "what did I just play", "where is the one called X", "what do I actually play". */
+private enum class LibrarySort(val label: String) {
+    Recent("Recentes"),
+    Title("A–Z"),
+    Played("Mais jogados"),
+}
+
 @Composable
 fun PremiumLibrary(
     games: List<GameInfo>,
@@ -83,8 +96,35 @@ fun PremiumLibrary(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var sort by rememberSaveable { mutableStateOf(LibrarySort.Recent) }
+    var query by rememberSaveable { mutableStateOf("") }
+
+    // Reading the revision subscribes the sort to play-time writes, so finishing a session
+    // reorders the grid rather than leaving it stale until the screen is reopened.
+    PlayTime.revision.value
+    val shown = remember(games, sort, query, PlayTime.revision.value) {
+        val filtered = if (query.isBlank()) {
+            games
+        } else {
+            // Serial as well as title: an arcade board is as often known by its gameid as by
+            // its name, and the id is the thing printed on the dongle.
+            val q = query.trim().lowercase()
+            games.filter {
+                it.displayTitle(EnglishTitles.enabled.value).lowercase().contains(q) ||
+                    it.serial.orEmpty().lowercase().contains(q)
+            }
+        }
+        when (sort) {
+            LibrarySort.Recent -> filtered.sortedByDescending { PlayTime.lastPlayedMillis(it.serial) }
+            LibrarySort.Title -> filtered.sortedBy { it.displayTitle(EnglishTitles.enabled.value).lowercase() }
+            LibrarySort.Played -> filtered.sortedByDescending { PlayTime.playedSeconds(it.serial) }
+        }
+    }
+
     var selectedKey by remember(games.size) { mutableStateOf(games.firstOrNull()?.uri?.toString()) }
-    val selected = games.firstOrNull { it.uri.toString() == selectedKey } ?: games.firstOrNull()
+    // Follow the visible list: a selection filtered out of view would leave the detail pane
+    // describing a game that is no longer on screen.
+    val selected = shown.firstOrNull { it.uri.toString() == selectedKey } ?: shown.firstOrNull()
 
     Box(modifier.fillMaxSize().background(Palette.ground)) {
         AuroraBackground(Modifier.fillMaxSize())
@@ -108,7 +148,11 @@ fun PremiumLibrary(
                 Text("Biblioteca", style = Type.title1, color = Palette.label)
                 Spacer(Modifier.weight(1f))
                 Text(
-                    "${games.size} ${if (games.size == 1) "jogo" else "jogos"}",
+                    if (shown.size == games.size) {
+                        "${games.size} ${if (games.size == 1) "jogo" else "jogos"}"
+                    } else {
+                        "${shown.size} de ${games.size}"
+                    },
                     style = Type.footnote, color = Palette.labelTertiary,
                 )
                 Spacer(Modifier.width(14.dp))
@@ -119,12 +163,25 @@ fun PremiumLibrary(
                 RescanButton(scanning = scanning, onClick = onRefresh)
             }
 
+            // Only worth the row it takes once there is a list to work on.
+            if (games.size > 3) {
+                Spacer(Modifier.height(16.dp))
+                LibraryControls(
+                    sort = sort,
+                    onSort = { sort = it },
+                    query = query,
+                    onQuery = { query = it },
+                )
+            }
+
             Spacer(Modifier.height(20.dp))
 
             if (games.isEmpty()) {
                 EmptyLibrary()
             } else {
-                BoxWithConstraints(Modifier.fillMaxSize()) {
+                if (shown.isEmpty()) {
+                    NoMatches(query)
+                } else BoxWithConstraints(Modifier.fillMaxSize()) {
                     // The pane needs real width to be worth the space it takes; below that the
                     // grid gets the whole screen and the pane would only crowd it.
                     val roomForPane = maxWidth >= 720.dp
@@ -140,7 +197,7 @@ fun PremiumLibrary(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(20.dp),
                         ) {
-                            items(games, key = { it.uri.toString() }) { game ->
+                            items(shown, key = { it.uri.toString() }) { game ->
                                 val key = game.uri.toString()
                                 LibraryCard(
                                     game = game,
@@ -208,6 +265,88 @@ private fun LibraryBackdrop(game: GameInfo) {
                 ),
             ),
         )
+    }
+}
+
+@Composable
+private fun LibraryControls(
+    sort: LibrarySort,
+    onSort: (LibrarySort) -> Unit,
+    query: String,
+    onQuery: (String) -> Unit,
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LibrarySort.entries.forEach { option ->
+                val on = option == sort
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(Radii.pill))
+                        .background(if (on) Palette.accent else Palette.materialUltraThin)
+                        .clickable { onSort(option) }
+                        .padding(horizontal = 15.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        option.label,
+                        style = Type.caption,
+                        color = if (on) Color.White else Palette.labelSecondary,
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        Row(
+            Modifier
+                .widthIn(max = 320.dp)
+                .clip(RoundedCornerShape(Radii.pill))
+                .material(MaterialLevel.Thin, RoundedCornerShape(Radii.pill))
+                .padding(start = 14.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ArcIcon(Arc.search, tint = Palette.labelTertiary, size = 15.dp)
+            Spacer(Modifier.width(10.dp))
+            BasicTextField(
+                value = query,
+                onValueChange = onQuery,
+                singleLine = true,
+                textStyle = Type.subheadline.copy(color = Palette.label),
+                cursorBrush = SolidColor(Palette.accentBright),
+                modifier = Modifier.weight(1f).padding(vertical = 10.dp),
+                decorationBox = { inner ->
+                    if (query.isEmpty()) {
+                        Text("Buscar", style = Type.subheadline, color = Palette.labelTertiary)
+                    }
+                    inner()
+                },
+            )
+            if (query.isNotEmpty()) {
+                Box(
+                    Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(Radii.pill))
+                        .clickable { onQuery("") },
+                    contentAlignment = Alignment.Center,
+                ) { ArcIcon(Arc.close, tint = Palette.labelTertiary, size = 12.dp) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoMatches(query: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            ArcIcon(Arc.search, tint = Palette.labelTertiary, size = 30.dp)
+            Spacer(Modifier.height(14.dp))
+            Text("Nada para \"$query\"", style = Type.title3, color = Palette.label)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "A busca olha o nome e o gameid.",
+                style = Type.footnote, color = Palette.labelSecondary,
+            )
+        }
     }
 }
 
