@@ -175,18 +175,19 @@ private fun TopBar(onOpenMenu: () -> Unit, onSettings: () -> Unit) {
         Spacer(Modifier.weight(1f))
         Text(clock, style = Type.headline, color = Palette.label)
         Spacer(Modifier.width(14.dp))
-        GlyphButton(Arc.settings, onSettings)
+        GlyphButton(Arc.settings, phase = 0.00f, onClick = onSettings)
         Spacer(Modifier.width(8.dp))
-        GlyphButton(Arc.menu, onOpenMenu)
+        GlyphButton(Arc.menu, phase = 0.42f, onClick = onOpenMenu)
     }
 }
 
 @Composable
-private fun GlyphButton(@androidx.annotation.DrawableRes icon: Int, onClick: () -> Unit) {
+private fun GlyphButton(@androidx.annotation.DrawableRes icon: Int, phase: Float = 0f, onClick: () -> Unit) {
     Box(
         Modifier
             .size(38.dp)
             .material(MaterialLevel.Thin, RoundedCornerShape(Radii.pill))
+            .silverTrace(Radii.pill, phase = phase)
             .clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
@@ -392,11 +393,12 @@ private fun RecentRow(games: List<GameInfo>, selectedIndex: Int, onSelect: (Int)
 @Composable
 private fun DestinationRow(onLibrary: () -> Unit, onNavigate: (AppRoute) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Destination("Biblioteca", Arc.library, Modifier.weight(1f), current = true) { onLibrary() }
-        Destination("Memory Cards", Arc.memcard, Modifier.weight(1f)) { onNavigate(AppRoute.MemoryCardManager()) }
-        Destination("BIOS", Arc.bios, Modifier.weight(1f)) { onNavigate(AppRoute.BiosManager()) }
-        Destination("Controles", Arc.controls, Modifier.weight(1f)) { onNavigate(AppRoute.ControllerManager) }
-        Destination("Saves", Arc.saves, Modifier.weight(1f)) { onNavigate(AppRoute.SaveManager) }
+        // Staggered phases: five lights starting together would read as a progress bar.
+        Destination("Biblioteca", Arc.library, Modifier.weight(1f), current = true, phase = 0.00f) { onLibrary() }
+        Destination("Memory Cards", Arc.memcard, Modifier.weight(1f), phase = 0.17f) { onNavigate(AppRoute.MemoryCardManager()) }
+        Destination("BIOS", Arc.bios, Modifier.weight(1f), phase = 0.34f) { onNavigate(AppRoute.BiosManager()) }
+        Destination("Controles", Arc.controls, Modifier.weight(1f), phase = 0.51f) { onNavigate(AppRoute.ControllerManager) }
+        Destination("Saves", Arc.saves, Modifier.weight(1f), phase = 0.68f) { onNavigate(AppRoute.SaveManager) }
     }
 }
 
@@ -406,6 +408,7 @@ private fun Destination(
     @androidx.annotation.DrawableRes icon: Int,
     modifier: Modifier = Modifier,
     current: Boolean = false,
+    phase: Float = 0f,
     onClick: () -> Unit,
 ) {
     var pressed by remember { mutableStateOf(false) }
@@ -424,6 +427,7 @@ private fun Destination(
                     Modifier
                 },
             )
+            .silverTrace(Radii.chip, phase = phase)
             .clickable { pressed = true; onClick() }
             .padding(horizontal = 14.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
