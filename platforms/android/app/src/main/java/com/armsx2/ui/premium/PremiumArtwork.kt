@@ -138,6 +138,11 @@ fun PremiumArtwork(
                         for (g in games) {
                             // Never overwrite art the user already has — this button is for
                             // filling gaps, not for replacing choices.
+                            // The hero is fetched even when a cover already exists: they are
+                            // separate pictures, and the featured card wants the wide one.
+                            if (com.armsx2.art.HeroArt.fileFor(context, g) == null) {
+                                SteamGridDb.fetchHero(context, g)
+                            }
                             if (CustomCovers.matchIn(covers, g) != null) continue
                             SteamGridDb.fetchCover(context, g)
                                 .onSuccess { ok++ }
@@ -171,6 +176,7 @@ fun PremiumArtwork(
                         onFetch = {
                             scope.launch {
                                 status = null
+                                SteamGridDb.fetchHero(context, game)
                                 SteamGridDb.fetchCover(context, game)
                                     .onSuccess { status = "Capa atualizada: ${game.displayTitle(EnglishTitles.enabled.value)}" }
                                     .onFailure { status = SteamGridDb.describe(it) }

@@ -61,19 +61,28 @@ fun AuroraBackground(modifier: Modifier = Modifier) {
             )
         }
 
-        // NAMCO red, kept to the upper left so the logo sits in its own light.
-        field(Color(0x30A5121F), 0.0f, 0.22f, 0.18f, 0.10f, 0.08f, 0.62f)
-        // A deeper crimson pooling bottom-right for balance.
-        field(Color(0x247A0E18), 2.4f, 0.82f, 0.78f, 0.12f, 0.09f, 0.58f)
-        // Cool neutral to keep the whole thing from going monochrome-warm.
-        field(Color(0x1F2A3550), 4.1f, 0.62f, 0.30f, 0.14f, 0.10f, 0.70f)
-        // A dim warm centre lift, so the middle of the screen isn't a dead zone.
-        field(Color(0x0AFFFFFF), 5.6f, 0.45f, 0.58f, 0.08f, 0.06f, 0.40f)
+        // A full spread rather than red on charcoal. All four corners carry a different hue and
+        // they drift out of phase, so the ground behind the glass keeps changing colour instead
+        // of reading as one flat tint -- which is what makes translucent panels look like glass
+        // and not like grey rectangles.
+        //
+        // NAMCO red, upper left, so the logo sits in its own light.
+        field(Color(0x59B01423), 0.0f, 0.18f, 0.16f, 0.10f, 0.08f, 0.62f)
+        // Violet along the top edge.
+        field(Color(0x4A5B2A9E), 1.2f, 0.52f, 0.10f, 0.13f, 0.07f, 0.66f)
+        // Deep blue down the right.
+        field(Color(0x4A1E3C8C), 2.4f, 0.86f, 0.42f, 0.11f, 0.12f, 0.64f)
+        // Amber pooling bottom-left, the warm counterweight.
+        field(Color(0x3DB4661E), 3.6f, 0.16f, 0.84f, 0.12f, 0.09f, 0.58f)
+        // Magenta bottom-right, tying the red and the violet together.
+        field(Color(0x3D8E1E5E), 4.8f, 0.78f, 0.86f, 0.12f, 0.08f, 0.56f)
+        // A dim centre lift, so the middle of the screen is not a dead zone.
+        field(Color(0x14FFFFFF), 5.6f, 0.45f, 0.52f, 0.08f, 0.06f, 0.42f)
 
         // Vignette to seat the edges.
         drawRect(
             brush = Brush.radialGradient(
-                colors = listOf(Color.Transparent, Color(0xB3000000)),
+                colors = listOf(Color.Transparent, Color(0x9E000000)),
                 center = Offset(w / 2f, h / 2f),
                 radius = maxOf(w, h) * 0.78f,
             ),

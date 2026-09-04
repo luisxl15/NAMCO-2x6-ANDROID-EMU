@@ -113,6 +113,33 @@ object SteamGridDb {
         }
     }
 
+    /** First hero (wide key-art) URL for [gameId]. */
+    private fun firstHeroUrl(gameId: Int): String? {
+        // 1920x620 is the shape the featured card crops to; fall back to whatever the game has.
+        val wide = get("/heroes/game/$gameId?dimensions=1920x620&limit=1").getOrThrow()
+        wide.optJSONArray("data")?.optJSONObject(0)?.optString("url")
+            ?.takeIf { it.isNotBlank() }?.let { return it }
+        val any = get("/heroes/game/$gameId?limit=1").getOrThrow()
+        return any.optJSONArray("data")?.optJSONObject(0)?.optString("url")?.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * Find and store the wide hero artwork the featured card uses as its background.
+     * Same contract as [fetchCover]; stored through [HeroArt] rather than [CustomCovers].
+     */
+    suspend fun fetchHero(context: Context, game: GameInfo): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!configured) return@withContext Result.failure(FailureException(Failure.NoKey))
+        runCatching {
+            val title = game.displayTitle(com.armsx2.EnglishTitles.enabled.value)
+            val id = searchId(title) ?: throw FailureException(Failure.NotFound)
+            val url = firstHeroUrl(id) ?: throw FailureException(Failure.NotFound)
+            val bytes = download(url)
+            if (!HeroArt.setBytes(context, game, bytes)) {
+                throw FailureException(Failure.Network("Não foi possível gravar a arte de fundo"))
+            }
+        }
+    }
+
     /**
      * Find and store a cover for [game]. Returns success, or the reason it didn't.
      * Safe to call for a game that already has one — the caller decides whether to skip.

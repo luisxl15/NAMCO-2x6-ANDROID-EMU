@@ -1,5 +1,7 @@
 package com.armsx2.ui.emulation
 
+import com.armsx2.ui.premium.Arc
+import com.armsx2.ui.premium.ArcIcon
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseIn
@@ -387,7 +389,6 @@ private fun MenuPage(
                     EmulationMenuTab.Performance -> PerformancePane(state, viewModel)
                     EmulationMenuTab.Controls -> ControlsPane(state, viewModel)
                     EmulationMenuTab.Options -> OptionsPane(state, viewModel)
-                    EmulationMenuTab.Achievements -> AchievementsPane(state, viewModel)
                 }
             }
         }
@@ -449,11 +450,10 @@ private fun MenuRailTab(tab: EmulationMenuTab, active: Boolean, onSelect: (Emula
         ),
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(
-                text = tabGlyph(tab),
-                fontSize = 23.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            ArcIcon(
+                tabIcon(tab),
+                tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                size = 22.dp,
             )
         }
     }
@@ -496,7 +496,7 @@ private fun MenuTab(tab: EmulationMenuTab, active: Boolean, onSelect: (Emulation
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
-                        text = tabGlyph(tab),
+                        text = "",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -515,19 +515,16 @@ private fun MenuTab(tab: EmulationMenuTab, active: Boolean, onSelect: (Emulation
     }
 }
 
-// Rail tab icons. No monochrome Unicode exists for gamepad/wrench/trophy/display, so those
-// use color emoji (the bundled NotoColorEmoji renders them); Session keeps its clean text
-// glyph. Performance uses the high-voltage emoji so it reads as a yellow lightning bolt.
-// Options carries the settings gear; the full-settings shortcut below the rail divider uses
-// a distinct "open" glyph so there aren't two gears.
-private fun tabGlyph(tab: EmulationMenuTab): String = when (tab) {
-    EmulationMenuTab.Session -> "☰"
-    EmulationMenuTab.Graphics -> "◫"
-    EmulationMenuTab.Fixes -> "⌘"
-    EmulationMenuTab.Performance -> "↯"
-    EmulationMenuTab.Controls -> "⌁"
-    EmulationMenuTab.Options -> "⚙"
-    EmulationMenuTab.Achievements -> "★"
+// Rail tab icons, drawn from the launcher's own set. They used to be Unicode -- three of them
+// colour emoji, because no monochrome codepoint exists for a gamepad or a wrench -- so the rail
+// mixed two weights and two colours and the emoji ones ignored the active/inactive tint.
+private fun tabIcon(tab: EmulationMenuTab): Int = when (tab) {
+    EmulationMenuTab.Session -> Arc.menu
+    EmulationMenuTab.Graphics -> Arc.display
+    EmulationMenuTab.Fixes -> Arc.fixes
+    EmulationMenuTab.Performance -> Arc.performance
+    EmulationMenuTab.Controls -> Arc.controls
+    EmulationMenuTab.Options -> Arc.settings
 }
 
 @Composable
@@ -616,29 +613,8 @@ private fun MenuHeader(
             Modifier.align(Alignment.CenterVertically),
         )
 
-        // Friends, in the header where it is always visible, with the online count on it. A build
-        // without the SDK has nothing to show, so it does not take up header space there.
-        if (com.armsx2.DiscordPresence.available()) {
-            Spacer(Modifier.width(8.dp))
-            Surface(
-                onClick = onOpenFriends,
-                modifier = Modifier.controllerFocusable(
-                    "menu.friends",
-                    RoundedCornerShape(14.dp),
-                    onConfirm = onOpenFriends,
-                ),
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
-            ) {
-                Box(Modifier.padding(horizontal = 11.dp, vertical = 9.dp)) {
-                    com.armsx2.ui.friends.FriendsGlyphWithBadge(
-                        color = MaterialTheme.colorScheme.onSurface,
-                        glyphSize = 19.sp,
-                    )
-                }
-            }
-        }
+        // No Friends button. It is a Discord presence panel built around a console library --
+        // an online account service, like the Achievements tab that used to sit on the rail.
     }
 }
 
@@ -646,16 +622,17 @@ private fun MenuHeader(
 private fun SessionPane(state: EmulationMenuUiState, viewModel: EmulationMenuViewModel) {
     ActionGrid(
         actions = listOf(
-            MenuAction(str("action.resume"), str("action.play"), "▶", Success, viewModel::resume),
+            MenuAction(str("action.resume"), str("action.play"), Arc.play, Success, viewModel::resume),
             MenuAction(
                 str("action.fastForward"),
                 if (MainActivityRuntime.fastForwardToggleActive) str("action.fastForward.on") else str("action.fastForward.detail"),
-                "⏩",
+                Arc.fastForward,
                 if (MainActivityRuntime.fastForwardToggleActive) Success else null,
             ) { MainActivityRuntime.instance?.toggleFastForward(); viewModel.resume() },
-            MenuAction(str("memcard.restart"), str("action.reset"), "↻", null, MainActivityRuntime::restart),
-            MenuAction(str("action.swapDisc"), str("action.swapDisc.detail"), "⏏", null, MainActivityRuntime::promptSwapDisc),
-            MenuAction(str("action.close"), MainActivityRuntime.currentGame.value?.title.orEmpty(), "■", Danger) {
+            MenuAction(str("memcard.restart"), str("action.reset"), Arc.refresh, null, MainActivityRuntime::restart),
+            // No disc swap: an arcade board boots one fixed image, named by the .acgame and
+            // mounted on the ACATA drive. There is no second disc to change to.
+            MenuAction(str("action.close"), MainActivityRuntime.currentGame.value?.title.orEmpty(), Arc.stop, Danger) {
                 MainActivityRuntime.closeGame()
             },
         ),
@@ -812,10 +789,10 @@ private fun SessionPane(state: EmulationMenuUiState, viewModel: EmulationMenuVie
         // auto-save/-load toggles), matching the old UI. The slot chips above stay
         // the quick-slot selector used by the on-screen / hotkey quick-save.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CompactAction(str("savestate.title.save"), "↥", Modifier.weight(1f)) {
+            CompactAction(str("savestate.title.save"), Arc.export, Modifier.weight(1f)) {
                 com.armsx2.ui.WindowImpl.openInGameScreen(com.armsx2.ui.InGameScreen.SaveState)
             }
-            CompactAction(str("touch.stateAction.load"), "↧", Modifier.weight(1f)) {
+            CompactAction(str("touch.stateAction.load"), Arc.importFile, Modifier.weight(1f)) {
                 com.armsx2.ui.WindowImpl.openInGameScreen(com.armsx2.ui.InGameScreen.LoadState)
             }
         }
@@ -868,7 +845,7 @@ private fun GraphicsPane(state: EmulationMenuUiState, viewModel: EmulationMenuVi
     ) { on ->
         viewModel.updateSettings { it.copy(coalesceRenderPasses = on) }
     }
-    CompactAction(str("backend.applyRestart"), "↻", Modifier.fillMaxWidth(), MainActivityRuntime::restart)
+    CompactAction(str("backend.applyRestart"), Arc.refresh, Modifier.fillMaxWidth(), MainActivityRuntime::restart)
     HorizontalOptions(
         title = str("renderer.upscale.label"),
         // Share the full settings-tab list so the sub-native 0.25/0.5/0.75/Native
@@ -1320,9 +1297,9 @@ private fun ControlsPane(state: EmulationMenuUiState, viewModel: EmulationMenuVi
         // The four swipe/double-tap ASSIGNMENTS stay in All Settings — six button pickers would
         // swamp this pane, and you set them once rather than mid-session.
     }
-    CompactAction(str("pad.controllerMapping"), "⌁", Modifier.fillMaxWidth(), viewModel::openControlsManager)
+    CompactAction(str("pad.controllerMapping"), Arc.controls, Modifier.fillMaxWidth(), viewModel::openControlsManager)
     Spacer(Modifier.height(6.dp))
-    CompactAction(str("pad.editTouchLayout"), "✥", Modifier.fillMaxWidth(), viewModel::editTouchControls)
+    CompactAction(str("pad.editTouchLayout"), Arc.move, Modifier.fillMaxWidth(), viewModel::editTouchControls)
     Spacer(Modifier.height(6.dp))
     // Sits with the touch layout because it's the same job: what the on-screen pad LOOKS
     // like, right after where it's laid out. Full-screen like Controller mapping.
@@ -1347,22 +1324,21 @@ private fun OptionsPane(state: EmulationMenuUiState, viewModel: EmulationMenuVie
     val settings = state.settings
     // Item 3: gateway to the full per-game settings (all categories the compact menu omits:
     // OSD, Skins, Audio, Hotkeys, Network, Recompiler, ...).
-    CompactAction(str("action.allSettings"), "⚙", Modifier.fillMaxWidth(), viewModel::openFullSettings)
+    CompactAction(str("action.allSettings"), Arc.settings, Modifier.fillMaxWidth(), viewModel::openFullSettings)
     Spacer(Modifier.height(6.dp))
     // In-game access to the manager screens (the library drawer's Memory Cards /
     // Patches & Cheats / Controller mapping) — open over the paused game.
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        CompactAction(str("memcard.title"), "▤", Modifier.weight(1f), viewModel::openMemcard)
-        CompactAction(str("patches.dialog.patchesAndCheats"), "✦", Modifier.weight(1f), viewModel::openPatches)
+        CompactAction(str("memcard.title"), Arc.memcard, Modifier.weight(1f), viewModel::openMemcard)
+        CompactAction(str("patches.dialog.patchesAndCheats"), Arc.patches, Modifier.weight(1f), viewModel::openPatches)
     }
     Spacer(Modifier.height(6.dp))
     // Texture packs belong here too: the pack folder has to match the RUNNING game's serial,
     // so the screen only tells you anything useful with a game loaded — and buried in
     // All Settings -> Renderer it was effectively unreachable mid-session.
-    // Glyph must be one already proven to render in the shipped font — "▩" (U+25A9) and
-    // "⏻" (U+23FB) come out as tofu boxes on device. "▣" is used by the BIOS/onboarding
-    // screens, so it is known good.
-    CompactAction(str("renderer.section.texturePacks"), "▣", Modifier.fillMaxWidth(), viewModel::openTextures)
+    // A drawn icon, so the old hunt for a codepoint the shipped font actually renders ("▩" and
+    // "⏻" both came out as tofu boxes on device) does not apply any more.
+    CompactAction(str("renderer.section.texturePacks"), Arc.textures, Modifier.fillMaxWidth(), viewModel::openTextures)
     Spacer(Modifier.height(6.dp))
     MenuSwitchRow(str("patches.enablePatches.label"), settings.enablePatches) {
         viewModel.updateSettings { current -> current.copy(enablePatches = it) }
@@ -1407,63 +1383,6 @@ private fun OptionsPane(state: EmulationMenuUiState, viewModel: EmulationMenuVie
     MenuSwitchRow(str("perf.fix.vuSync"), settings.gamefixVuSync) {
         viewModel.updateSettings { current -> current.copy(enableGameFixes = true, gamefixVuSync = it) }
     }
-}
-
-@Composable
-private fun AchievementsPane(state: EmulationMenuUiState, viewModel: EmulationMenuViewModel) {
-    // Gateway to the full RetroAchievements screen (unlock list + presentation options).
-    CompactAction(str("ra.viewAchievements"), "★", Modifier.fillMaxWidth(), viewModel::openAchievements)
-    Spacer(Modifier.height(4.dp))
-    SectionCard("RetroAchievements") {
-        // Signed-in account: avatar + name + both point totals (hardcore / softcore).
-        if (state.raUserName.isNotBlank()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (state.raAvatarUrl.isNotBlank()) {
-                    AsyncImage(
-                        state.raAvatarUrl,
-                        state.raUserName,
-                        Modifier.size(46.dp).clip(CircleShape),
-                        contentScale = ContentScale.Crop,
-                    )
-                    Spacer(Modifier.width(12.dp))
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        state.raUserName,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "${state.raScore} HC",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = com.armsx2.ui.theme.Danger,
-                        )
-                        Text(
-                            "  ·  ${state.raSoftcoreScore} SC",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-        }
-        Text(
-            state.achievementSummary,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(8.dp))
-        MenuSwitchRow(
-            str(if (state.hardcore) "ra.mode.hardcore" else "ra.mode.casual"),
-            state.hardcore,
-            onCheckedChange = { viewModel.requestToggleHardcore() },
-        )
-    }
-    // Inline unlock list, right below the hardcore toggle — no need to open the full
-    // screen (it's still available via the button above).
-    state.achievements.forEach { item -> InGameAchievementRow(item) }
 }
 
 @Composable
@@ -1536,7 +1455,7 @@ private fun HardcoreBadge() {
 private data class MenuAction(
     val title: String,
     val detail: String,
-    val glyph: String,
+    @androidx.annotation.DrawableRes val icon: Int,
     val accent: Color?,
     val action: () -> Unit,
 )
@@ -1566,13 +1485,9 @@ private fun ActionGrid(actions: List<MenuAction>) {
                 ),
             ) {
                 Row(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        item.glyph,
-                        color = item.accent ?: MaterialTheme.colorScheme.primary,
-                        fontSize = 19.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.width(30.dp),
-                    )
+                    Box(Modifier.width(30.dp)) {
+                        ArcIcon(item.icon, tint = item.accent ?: MaterialTheme.colorScheme.primary, size = 19.dp)
+                    }
                     Column(Modifier.weight(1f)) {
                         Text(item.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                         if (item.detail.isNotBlank()) {
@@ -1792,7 +1707,7 @@ private fun MenuCycleRow(
 }
 
 @Composable
-private fun CompactAction(title: String, glyph: String, modifier: Modifier, onClick: () -> Unit) {
+private fun CompactAction(title: String, @androidx.annotation.DrawableRes icon: Int, modifier: Modifier, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = modifier.controllerFocusable("pause.compact.$title", onConfirm = onClick),
@@ -1805,7 +1720,7 @@ private fun CompactAction(title: String, glyph: String, modifier: Modifier, onCl
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(glyph, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            ArcIcon(icon, tint = MaterialTheme.colorScheme.primary, size = 18.dp)
             Text(title, style = MaterialTheme.typography.labelLarge, maxLines = 2)
         }
     }

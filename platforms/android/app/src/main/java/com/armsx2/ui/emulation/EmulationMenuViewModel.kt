@@ -18,9 +18,9 @@ enum class EmulationMenuTab(val titleKey: String) {
     Performance("tab.performance"),
     Controls("tab.controls"),
     Options("action.settings"),
-    Achievements("ra.title"),
-    // No Friends tab. It lived at the end of a rail that scrolls, so reaching it meant knowing it
-    // was there and then hunting for it — it is a header button with its own overlay instead.
+    // No Achievements and no Friends. Both are online account services built around a console
+    // library; RetroAchievements carries no System 246/256 sets at all, so the tab could only
+    // ever open an empty screen mid-session.
 }
 
 data class EmulationMenuUiState(

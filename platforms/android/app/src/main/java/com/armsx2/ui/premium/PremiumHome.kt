@@ -38,6 +38,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -54,6 +56,8 @@ import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.armsx2.EnglishTitles
 import com.armsx2.GameInfo
+import com.armsx2.PlayTime
+import com.armsx2.art.HeroArt
 import com.armsx2.R
 import com.armsx2.navigation.AppRoute
 import com.armsx2.runtime.MainActivityRuntime
@@ -193,47 +197,121 @@ private fun GlyphButton(@androidx.annotation.DrawableRes icon: Int, onClick: () 
 @Composable
 private fun HeroCard(game: GameInfo, onPlay: () -> Unit, modifier: Modifier = Modifier) {
     val title = game.displayTitle(EnglishTitles.enabled.value)
-    Box(modifier.material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.card), elevation = 18.dp)) {
-        // Oversized, nearly-invisible mark bleeding off the right edge — gives the wide card a
-        // second focal point instead of dead space.
-        Image(
-            painter = painterResource(R.drawable.namco_2x6),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxWidth(0.44f)
-                .alpha(0.05f)
-                .padding(end = 12.dp),
-        )
-    Row(
-        Modifier.fillMaxSize().padding(20.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val context = LocalContext.current
+    val heroVersion = HeroArt.version.intValue
+    val hero = remember(game.uri, heroVersion) { HeroArt.fileFor(context, game) }
+
+    Box(
+        modifier
+            .clip(RoundedCornerShape(Radii.card))
+            .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.card), elevation = 18.dp),
     ) {
-        Box(
-            Modifier
-                .fillMaxHeight()
-                .aspectRatio(0.72f)
-                .clip(RoundedCornerShape(Radii.tile)),
-        ) {
-            CoverArt(game, Modifier.fillMaxSize())
+        if (hero != null) {
+            // The key art takes the right two thirds and is then washed out towards the left, so
+            // the title and the button sit on flat colour and stay readable whatever the picture
+            // happens to be doing behind them.
+            SubcomposeAsyncImage(
+                model = ImageRequest.Builder(context).data(hero).crossfade(true).build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.CenterEnd,
+                modifier = Modifier.fillMaxHeight().fillMaxWidth(0.74f).align(Alignment.CenterEnd),
+            )
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.horizontalGradient(
+                        0.00f to Palette.ground,
+                        0.32f to Palette.ground.copy(alpha = 0.95f),
+                        0.60f to Palette.ground.copy(alpha = 0.42f),
+                        1.00f to Color.Transparent,
+                    ),
+                ),
+            )
+        } else {
+            // No key art yet: the oversized mark bleeding off the right edge, as before, so the
+            // wide card still has a second focal point instead of dead space.
+            Image(
+                painter = painterResource(R.drawable.namco_2x6),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxWidth(0.44f)
+                    .alpha(0.05f)
+                    .padding(end = 12.dp),
+            )
         }
 
-        Spacer(Modifier.width(22.dp))
+        Row(
+            Modifier.fillMaxSize().padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .fillMaxHeight()
+                    .aspectRatio(0.72f)
+                    .clip(RoundedCornerShape(Radii.tile)),
+            ) {
+                CoverArt(game, Modifier.fillMaxSize())
+            }
 
-        Column(Modifier.weight(1f)) {
-            Text("CONTINUAR", style = Type.eyebrow, color = Palette.labelTertiary)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                title, style = Type.title1, color = Palette.label,
-                maxLines = 2, overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(metaLine(game), style = Type.footnote, color = Palette.labelSecondary)
-            Spacer(Modifier.height(16.dp))
-            PlayButton(onPlay)
+            Spacer(Modifier.width(22.dp))
+
+            Column(Modifier.weight(1f)) {
+                Text("CONTINUAR", style = Type.eyebrow, color = Palette.labelTertiary)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    title, style = Type.title1, color = Palette.label,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(metaLine(game), style = Type.footnote, color = Palette.labelSecondary)
+                Spacer(Modifier.height(16.dp))
+                PlayButton(onPlay)
+                Spacer(Modifier.height(16.dp))
+                PlayStats(game)
+            }
         }
     }
+}
+
+/**
+ * Time played and last session, on the card. Real numbers from [PlayTime]: the featured card
+ * would otherwise be the one place in the launcher that says nothing about the game you have
+ * actually been playing. Hidden entirely until there is something to report, so a fresh install
+ * does not show two zeroes.
+ */
+@Composable
+private fun PlayStats(game: GameInfo) {
+    PlayTime.revision.value
+    val serial = game.serial
+    val seconds = PlayTime.playedSeconds(serial)
+    val last = PlayTime.lastPlayedMillis(serial)
+    if (seconds <= 0L && last <= 0L) return
+
+    Column(
+        Modifier
+            .material(MaterialLevel.Thin, RoundedCornerShape(Radii.chip))
+            .padding(horizontal = 16.dp, vertical = 11.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        if (seconds > 0L) StatLine(Arc.performance, "Tempo de jogo: " + PlayTime.formatPlayed(seconds))
+        if (last > 0L) StatLine(Arc.refresh, PlayTime.formatLastPlayed(last))
+    }
+}
+
+@Composable
+private fun StatLine(@androidx.annotation.DrawableRes icon: Int, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        ArcIcon(icon, tint = Palette.accentBright, size = 14.dp)
+        Spacer(Modifier.width(9.dp))
+        Text(
+            text,
+            style = Type.footnote,
+            color = Palette.labelSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -251,11 +329,16 @@ private fun PlayButton(onPlay: () -> Unit) {
             .clip(RoundedCornerShape(Radii.pill))
             .background(Brush.horizontalGradient(listOf(Palette.accentBright, Palette.accent)))
             .clickable { pressed = true; onPlay() }
-            .padding(horizontal = 26.dp, vertical = 12.dp),
+            .padding(start = 10.dp, end = 24.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ArcIcon(Arc.play, tint = Color.White, size = 15.dp)
-        Spacer(Modifier.width(9.dp))
+        // The glyph rides in its own white disc rather than sitting bare on the fill: at this
+        // size a lone triangle on a red pill reads as decoration, the disc makes it a button.
+        Box(
+            Modifier.size(26.dp).clip(CircleShape).background(Color.White),
+            contentAlignment = Alignment.Center,
+        ) { ArcIcon(Arc.play, tint = Palette.accent, size = 12.dp) }
+        Spacer(Modifier.width(11.dp))
         Text("Jogar", style = Type.headline, color = Color.White)
     }
 }
@@ -304,7 +387,7 @@ private fun RecentRow(games: List<GameInfo>, selectedIndex: Int, onSelect: (Int)
 @Composable
 private fun DestinationRow(onLibrary: () -> Unit, onNavigate: (AppRoute) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Destination("Biblioteca", Arc.library, Modifier.weight(1f)) { onLibrary() }
+        Destination("Biblioteca", Arc.library, Modifier.weight(1f), current = true) { onLibrary() }
         Destination("Memory Cards", Arc.memcard, Modifier.weight(1f)) { onNavigate(AppRoute.MemoryCardManager()) }
         Destination("BIOS", Arc.bios, Modifier.weight(1f)) { onNavigate(AppRoute.BiosManager()) }
         Destination("Controles", Arc.controls, Modifier.weight(1f)) { onNavigate(AppRoute.ControllerManager) }
@@ -313,7 +396,13 @@ private fun DestinationRow(onLibrary: () -> Unit, onNavigate: (AppRoute) -> Unit
 }
 
 @Composable
-private fun Destination(label: String, @androidx.annotation.DrawableRes icon: Int, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun Destination(
+    label: String,
+    @androidx.annotation.DrawableRes icon: Int,
+    modifier: Modifier = Modifier,
+    current: Boolean = false,
+    onClick: () -> Unit,
+) {
     var pressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         if (pressed) 0.97f else 1f,
@@ -323,6 +412,13 @@ private fun Destination(label: String, @androidx.annotation.DrawableRes icon: In
         modifier
             .scale(scale)
             .material(MaterialLevel.Thin, RoundedCornerShape(Radii.chip))
+            .then(
+                if (current) {
+                    Modifier.border(1.dp, Palette.accentBright, RoundedCornerShape(Radii.chip))
+                } else {
+                    Modifier
+                },
+            )
             .clickable { pressed = true; onClick() }
             .padding(horizontal = 14.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
