@@ -117,9 +117,13 @@ fun PremiumLibrary(
                     val roomForPane = maxWidth >= 720.dp
                     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(26.dp)) {
                         LazyVerticalGrid(
-                            columns = GridCells.Adaptive(minSize = 132.dp),
+                            columns = GridCells.Adaptive(minSize = 116.dp),
                             modifier = Modifier.weight(if (roomForPane) 1.35f else 1f).fillMaxHeight(),
-                            contentPadding = PaddingValues(bottom = 24.dp),
+                            // Room at the top as well as the bottom. The grid clips to its own
+                            // bounds, so with items flush against the top edge the press and
+                            // selection transforms pushed the first row past it and shaved the
+                            // rounded corners square.
+                            contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(20.dp),
                         ) {
@@ -214,8 +218,11 @@ private fun EmptyLibrary() {
 @Composable
 private fun LibraryCard(game: GameInfo, selected: Boolean, onClick: () -> Unit) {
     var pressed by remember { mutableStateOf(false) }
+    // No scale-up on selection: the trace and the lifted brightness already say which one is
+    // selected, and growing a tile that sits at the edge of a clipping grid only costs it its
+    // corners.
     val scale by animateFloatAsState(
-        if (pressed) 0.95f else if (selected) 1.03f else 1f,
+        if (pressed) 0.95f else 1f,
         spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
         label = "libScale",
     )
