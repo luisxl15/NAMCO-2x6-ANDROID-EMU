@@ -508,7 +508,7 @@ private fun NamcoPlate() {
     }
 }
 
-private fun metaLine(game: GameInfo): String = buildString {
+internal fun metaLine(game: GameInfo): String = buildString {
     val serial = game.serial
     // NMxxxxx is a System 246/256 gameid; anything else is a console disc.
     if (serial != null && serial.startsWith("NM")) append("NAMCO System 246/256") else append("PlayStation 2")
