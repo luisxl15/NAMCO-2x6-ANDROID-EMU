@@ -1,0 +1,390 @@
+{
+ "source": "PS2Homebrew-arcade/pcsx2x6 issue #9",
+ "games": {
+  "NM00001": {
+   "name": "Ridge Racer V - Arcade Battle",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "CD",
+   "note": ""
+  },
+  "NM00002": {
+   "name": "Bloody Roar 3",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "CD",
+   "note": "IMPORTANT: this game crashes when using official sony COH-H ps2 board bios, the ones marked as `COH-H Board (A-000-010)`. 246C and 256 bios work ok"
+  },
+  "NM00003": {
+   "name": "Vampire Night",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "CD",
+   "note": ""
+  },
+  "NM10003": {
+   "name": "Technic Beat",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": "game studio recycled security dongles bought for vampire night here. as a workaround, an unofficial gameID is used"
+  },
+  "NM00004": {
+   "name": "Tekken 4",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "DVD",
+   "note": ""
+  },
+  "NM00005": {
+   "name": "Wangan Midnight R",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": ""
+  },
+  "NM00006": {
+   "name": "Smash Court Pro Tournament",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "CD",
+   "note": ""
+  },
+  "NM00007": {
+   "name": "Soul Calibur II",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "DVD",
+   "note": ""
+  },
+  "NM00008": {
+   "name": "Wangan Midnight",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": ""
+  },
+  "NM00009": {
+   "name": "Netchuu! Pro Baseball 2002",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": ""
+  },
+  "NM00010": {
+   "name": "Battle Gear 3",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": "Game Rejects system256 BIOS!"
+  },
+  "NM00011": {
+   "name": "Pride GP 2003",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": ""
+  },
+  "NM00012": {
+   "name": "Time Crisis 3",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "DVD",
+   "note": ""
+  },
+  "NM00013": {
+   "name": "Mobile Suit Gundam Zeta - A.E.U.G. vs. Titans",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": ""
+  },
+  "NM00014": {
+   "name": "Dragon Chronicle - Legendary Master Ark",
+   "status": "ATTRACT",
+   "board": "246",
+   "media": "CD",
+   "note": ""
+  },
+  "NM00015": {
+   "name": "Battle Gear 3 Tuned",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": "Game Rejects system256 BIOS!"
+  },
+  "NM00016": {
+   "name": "Zoids Infinity",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": ""
+  },
+  "NM00017": {
+   "name": "Mobile Suit Gundam Zeta - A.E.U.G. vs. Titans DX",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": ""
+  },
+  "NM00018": {
+   "name": "Capcom Fighting Jam",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "DVD",
+   "note": ""
+  },
+  "NM00019": {
+   "name": "Tekken 5",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "DVD",
+   "note": ""
+  },
+  "NM00020": {
+   "name": "Dragon Chronicle Online - Great Sky Battle",
+   "status": "ATTRACT",
+   "board": "246",
+   "media": "CD",
+   "note": ""
+  },
+  "NM00021": {
+   "name": "Cobra - The Arcade",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "HDD",
+   "note": ""
+  },
+  "NM00022": {
+   "name": "The IDOLM@STER",
+   "status": "ATTRACT",
+   "board": "246",
+   "media": "HDD",
+   "note": ""
+  },
+  "NM00023": {
+   "name": "Taiko Drum Master 7",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": ""
+  },
+  "NM00024": {
+   "name": "Mobile Suit Gundam SEED - Federation vs. Z.A.F.T.",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": ""
+  },
+  "NM00025": {
+   "name": "Zoids Infinity - EX",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": ""
+  },
+  "NM00026": {
+   "name": "Tekken 5 - Dark Resurrection",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "DVD",
+   "note": ""
+  },
+  "NM00027": {
+   "name": "Super Dragon Ball Z",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "HDD",
+   "note": ""
+  },
+  "NM00028": {
+   "name": "Druaga Online - The Story of Aon",
+   "status": "UNTESTED",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00029": {
+   "name": "Kinnikuman Muscle Grand Prix",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": ""
+  },
+  "NM00030": {
+   "name": "Mobile Suit Gundam Quiz Warrior",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "",
+   "note": ""
+  },
+  "NM00031": {
+   "name": "Soul Calibur III - Arcade Edition",
+   "status": "PLAYABLE",
+   "board": "246",
+   "media": "DVD",
+   "note": ""
+  },
+  "NM00032": {
+   "name": "Time Crisis 4",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "HDD",
+   "note": ""
+  },
+  "NM00033": {
+   "name": "Taiko Drum Master 8",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00034": {
+   "name": "Mobile Suit Gundam SEED Destiny - Federation vs. Z.A.F.T. II",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00035": {
+   "name": "The Battle of YuYu Hakusho - Deathmatch! Dark Martial Arts Association",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00036": {
+   "name": "Whole Brain Training With Everybody",
+   "status": "UNTESTED",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00037": {
+   "name": "Quiz & Variety Suku Suku Inufuku 2 - More Suku Suku",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00038": {
+   "name": "Taiko Drum Master 9",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00039": {
+   "name": "MotoGP",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00040": {
+   "name": "Kinnikuman Muscle Grand Prix 2",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00041": {
+   "name": "Taiko Drum Master 10",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00042": {
+   "name": "Sengoku Basara X",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "DVD",
+   "note": ""
+  },
+  "NM00043": {
+   "name": "Mobile Suit Gundam - Gundam vs. Gundam",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00044": {
+   "name": "Taiko Drum Master 11",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00045": {
+   "name": "Taiko Drum Master 11 - Taiwan Edition",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00046": {
+   "name": "Taiko Drum Master 11 - Asian Edition",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00047": {
+   "name": "Ace Driver 3 - Final Turn",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00048": {
+   "name": "Fate - Unlimited Codes",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00051": {
+   "name": "Taiko Drum Master 12",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00052": {
+   "name": "Mobile Suit Gundam - Gundam vs. Gundam NEXT",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "HDD",
+   "note": ""
+  },
+  "NM00053": {
+   "name": "Taiko Drum Master 12 - Taiwan Edition",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00054": {
+   "name": "Taiko Drum Master 12 - Asian Edition",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00056": {
+   "name": "Taiko Drum Master 13",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  },
+  "NM00057": {
+   "name": "Taiko Drum Master 14",
+   "status": "PLAYABLE",
+   "board": "256",
+   "media": "",
+   "note": ""
+  }
+ }
+}

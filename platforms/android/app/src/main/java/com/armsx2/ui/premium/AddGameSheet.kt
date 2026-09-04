@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.armsx2.data.library.AcgameWizard
+import com.armsx2.data.library.ArcadeCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -62,6 +63,10 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
     var found by remember { mutableStateOf<List<AcgameWizard.Candidate>>(emptyList()) }
     var done by remember { mutableStateOf(setOf<String>()) }
     var note by remember { mutableStateOf<String?>(null) }
+
+    // Back closes this, not the screen behind it. Without it the key falls through to the
+    // app's own handler and opens the drawer over a dialog that is still up.
+    androidx.activity.compose.BackHandler(onBack = onDismiss)
 
     LaunchedEffect(Unit) {
         found = withContext(Dispatchers.IO) { AcgameWizard.findCandidates(context) }
@@ -124,15 +129,7 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
                             onCreate = {
                                 scope.launch {
                                     val error = withContext(Dispatchers.IO) {
-                                        AcgameWizard.create(
-                                            context,
-                                            candidate,
-                                            candidate.title ?: candidate.gameId,
-                                            // 246 and 256 differ in the BIOS they want; the
-                                            // database does not record which, and 256 boards run
-                                            // 246 titles, so the safer default is the newer one.
-                                            board = "256",
-                                        )
+                                        AcgameWizard.create(context, candidate)
                                     }
                                     if (error == null) {
                                         done = done + candidate.gameId
@@ -201,6 +198,26 @@ private fun CandidateRow(
                 PieceChip("Mídia", candidate.media)
                 PieceChip("Dongle", candidate.dongle)
                 PieceChip("ELF", candidate.elf)
+            }
+            // What the manifest will say, and where it came from. Worth showing rather than
+            // silently deciding: the board is the field that decides whether it boots at all.
+            candidate.compat?.let { c ->
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CompatBadge(c.status)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        listOfNotNull(
+                            c.board.takeIf { it.isNotBlank() }?.let { "System $it" },
+                            c.media.takeIf { it.isNotBlank() },
+                        ).joinToString("  ·  "),
+                        style = Type.caption, color = Palette.labelTertiary,
+                    )
+                }
+                if (c.note.isNotBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(c.note, style = Type.caption, color = Palette.accentBright, maxLines = 3)
+                }
             }
         }
         Spacer(Modifier.width(16.dp))

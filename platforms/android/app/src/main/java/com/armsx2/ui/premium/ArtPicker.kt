@@ -100,6 +100,10 @@ fun ArtPicker(
         }
     }
 
+    // Back closes this, not the screen behind it. Without it the key falls through to the
+    // app's own handler and opens the drawer over a dialog that is still up.
+    androidx.activity.compose.BackHandler(onBack = onDismiss)
+
     LaunchedEffect(Unit) { search(term) }
 
     // Load the chosen match's art. Keyed on the match so tapping a different one re-fetches.

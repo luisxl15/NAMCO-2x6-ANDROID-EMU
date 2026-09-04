@@ -63,6 +63,7 @@ import com.armsx2.EnglishTitles
 import com.armsx2.GameInfo
 import com.armsx2.PlayTime
 import com.armsx2.art.HeroArt
+import com.armsx2.ui.settings.controllerFocusable
 
 /**
  * The full library: a cover grid beside a detail pane for whatever is selected, over that game's
@@ -137,6 +138,7 @@ fun PremiumLibrary(
                     Modifier
                         .material(MaterialLevel.Thin, RoundedCornerShape(Radii.pill))
                         .silverTrace(Radii.pill, phase = 0.2f, intensity = 0.75f)
+                        .controllerFocusable("lib.back", RoundedCornerShape(Radii.pill), onConfirm = onBack)
                         .clickable { onBack() }
                         .padding(horizontal = 16.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -163,6 +165,7 @@ fun PremiumLibrary(
                         .size(36.dp)
                         .clip(CircleShape)
                         .material(MaterialLevel.Thin, CircleShape)
+                        .controllerFocusable("lib.add", CircleShape, onConfirm = { adding = true })
                         .clickable { adding = true },
                     contentAlignment = Alignment.Center,
                 ) { ArcIcon(Arc.plus, tint = Palette.labelSecondary, size = 17.dp) }
@@ -301,6 +304,7 @@ private fun LibraryControls(
                     Modifier
                         .clip(RoundedCornerShape(Radii.pill))
                         .background(if (on) Palette.accent else Palette.materialUltraThin)
+                        .controllerFocusable("lib.sort.${option.name}", RoundedCornerShape(Radii.pill), onConfirm = { onSort(option) })
                         .clickable { onSort(option) }
                         .padding(horizontal = 15.dp, vertical = 8.dp),
                 ) {
@@ -382,6 +386,7 @@ private fun RescanButton(scanning: Boolean, onClick: () -> Unit) {
             .size(36.dp)
             .clip(CircleShape)
             .material(MaterialLevel.Thin, CircleShape)
+            .controllerFocusable("lib.rescan", CircleShape, onConfirm = onClick)
             .clickable(enabled = !scanning, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -413,6 +418,7 @@ private fun EmptyLibrary() {
 
 @Composable
 private fun LibraryCard(game: GameInfo, selected: Boolean, onClick: () -> Unit) {
+    val id = game.uri.toString()
     var pressed by remember { mutableStateOf(false) }
     // No scale-up on selection: the trace and the lifted brightness already say which one is
     // selected, and growing a tile that sits at the edge of a clipping grid only costs it its
@@ -438,6 +444,7 @@ private fun LibraryCard(game: GameInfo, selected: Boolean, onClick: () -> Unit) 
                         Modifier
                     },
                 )
+                .controllerFocusable("lib.game.$id", RoundedCornerShape(Radii.tile), onConfirm = { pressed = true; onClick() })
                 .clickable { pressed = true; onClick() },
         ) {
             CoverArt(game, Modifier.fillMaxSize())
@@ -471,12 +478,13 @@ private fun DetailPane(game: GameInfo, onLaunch: (GameInfo) -> Unit) {
             .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.card))
             .padding(24.dp),
     ) {
-        // 0.46 rather than something that fills the pane: at 2:3 a cover grows in height twice
-        // as fast as in width, and a bigger one here pushed the stats off the bottom edge
-        // entirely -- present in the layout, never on screen.
+        // Small on purpose. At 2:3 a cover grows in height twice as fast as in width, and this
+        // pane also carries a title that can run to three lines, a compatibility badge, a note,
+        // the button and two stats -- anything larger pushes the bottom of that off screen,
+        // present in the layout and never seen.
         Box(
             Modifier
-                .fillMaxWidth(0.46f)
+                .fillMaxWidth(0.40f)
                 .aspectRatio(0.72f)
                 .clip(RoundedCornerShape(Radii.tile)),
         ) {
@@ -492,12 +500,25 @@ private fun DetailPane(game: GameInfo, onLaunch: (GameInfo) -> Unit) {
         Spacer(Modifier.height(6.dp))
         Text(metaLine(game), style = Type.footnote, color = Palette.labelSecondary)
 
-        Spacer(Modifier.height(22.dp))
+        // What the project's tracker says about this board, and any warning attached to it.
+        // Shown before the Play button on purpose: "attract only" or "crashes on this BIOS" is
+        // worth reading BEFORE the boot, not after the black screen.
+        val compat = com.armsx2.data.library.ArcadeCompat.entryFor(LocalContext.current, game.serial)
+        if (compat != null) {
+            Spacer(Modifier.height(12.dp))
+            CompatBadge(compat.status)
+            if (compat.note.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(compat.note, style = Type.footnote, color = Palette.accentBright, maxLines = 4)
+            }
+        }
+
+        Spacer(Modifier.height(18.dp))
         LaunchButton { onLaunch(game) }
 
         if (seconds > 0L || last > 0L) {
-            Spacer(Modifier.height(20.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Spacer(Modifier.height(16.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (seconds > 0L) {
                     DetailStat(Arc.performance, "Tempo de jogo", PlayTime.formatPlayed(seconds))
                 }
@@ -532,6 +553,7 @@ private fun LaunchButton(onClick: () -> Unit) {
             .scale(scale)
             .clip(RoundedCornerShape(Radii.pill))
             .background(Brush.horizontalGradient(listOf(Palette.accentBright, Palette.accent)))
+            .controllerFocusable("lib.launch", RoundedCornerShape(Radii.pill), onConfirm = { pressed = true; onClick() })
             .clickable { pressed = true; onClick() }
             .padding(start = 10.dp, end = 24.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,

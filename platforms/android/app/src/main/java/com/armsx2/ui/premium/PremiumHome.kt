@@ -61,6 +61,7 @@ import com.armsx2.art.HeroArt
 import com.armsx2.R
 import com.armsx2.navigation.AppRoute
 import com.armsx2.runtime.MainActivityRuntime
+import com.armsx2.ui.settings.controllerFocusable
 import com.armsx2.ui.home.HomeViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -177,19 +178,25 @@ private fun TopBar(onOpenMenu: () -> Unit, onSettings: () -> Unit) {
         Spacer(Modifier.weight(1f))
         Text(clock, style = Type.headline, color = Palette.label)
         Spacer(Modifier.width(14.dp))
-        GlyphButton(Arc.settings, phase = 0.00f, onClick = onSettings)
+        GlyphButton(Arc.settings, id = "home.settings", phase = 0.00f, onClick = onSettings)
         Spacer(Modifier.width(8.dp))
-        GlyphButton(Arc.menu, phase = 0.42f, onClick = onOpenMenu)
+        GlyphButton(Arc.menu, id = "home.menu", phase = 0.42f, onClick = onOpenMenu)
     }
 }
 
 @Composable
-private fun GlyphButton(@androidx.annotation.DrawableRes icon: Int, phase: Float = 0f, onClick: () -> Unit) {
+private fun GlyphButton(
+    @androidx.annotation.DrawableRes icon: Int,
+    id: String,
+    phase: Float = 0f,
+    onClick: () -> Unit,
+) {
     Box(
         Modifier
             .size(38.dp)
             .material(MaterialLevel.Thin, RoundedCornerShape(Radii.pill))
             .silverTrace(Radii.pill, phase = phase)
+            .controllerFocusable(id, RoundedCornerShape(Radii.pill), onConfirm = onClick)
             .clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
@@ -336,6 +343,7 @@ private fun PlayButton(onPlay: () -> Unit) {
             .scale(scale)
             .clip(RoundedCornerShape(Radii.pill))
             .background(Brush.horizontalGradient(listOf(Palette.accentBright, Palette.accent)))
+            .controllerFocusable("home.play", RoundedCornerShape(Radii.pill), onConfirm = { pressed = true; onPlay() })
             .clickable { pressed = true; onPlay() }
             .padding(start = 10.dp, end = 24.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -430,6 +438,7 @@ private fun Destination(
                 },
             )
             .silverTrace(Radii.chip, phase = phase)
+            .controllerFocusable("home.dest.$label", RoundedCornerShape(Radii.chip), onConfirm = { pressed = true; onClick() })
             .clickable { pressed = true; onClick() }
             .padding(horizontal = 14.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,

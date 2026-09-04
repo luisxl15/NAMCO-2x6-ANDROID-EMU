@@ -33,6 +33,8 @@ object AcgameWizard {
         val media: String?,
         val dongle: String?,
         val elf: String?,
+        /** What the project's compatibility list says about this id, when it knows it. */
+        val compat: ArcadeCompat.Entry? = null,
     ) {
         /** A board without its dongle cannot boot; say so before the manifest is written. */
         val complete: Boolean get() = media != null && dongle != null && elf != null
@@ -49,20 +51,21 @@ object AcgameWizard {
     /** Every folder under the ROM directories that looks like a game and has no manifest. */
     fun findCandidates(context: Context): List<Candidate> {
         val out = mutableListOf<Candidate>()
+        val compat = ArcadeCompat.all(context)
         MainActivityRuntime.romsDirs.value.forEach { raw ->
             val posix = MainActivityRuntime.resolveDocumentUriToPosix(raw)
                 ?: raw.takeIf { it.startsWith("/") }
             if (posix != null && File(posix).canRead()) {
-                scanRaw(File(posix), out)
+                scanRaw(File(posix), out, compat)
             } else {
                 runCatching { DocumentFile.fromTreeUri(context, Uri.parse(raw)) }
-                    .getOrNull()?.let { scanTree(it, out) }
+                    .getOrNull()?.let { scanTree(it, out, compat) }
             }
         }
         return out.sortedBy { it.gameId }
     }
 
-    private fun scanRaw(dir: File, out: MutableList<Candidate>) {
+    private fun scanRaw(dir: File, out: MutableList<Candidate>, compat: Map<String, ArcadeCompat.Entry>) {
         val children = dir.listFiles() ?: return
         val manifests = children.filter { it.isFile && it.extension.equals("acgame", true) }
             .map { it.nameWithoutExtension.lowercase() }.toSet()
@@ -75,11 +78,12 @@ object AcgameWizard {
                 media = media,
                 dongle = inside.firstOrNull { it.extension.equals("ps2", true) }?.name,
                 elf = inside.firstOrNull { it.extension.equals("elf", true) }?.name,
+                compat = compat,
             )
         }
     }
 
-    private fun scanTree(dir: DocumentFile, out: MutableList<Candidate>) {
+    private fun scanTree(dir: DocumentFile, out: MutableList<Candidate>, compat: Map<String, ArcadeCompat.Entry>) {
         val children = runCatching { dir.listFiles() }.getOrNull() ?: return
         val manifests = children.filter { !it.isDirectory }
             .mapNotNull { it.name?.takeIf { n -> n.endsWith(".acgame", true) }?.substringBeforeLast('.') }
@@ -94,6 +98,7 @@ object AcgameWizard {
                 media = media,
                 dongle = inside.mapNotNull { it.name }.firstOrNull { it.endsWith(".ps2", true) },
                 elf = inside.mapNotNull { it.name }.firstOrNull { it.endsWith(".elf", true) },
+                compat = compat,
             )
         }
     }
@@ -104,6 +109,7 @@ object AcgameWizard {
         media: String,
         dongle: String?,
         elf: String?,
+        compat: Map<String, ArcadeCompat.Entry>,
     ): Candidate {
         // The folder name is the gameid by convention; fall back to the media's name when the
         // folder was renamed, since that is what the dongle and the CHD are named after.
@@ -121,6 +127,7 @@ object AcgameWizard {
             media = media,
             dongle = dongle,
             elf = elf,
+            compat = compat[id.uppercase()],
         )
     }
 
@@ -128,24 +135,42 @@ object AcgameWizard {
     private fun looksLikeGameId(s: String): Boolean =
         s.length == 7 && s.startsWith("NM", ignoreCase = true) && s.drop(2).all(Char::isDigit)
 
-    /** The manifest text. Mirrors what a hand-written one looks like, comments and all. */
-    fun manifestFor(c: Candidate, name: String, board: String): String = buildString {
-        appendLine("[game]")
-        appendLine("name=$name")
-        appendLine("gameid=${c.gameId}")
-        appendLine("platform=$board")
-        appendLine()
-        appendLine("[data]")
-        appendLine("subdir=${c.folderName}")
-        appendLine("elf=${c.elf ?: "proverb.elf"}")
-        appendLine("dongle=${c.dongle ?: "${c.gameId}.ps2"}")
-        appendLine("mediasrc=${c.media}")
-        appendLine("media=DVD")
+    /**
+     * The manifest text.
+     *
+     * Board and media come from the compatibility list rather than a default. Both matter: a
+     * System246 title can refuse to boot on a 256 BIOS (Battle Gear 3 does), and the media type
+     * decides how the image is mounted. Guessing "256 / DVD" for everything was right often
+     * enough to be misleading and wrong exactly where it hurts.
+     */
+    fun manifestFor(c: Candidate): String {
+        val board = c.compat?.board?.takeIf { it.isNotBlank() } ?: DEFAULT_BOARD
+        val media = c.compat?.media?.takeIf { it.isNotBlank() } ?: DEFAULT_MEDIA
+        val name = c.title ?: c.compat?.name ?: c.gameId
+        return buildString {
+            appendLine("[game]")
+            appendLine("name=$name")
+            appendLine("gameid=${c.gameId}")
+            appendLine("platform=$board")
+            appendLine()
+            appendLine("[data]")
+            appendLine("subdir=${c.folderName}")
+            appendLine("elf=${c.elf ?: "proverb.elf"}")
+            appendLine("dongle=${c.dongle ?: "${c.gameId}.ps2"}")
+            appendLine("mediasrc=${c.media}")
+            appendLine("media=$media")
+        }
     }
 
+    /** Only reached for an id the list has never heard of. 256 runs 246 titles; DVD is the
+     *  commonest image. Both are the least-bad answer, not a good one. */
+    private const val DEFAULT_BOARD = "256"
+    private const val DEFAULT_MEDIA = "DVD"
+
+
     /** Write the manifest beside the payload folder. Returns null on success, else why not. */
-    fun create(context: Context, c: Candidate, name: String, board: String): String? {
-        val text = manifestFor(c, name, board)
+    fun create(context: Context, c: Candidate): String? {
+        val text = manifestFor(c)
         val fileName = "${c.gameId}.acgame"
         return runCatching {
             when (val at = c.parent) {
