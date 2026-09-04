@@ -68,7 +68,7 @@ arcade check — so upstream changes around them usually apply cleanly.
 | file | what we put there |
 |---|---|
 | `platforms/android/.../i18n/I18n.kt` | **One hook**, in `get()`, calling `BrandStrings.resolve`. Nothing else. The string tables themselves are untouched. |
-| `platforms/android/.../runtime/MainActivityRuntime.kt` | `resolveDocumentUriToPosix` and its use in `launchGame` (an arcade `.acgame` needs a real path, not a SAF URI), and landscape locking in `applyEmulationOrientation`. |
+| `platforms/android/.../runtime/MainActivityRuntime.kt` | `resolveDocumentUriToPosix` and its use in `launchGame` (an arcade `.acgame` needs a real path, not a SAF URI), landscape locking in `applyEmulationOrientation`, and one call into `ArcadeBios.decide` where the effective BIOS is resolved. |
 | `platforms/android/.../data/library/GameLibraryRepository.kt` | `.acgame` parsing, arcade payload-dir collapse, and the arcade-only extension set. |
 | `platforms/android/app/src/main/cpp/native-lib.cpp` | The JVS bridge: pad → JVS, and the six JNI entry points the arcade panel calls. |
 | `platforms/android/.../navigation/AppNavigation.kt`, `AppRoute.kt` | Routes to the premium screens; removed Network/Skins categories. |

@@ -896,8 +896,46 @@ open class MainActivityRuntime : ComponentActivity() {
             // The file is in the same app-private BIOS dir as the global one, so only the
             // Filenames/BIOS *filename* changes; commit before the VM's LoadBIOS runs.
             run {
-                val effectiveBios = resolved.biosFilename.takeIf { it.isNotBlank() }
+                var effectiveBios = resolved.biosFilename.takeIf { it.isNotBlank() }
                     ?: bios.value?.takeIf { it.isNotEmpty() }?.let { File(it).name }
+
+                // Three arcade titles are known not to boot on particular BIOS images, and the
+                // failure is silent -- a black screen, with the explanation sitting in a screen
+                // the player has no reason to open. Swap to one that works, or say plainly that
+                // none is installed, rather than letting the boot fail with nothing to read.
+                //
+                // Only those three. The compatibility list's board field is informational: a
+                // System 256 BIOS runs 246 titles, which is most of the library, so "match the
+                // board" would swap working BIOSes for different ones and call it a fix.
+                val serialForBios = currentGame.value?.serial
+                if (!serialForBios.isNullOrBlank()) {
+                    val installed = runCatching {
+                        internalBiosDir(instance!!.applicationContext).listFiles().orEmpty()
+                            .filter(File::isFile)
+                            .mapNotNull { f ->
+                                runCatching {
+                                    val fd = android.os.ParcelFileDescriptor
+                                        .open(f, android.os.ParcelFileDescriptor.MODE_READ_ONLY)
+                                    NativeApp.getBiosInfoFromFd(fd.detachFd())?.let { f.name to it }
+                                }.getOrNull()
+                            }.toMap()
+                    }.getOrDefault(emptyMap())
+
+                    when (val d = com.armsx2.data.library.ArcadeBios
+                        .decide(serialForBios, installed, effectiveBios)) {
+                        is com.armsx2.data.library.ArcadeBios.Decision.Switch -> {
+                            println("@@ARCADE_BIOS@@ $serialForBios: ${d.reason} -> usando ${d.fileName}")
+                            effectiveBios = d.fileName
+                            notifyOnMain("BIOS trocada para ${d.fileName}: ${d.reason}.")
+                        }
+                        is com.armsx2.data.library.ArcadeBios.Decision.NoneUsable -> {
+                            println("@@ARCADE_BIOS@@ $serialForBios: ${d.reason}, nenhuma alternativa instalada")
+                            notifyOnMain("Atenção: ${d.reason}, e não há outra BIOS instalada.")
+                        }
+                        com.armsx2.data.library.ArcadeBios.Decision.Keep -> Unit
+                    }
+                }
+
                 if (!effectiveBios.isNullOrBlank()) {
                     NativeApp.setSetting("Filenames", "BIOS", "string", effectiveBios)
                     NativeApp.commitSettings()
@@ -1018,6 +1056,16 @@ open class MainActivityRuntime : ComponentActivity() {
          * without re-querying gamedb. Pass null when launching from a
          * path that doesn't have a GameInfo (Swap/Boot Disc file picker).
          */
+        /** A short user-facing notice from a background/boot path. No-op without an activity. */
+        private fun notifyOnMain(text: String) {
+            val act = instance ?: return
+            act.runOnUiThread {
+                runCatching {
+                    android.widget.Toast.makeText(act, text, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
         fun launchGame(uri: String, info: GameInfo? = null, external: Boolean = false) {
             if (uri.isBlank()) {
                 println("@@ANDROID_LAUNCH_REJECT@@ reason=blank_uri title=${info?.title ?: ""}")
