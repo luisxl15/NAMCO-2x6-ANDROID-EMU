@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.armsx2.EnglishTitles
@@ -63,7 +64,11 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import com.armsx2.art.ArcadeMedia
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * The launcher home. Apple-style: a soft out-of-focus ground, translucent material panels,
@@ -106,6 +111,10 @@ fun PremiumHome(
 
     Box(modifier.fillMaxSize()) {
         AuroraBackground(Modifier.fillMaxSize())
+        // The System 246/256 menu film over the aurora, faint enough to read a title across.
+        // Draws nothing until the file has been fetched, so the aurora is the background on a
+        // first run and with no network.
+        MenuVideoBackground(Modifier.fillMaxSize())
 
         Column(
             Modifier
@@ -272,12 +281,22 @@ private fun HeroCard(game: GameInfo, onPlay: () -> Unit, modifier: Modifier = Mo
                 Column(Modifier.weight(1f)) {
                     Text("CONTINUAR", style = Type.eyebrow, color = Palette.labelTertiary)
                     Spacer(Modifier.height(if (tight) 3.dp else 6.dp))
-                    Text(
-                        title,
-                        style = if (tight) Type.title2 else Type.title1,
-                        color = Palette.label,
-                        maxLines = if (roomy) 2 else 1,
-                        overflow = TextOverflow.Ellipsis,
+                    // The game's own logo where the pack has one, set as type where it does not.
+                    // The logos are the game's real wordmark, which no font can stand in for, so
+                    // this is a straight upgrade of the same line rather than an addition -- both
+                    // say the title, and showing both would say it twice.
+                    GameLogo(
+                        game = game,
+                        height = if (tight) 34.dp else 52.dp,
+                        fallback = {
+                            Text(
+                                title,
+                                style = if (tight) Type.title2 else Type.title1,
+                                color = Palette.label,
+                                maxLines = if (roomy) 2 else 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
                     )
                     Spacer(Modifier.height(if (tight) 2.dp else 4.dp))
                     Text(metaLine(game), style = Type.footnote, color = Palette.labelSecondary)
@@ -293,6 +312,58 @@ private fun HeroCard(game: GameInfo, onPlay: () -> Unit, modifier: Modifier = Mo
             }
         }
     }
+}
+
+/**
+ * A game's logo from the media repository, or [fallback] when there is none.
+ *
+ * Fetched on first use and cached; the pack covers about 35 of the ids the compatibility list
+ * knows, so [fallback] is a normal outcome and not an error path. Left-aligned and sized by
+ * HEIGHT, because the logos are one canvas size (1920x800) with the artwork floating inside it at
+ * whatever width the wordmark happens to be -- fitting them to a width would make a short logo
+ * enormous and a long one tiny.
+ */
+@Composable
+private fun GameLogo(
+    game: GameInfo,
+    height: androidx.compose.ui.unit.Dp,
+    fallback: @Composable () -> Unit,
+) {
+    val context = LocalContext.current
+    val serial = game.serial
+    var logo by remember(serial) { mutableStateOf<File?>(null) }
+    var settled by remember(serial) { mutableStateOf(false) }
+
+    LaunchedEffect(serial) {
+        if (!ArcadeMedia.hasLogo(serial)) {
+            settled = true
+            return@LaunchedEffect
+        }
+        logo = withContext(Dispatchers.IO) {
+            runCatching { ArcadeMedia.logo(context, serial) }.getOrNull()
+        }
+        settled = true
+    }
+
+    val file = logo
+    if (file == null) {
+        // Nothing at all until the lookup has settled: flashing the title for a frame and then
+        // replacing it with the logo is worse than a beat of nothing.
+        if (settled) fallback()
+        return
+    }
+    AsyncImage(
+        model = ImageRequest.Builder(context)
+            .data(file)
+            .memoryCacheKey(fileCacheKey(file))
+            .diskCacheKey(fileCacheKey(file))
+            .crossfade(true)
+            .build(),
+        contentDescription = game.displayTitle(EnglishTitles.enabled.value),
+        contentScale = ContentScale.Fit,
+        alignment = Alignment.CenterStart,
+        modifier = Modifier.height(height).fillMaxWidth(),
+    )
 }
 
 /**
