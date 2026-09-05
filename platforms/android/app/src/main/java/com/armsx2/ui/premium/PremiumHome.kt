@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -257,34 +258,53 @@ private fun HeroCard(game: GameInfo, onPlay: () -> Unit, modifier: Modifier = Mo
             )
         }
 
-        Row(
-            Modifier.fillMaxSize().padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                Modifier
-                    .fillMaxHeight()
-                    .aspectRatio(CoverAspect)
-                    .clip(RoundedCornerShape(Radii.tile)),
+        // The card's height is whatever the page has left over (weight(1f), capped at 360dp), and
+        // in landscape on a short screen that is well under what this content wants -- which had
+        // it clipped rather than fitted: the Play label lost its lower half and the play stats
+        // never drew at all. So measure the box and drop the content that is least load-bearing
+        // until it fits, in that order. The button is the one thing that never gives ground.
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val roomy = maxHeight >= 215.dp
+            val tight = maxHeight < 178.dp
+            val pad = if (tight) 13.dp else 20.dp
+            val gap = if (tight) 8.dp else 16.dp
+
+            Row(
+                Modifier.fillMaxSize().padding(pad),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                CoverArt(game, Modifier.fillMaxSize())
-            }
+                Box(
+                    Modifier
+                        .fillMaxHeight()
+                        .aspectRatio(CoverAspect)
+                        .clip(RoundedCornerShape(Radii.tile)),
+                ) {
+                    CoverArt(game, Modifier.fillMaxSize())
+                }
 
-            Spacer(Modifier.width(22.dp))
+                Spacer(Modifier.width(if (tight) 16.dp else 22.dp))
 
-            Column(Modifier.weight(1f)) {
-                Text("CONTINUAR", style = Type.eyebrow, color = Palette.labelTertiary)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    title, style = Type.title1, color = Palette.label,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(metaLine(game), style = Type.footnote, color = Palette.labelSecondary)
-                Spacer(Modifier.height(16.dp))
-                PlayButton(onPlay)
-                Spacer(Modifier.height(16.dp))
-                PlayStats(game)
+                Column(Modifier.weight(1f)) {
+                    Text("CONTINUAR", style = Type.eyebrow, color = Palette.labelTertiary)
+                    Spacer(Modifier.height(if (tight) 3.dp else 6.dp))
+                    Text(
+                        title,
+                        style = if (tight) Type.title2 else Type.title1,
+                        color = Palette.label,
+                        maxLines = if (roomy) 2 else 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(if (tight) 2.dp else 4.dp))
+                    Text(metaLine(game), style = Type.footnote, color = Palette.labelSecondary)
+                    Spacer(Modifier.height(gap))
+                    PlayButton(onPlay)
+                    // Play time is the first thing to go: it is the only line here the player can
+                    // read somewhere else (the library's detail pane).
+                    if (roomy) {
+                        Spacer(Modifier.height(gap))
+                        PlayStats(game)
+                    }
+                }
             }
         }
     }
