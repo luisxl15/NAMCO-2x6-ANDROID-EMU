@@ -1,5 +1,6 @@
 package com.armsx2.ui.touch
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -11,9 +12,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.pointerInput
@@ -55,6 +62,10 @@ fun LightgunLayer(widthPx: Float, heightPx: Float) {
     if (!Lightgun.active) return
     if (widthPx <= 0f || heightPx <= 0f) return
 
+    // Where the gun is pointing, for the reticle below. Null when nothing is touching.
+    var aim by remember { mutableStateOf<Offset?>(null) }
+    var firing by remember { mutableStateOf(false) }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -68,6 +79,8 @@ fun LightgunLayer(widthPx: Float, heightPx: Float) {
                                 // A widget above us already owns this finger (gun buttons, pause).
                                 if (ch.isConsumed || aiming != null) continue
                                 aiming = ch.id
+                                aim = ch.position
+                                firing = true
                                 Lightgun.aim(ch.position.x, ch.position.y)
                                 // Aim BEFORE the trigger, in that order: the core samples the
                                 // pointer when the trigger goes down, so firing first would shoot
@@ -78,18 +91,61 @@ fun LightgunLayer(widthPx: Float, heightPx: Float) {
                             }
                             if (ch.id != aiming) continue
                             if (ch.pressed) {
+                                aim = ch.position
                                 Lightgun.aim(ch.position.x, ch.position.y)
                                 ch.consume()
                             } else {
                                 Lightgun.trigger(false, ch.position.x, ch.position.y, widthPx, heightPx)
                                 aiming = null
+                                firing = false
+                                aim = null
                                 ch.consume()
                             }
                         }
                     }
                 }
             },
-    )
+    ) {
+        aim?.let { Reticle(it, firing, widthPx, heightPx) }
+    }
+}
+
+/**
+ * The crosshair, drawn around the finger rather than under it.
+ *
+ * A touchscreen gun has a problem a real one does not: the thing doing the pointing is opaque and
+ * sits exactly on the target. So the reticle is a RING wider than a fingertip — what you see is
+ * the part of it your finger is not covering, which is enough to know where the shot will land,
+ * and the gap in the middle is where your finger already is.
+ *
+ * It marks the true aim point, with no offset. Lifting the reticle above the touch would make it
+ * easier to see and would then disagree with where the shot goes, and it would push aiming near
+ * the top edge into the band that means "reload".
+ *
+ * Red while the trigger is down, so a shot reads as a shot.
+ */
+@Composable
+private fun Reticle(at: Offset, firing: Boolean, widthPx: Float, heightPx: Float) {
+    val colour = if (firing) Color(0xFFFF4D4D) else Color.White
+    val alpha = TouchControls.opacity.floatValue.coerceAtLeast(0.55f)
+    Canvas(Modifier.fillMaxSize()) {
+        val r = 42.dp.toPx()
+        drawCircle(colour.copy(alpha = 0.9f * alpha), radius = r, center = at, style = Stroke(2.5f))
+        drawCircle(colour.copy(alpha = 0.35f * alpha), radius = r * 0.62f, center = at, style = Stroke(1.5f))
+        // Four ticks pointing in, clear of the finger, so the centre is readable at a glance.
+        val inner = r * 1.15f
+        val outer = r * 1.75f
+        listOf(
+            Offset(1f, 0f), Offset(-1f, 0f), Offset(0f, 1f), Offset(0f, -1f),
+        ).forEach { d ->
+            drawLine(
+                colour.copy(alpha = 0.75f * alpha),
+                start = Offset(at.x + d.x * inner, at.y + d.y * inner),
+                end = Offset(at.x + d.x * outer, at.y + d.y * outer),
+                strokeWidth = 2.5f,
+            )
+        }
+    }
 }
 
 /**
