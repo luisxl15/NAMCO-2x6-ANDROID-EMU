@@ -241,6 +241,11 @@ public class NativeApp {
 	public static native float getGpuUsage();
 	public static native float getAverageFrameTime();
 
+	/** The graphics API the running game actually got: "Vulkan", "OpenGL", "OpenGL (ANGLE)",
+	 *  "Software", or "" with no VM. Not the configured one -- "auto" resolves at boot, and an
+	 *  ANGLE context can fall back to the system EGL without saying so. */
+	public static native String gsApiName();
+
 	/** Build version string from BuildVersion::GitRev — formatted as
 	 *  "GitTagHi.GitTagMid.GitTagLo.ARMSX2Build-SNAPSHOT". Used by the
 	 *  setup wizard + in-game overlay branding so the displayed version

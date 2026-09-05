@@ -1275,6 +1275,32 @@ static bool JvsReady() {
     return VMManager::HasValidVM() && ACJV::enabled;
 }
 
+// The graphics API actually in use, which is not the same as the one configured: "auto" resolves
+// at boot, and an OpenGL context asked to run through ANGLE can fall back to the system EGL
+// without saying so. Both are answered here from what the core ended up with.
+#ifdef __ANDROID__
+extern bool GLContextEGLIsUsingANGLE();
+#endif
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_gsApiName(JNIEnv* env, jclass) {
+    const char* name = "";
+    bool angle = false;
+    if (VMManager::HasValidVM())
+    {
+        switch (GSGetCurrentRenderer())
+        {
+            case GSRendererType::VK:   name = "Vulkan"; break;
+            case GSRendererType::OGL:  name = "OpenGL"; angle = GLContextEGLIsUsingANGLE(); break;
+            case GSRendererType::SW:   name = "Software"; break;
+            case GSRendererType::Null: name = "Null"; break;
+            default: break;
+        }
+    }
+    const std::string out = angle ? (std::string(name) + " (ANGLE)") : std::string(name);
+    return env->NewStringUTF(out.c_str());
+}
+
 extern "C" JNIEXPORT jboolean JNICALL
 Java_kr_co_iefriends_pcsx2_NativeApp_jvsIsArcade(JNIEnv*, jclass) {
     return JvsReady() ? JNI_TRUE : JNI_FALSE;

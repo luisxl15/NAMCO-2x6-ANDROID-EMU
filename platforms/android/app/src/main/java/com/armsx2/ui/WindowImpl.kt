@@ -133,12 +133,18 @@ object WindowImpl {
             // otherwise, so it costs a poll and no screen space for a normal PS2 disc.
             com.armsx2.ui.premium.ArcadePanel()
 
-            // Performance report: draws nothing until asked for from the pause menu, and has to
-            // live out here rather than in the menu because it measures the game RUNNING.
-            com.armsx2.diag.PerfReport.Overlay()
+            // Both of these belong to a game, so they are gated the same way the bezel is: a game
+            // on screen, and not buried under the library. Ungated, the monitor painted itself
+            // over the home screen -- where it reads all zeroes AND where its switch, which lives
+            // in the pause menu, cannot be reached to turn it off.
+            if (gameOnScreen && !showLibrary.value) {
+                // Draws nothing until asked for from the pause menu, and lives out here rather
+                // than in the menu because it measures the game RUNNING.
+                com.armsx2.diag.PerfReport.Overlay()
 
-            // This project's own performance monitor, in place of PCSX2's OSD strip.
-            com.armsx2.diag.PerfMonitor.Overlay()
+                // This project's own performance monitor, in place of PCSX2's OSD strip.
+                com.armsx2.diag.PerfMonitor.Overlay()
+            }
 
             if (showLibrary.value && MainActivityRuntime.eState.value == EmuState.RUNNING && !overlayVisible.value) {
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.56f))) {

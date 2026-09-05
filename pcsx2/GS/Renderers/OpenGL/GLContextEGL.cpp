@@ -24,6 +24,16 @@ static std::atomic_uint32_t s_egl_refcount = 0;
 // present we load ANGLE's EGL instead of the system libEGL; ANGLE's libEGL then pulls in
 // libGLESv2_angle.so from the same native-lib dir. Inert (returns false) when the env var
 // is unset, so the default path is untouched.
+// Whether ANGLE is what actually got loaded, as opposed to what was asked for. The load can fail
+// and fall back to the system EGL with nothing said, so the request (the env var) is not the
+// answer -- the Android performance panel reports the API in use and must not claim ANGLE for a
+// context running on the system driver.
+static bool s_using_angle = false;
+bool GLContextEGLIsUsingANGLE()
+{
+	return s_using_angle;
+}
+
 static bool TryLoadEGLFromOverride(Error* error)
 {
 #ifdef __ANDROID__
@@ -33,7 +43,10 @@ static bool TryLoadEGLFromOverride(Error* error)
 
 	Console.WriteLnFmt("Loading ANGLE EGL from override {}...", egl_override);
 	if (s_egl_library.Open(egl_override, error))
+	{
+		s_using_angle = true;
 		return true;
+	}
 
 	Console.ErrorFmt("Failed to load ANGLE EGL from {}: {}", egl_override, error->GetDescription());
 #endif

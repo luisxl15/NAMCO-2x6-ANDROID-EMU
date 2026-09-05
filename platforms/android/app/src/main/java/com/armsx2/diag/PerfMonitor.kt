@@ -31,6 +31,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -109,6 +110,7 @@ object PerfMonitor {
         var gpu = 0f
         var frameMs = 0f
         var appMb = 0
+        var api = ""
     }
 
     @Composable
@@ -130,6 +132,7 @@ object PerfMonitor {
                     l.gs = NativeApp.getGsThreadUsage()
                     l.gpu = NativeApp.getGpuUsage()
                     l.frameMs = NativeApp.getAverageFrameTime()
+                    l.api = NativeApp.gsApiName()
                 }
                 l.appMb = runCatching {
                     val mi = Debug.MemoryInfo()
@@ -144,35 +147,48 @@ object PerfMonitor {
         }
 
         val l = live.value
-        Box(Modifier.fillMaxSize().padding(10.dp), contentAlignment = Alignment.TopStart) {
+        val api = live.value.api
+        Box(Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.TopStart) {
             Column(
                 Modifier
-                    .width(224.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .width(186.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(Color(0xD90B0D11))
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = 9.dp, vertical = 7.dp),
             ) {
-                machine.forEach { (left, right) -> Line(left, right, accentRight = true) }
-
-                Spacer(Modifier.height(9.dp))
-                Line("FPS", fmt(l.fps, 2))
-                Line("VPS", fmt(l.vps, 2))
-                Line("Quadro", fmt(l.frameMs, 2) + "ms")
+                // Two header lines, not four: what the chip is and what it is drawing with. RAM
+                // moved down beside the app's own usage, where it is the number it is compared to.
+                Line(machine.device, machine.abi, accentRight = true)
+                Line(machine.gpu, api.ifBlank { "—" }, accentRight = true)
 
                 Spacer(Modifier.height(6.dp))
+                Triple3("FPS", fmt(l.fps, 1), "VPS", fmt(l.vps, 1), "", fmt(l.frameMs, 1) + "ms")
+                Spacer(Modifier.height(4.dp))
                 Graph(history)
-
-                Spacer(Modifier.height(9.dp))
-                Text(
-                    "Namco System 246 EMU ${BuildConfig.VERSION_NAME}",
-                    color = DIM, fontSize = 9.sp, fontFamily = FontFamily.Monospace,
-                )
                 Spacer(Modifier.height(5.dp))
-                Line("Velocidade", pct(l.speed))
-                Line("EE", pct(l.ee))
-                Line("GS", pct(l.gs))
-                Line("GPU", pct(l.gpu))
-                Line("App", "${l.appMb}MB")
+                Triple3("EE", pct(l.ee), "GS", pct(l.gs), "GPU", pct(l.gpu))
+                Line("Vel " + pct(l.speed), "${l.appMb}MB / ${machine.ram}")
+            }
+        }
+    }
+
+    /** Three label-value pairs on one line — the compact form of three rows. */
+    @Composable
+    private fun Triple3(
+        l1: String, v1: String,
+        l2: String, v2: String,
+        l3: String, v3: String,
+    ) {
+        Row(Modifier.fillMaxWidth()) {
+            listOf(l1 to v1, l2 to v2, l3 to v3).forEachIndexed { i, (label, value) ->
+                Text(
+                    if (label.isBlank()) value else "$label $value",
+                    color = TEXT,
+                    fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.weight(1f),
+                    textAlign = if (i == 2) TextAlign.End else TextAlign.Start,
+                )
             }
         }
     }
@@ -183,14 +199,14 @@ object PerfMonitor {
             Text(
                 label,
                 color = TEXT,
-                fontSize = 10.sp,
+                fontSize = 9.sp,
                 fontFamily = FontFamily.Monospace,
                 modifier = Modifier.weight(1f),
             )
             Text(
                 value,
                 color = if (accentRight) ACCENT else TEXT,
-                fontSize = 10.sp,
+                fontSize = 9.sp,
                 fontWeight = FontWeight.Medium,
                 fontFamily = FontFamily.Monospace,
             )
@@ -210,7 +226,7 @@ object PerfMonitor {
         Canvas(
             Modifier
                 .fillMaxWidth()
-                .height(38.dp)
+                .height(30.dp)
                 .clip(RoundedCornerShape(3.dp))
                 .background(Color(0x14FFFFFF)),
         ) {
@@ -242,24 +258,31 @@ object PerfMonitor {
     private fun pct(v: Float) =
         if (v.isNaN()) "—" else String.format(Locale.US, "%.0f%%", v)
 
+    private class Machine(
+        val device: String,
+        val abi: String,
+        val gpu: String,
+        val ram: String,
+    )
+
     /** What the machine is: fixed for the session, so read once. */
-    private fun machineLines(context: Context): List<Pair<String, String>> {
-        val out = mutableListOf<Pair<String, String>>()
+    private fun machineLines(context: Context): Machine {
         val soc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Build.SOC_MODEL.takeIf { it.isNotBlank() && it != "unknown" }
         } else {
             null
         }
-        out += (soc ?: Build.MODEL) to (Build.SUPPORTED_ABIS.firstOrNull().orEmpty())
-        out += "Android ${Build.VERSION.RELEASE}" to
-            (runCatching { GpuInfo.rendererName() }.getOrNull()?.let { shortGpu(it) } ?: "?")
         val totalGb = runCatching {
             val info = ActivityManager.MemoryInfo()
             (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(info)
             info.totalMem / (1024.0 * 1024.0 * 1024.0)
         }.getOrNull()
-        if (totalGb != null) out += "RAM" to String.format(Locale.US, "%.1fGB", totalGb)
-        return out
+        return Machine(
+            device = soc ?: Build.MODEL,
+            abi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty(),
+            gpu = runCatching { GpuInfo.rendererName() }.getOrNull()?.let { shortGpu(it) } ?: "?",
+            ram = totalGb?.let { String.format(Locale.US, "%.1fGB", it) } ?: "?",
+        )
     }
 
     /** "Adreno (TM) 740" is the whole width of the panel; "Adreno 740" is the same fact. */
