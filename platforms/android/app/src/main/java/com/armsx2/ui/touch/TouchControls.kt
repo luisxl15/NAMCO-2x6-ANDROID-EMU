@@ -1100,6 +1100,15 @@ object TouchControls {
                 return
             }
         }
+        // (3a) No per-game record, and the game is a driving cabinet: the wheel layout. Ahead of
+        //      the Default profile because a console pad is simply the wrong shape for a game
+        //      whose steering is an axis -- and behind (1) and (2), so the moment the player
+        //      arranges anything themselves this stops being consulted.
+        if (ArcadeTouchLayouts.isDriving(effSerial)) {
+            activeProfileName.value = "Default"
+            activeLayout.value = ArcadeTouchLayouts.driving()
+            return
+        }
         // (3) No per-game record: reset to the "Default" profile (NOT the globally
         //     active profile) so an un-customized game never inherits another
         //     game's named layout.
