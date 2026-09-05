@@ -1044,6 +1044,16 @@ static GenericInputBinding PadKeyToGeneric(jint key) {
         case 105: return GenericInputBinding::R2;
         case 106: return GenericInputBinding::L3;
         case 107: return GenericInputBinding::R3;
+        // Stick directions. These carry a magnitude in p_range rather than being on/off, and they
+        // are what an arcade driving cabinet's steering is bound to (see s_jvs_wheel_bindings).
+        case 110: return GenericInputBinding::LeftStickUp;
+        case 111: return GenericInputBinding::LeftStickRight;
+        case 112: return GenericInputBinding::LeftStickDown;
+        case 113: return GenericInputBinding::LeftStickLeft;
+        case 120: return GenericInputBinding::RightStickUp;
+        case 121: return GenericInputBinding::RightStickRight;
+        case 122: return GenericInputBinding::RightStickDown;
+        case 123: return GenericInputBinding::RightStickLeft;
         default:  return GenericInputBinding::Unknown;
     }
 }
@@ -1131,6 +1141,29 @@ static void ApplyJvsPadButton(u32 port, GenericInputBinding generic, float state
     ACJV::SetButtonState(target_player, mask, state > 0.5f);
 }
 
+// Steering, accelerator and brake for a driving cabinet.
+//
+// These are ANALOG, so they do not go through the switch-mask path above -- a wheel binding's
+// bind_index is an axis number, not a JVS button bit. ACJV_Inputs.h already says which pad control
+// each axis belongs to (steering on the left stick, gas and brake on the triggers), so read that
+// table rather than restating it here: it is the same table desktop pcsx2x6 binds through
+// InputManager, which is the path Android does not take.
+//
+// Without this, driving games had no steering at all on Android. Their buttons worked -- shift,
+// view, sidebrake are ordinary switches and were already mirrored -- so the cabinet looked wired
+// up right up until the car would not turn.
+static void ApplyJvsWheelAxis(u32 port, GenericInputBinding generic, float state) {
+    // One player per driving cabinet, and the axes mirror pad 0.
+    if (!ACJV::enabled || port != 0 || generic == GenericInputBinding::Unknown)
+        return;
+    if (ACJV::GetMode() != JVS_MODE::DRIVE)
+        return;
+    for (const InputBindingInfo& bi : ACJV::GetWheelBindings()) {
+        if (bi.generic_mapping == generic)
+            ACJV::SetWheelAxis(bi.bind_index, state);
+    }
+}
+
 static void applyPadButton(u32 port, jint p_key, jint p_range, jboolean p_keyPressed) {
     PadDualshock2::Inputs _key;
     switch (p_key) {
@@ -1186,6 +1219,7 @@ static void applyPadButton(u32 port, jint p_key, jint p_range, jboolean p_keyPre
             if (bind >= 0)
                 USB::SetDeviceBindValue(port, static_cast<u32>(bind), state);
             ApplyJvsPadButton(port, generic, state);
+            ApplyJvsWheelAxis(port, generic, state);
         }
     }
 
