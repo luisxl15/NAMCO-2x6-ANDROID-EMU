@@ -2061,6 +2061,10 @@ open class MainActivityRuntime : ComponentActivity() {
 
             // The performance monitor's own on/off, read before the first frame it could draw.
             runCatching { com.armsx2.diag.PerfMonitor.load() }
+            runCatching { com.armsx2.art.ArcadeBezel.load() }
+            // An earlier build cached the media packs in app-private storage, where the player
+            // could neither see nor replace them. Up to 92 MB of it, so it does not just stay.
+            runCatching { com.armsx2.art.ArcadeMedia.clearLegacyCache(applicationContext) }
 
             // Pin Filenames/BIOS to the file the setup wizard copied —
             // deferred to here because Host::SetBaseStringSettingValue

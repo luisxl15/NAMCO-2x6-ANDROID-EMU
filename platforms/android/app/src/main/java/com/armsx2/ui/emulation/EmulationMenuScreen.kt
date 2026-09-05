@@ -648,6 +648,10 @@ private fun SessionPane(state: EmulationMenuUiState, viewModel: EmulationMenuVie
             com.armsx2.diag.PerfMonitor.setEnabled(it)
         }
         Spacer(Modifier.height(6.dp))
+        MenuSwitchRow("Bezel do gabinete", com.armsx2.art.ArcadeBezel.enabled.value) {
+            com.armsx2.art.ArcadeBezel.setEnabled(it)
+        }
+        Spacer(Modifier.height(6.dp))
         // #357: the pause button replaced the settings cog, so it's front-and-centre here. This is
         // "tap to reveal", NOT show/hide: on = the glyph stays hidden until you tap its top-right
         // corner, which surfaces it. Either way that corner always opens this menu, so unlike the

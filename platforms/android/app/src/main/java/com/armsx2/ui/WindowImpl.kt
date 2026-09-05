@@ -105,6 +105,26 @@ object WindowImpl {
                 val gameOnScreen = MainActivityRuntime.eState.value == EmuState.RUNNING ||
                     MainActivityRuntime.eState.value == EmuState.PAUSED
                 if (gameOnScreen && !showLibrary.value) {
+                    // The running game's own cabinet bezel, when it has one -- the art that filled
+                    // the two black columns a 4:3 board leaves on a phone. An overlay pack the
+                    // player installed themselves wins: they went and chose that, and this did not
+                    // ask anyone.
+                    val serial = MainActivityRuntime.currentGame.value?.serial
+                        ?: com.armsx2.ui.InGameOverlay.currentSerial.value
+                    val bezelCtx = androidx.compose.ui.platform.LocalContext.current
+                    val cabinet = if (com.armsx2.OverlayRepo.activePath.value.isBlank()) {
+                        com.armsx2.art.ArcadeBezel.bitmapFor(bezelCtx, serial)
+                    } else {
+                        null
+                    }
+                    cabinet?.let { art ->
+                        androidx.compose.foundation.Image(
+                            bitmap = art.asImageBitmap(),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = androidx.compose.ui.layout.ContentScale.FillBounds,
+                        )
+                    }
                     com.armsx2.OverlayRepo.activeBitmap()?.let { art ->
                         androidx.compose.foundation.Image(
                             bitmap = art.asImageBitmap(),
