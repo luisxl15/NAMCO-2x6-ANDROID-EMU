@@ -105,6 +105,7 @@ our hook and take upstream's surrounding changes. Then:
 
 ```bash
 cd platforms/android && ./gradlew :app:testGithubDebugUnitTest
+tools/i18n-missing.py                   # strings that would fall back to English
 ```
 
 Those tests exist because the boot chain (dongle staged -> ACATA opens the CHD -> `proverb.elf`
@@ -116,6 +117,11 @@ instead of waiting for someone to notice a black screen. `.github/workflows/arca
 runs the same command on every push that touches `platforms/android/`; it is a new file, not a
 step bolted onto upstream's `build-all.yml`, and it does not rebuild the APK because upstream's
 pipeline already does.
+
+`tools/i18n-missing.py` covers the other silent one: upstream adds English strings, the
+translation tables catch up later or never, and a key with no entry falls back to English at
+lookup time -- per string, so the result is a Portuguese screen with an English paragraph in the
+middle of it. Nothing fails; it just reads badly, on whichever screen nobody has opened yet.
 
 The other half is native and still needs a device: build the APK and boot one arcade game end to
 end.
