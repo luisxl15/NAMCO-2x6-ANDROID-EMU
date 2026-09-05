@@ -2844,9 +2844,14 @@ void Host::OnGameChanged(const std::string& title, const std::string& elf_overri
     // message. Guarded on a real game loading — OnGameChanged also fires with everything empty on
     // shutdown/eject.
     if (current_crc != 0 || !disc_path.empty() || !title.empty()) {
+        // The product name is repeated here rather than read from Kotlin's Branding: this is the
+        // OSD, drawn on the CPU thread during a boot, and a JNI round-trip for a string constant
+        // would be the only reason this function needed a JNIEnv at all. Keep it in step with
+        // ui/premium/Branding.kt and res/values/strings.xml.
         Host::AddKeyedOSDMessage("armsx2_free_software_notice",
-            "You are using ARMSX2, and it should not be sold, or distributed as part of any other "
-            "app. If you paid for this app, you should get your money back.",
+            "Namco System 246 EMU is free software, built on PCSX2x6 and ARMSX2. It should not be "
+            "sold, or distributed as part of any other app. If you paid for this app, you should "
+            "get your money back.",
             10.0f);
     }
 }
