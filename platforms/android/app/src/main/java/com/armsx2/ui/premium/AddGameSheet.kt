@@ -237,7 +237,7 @@ private fun CandidateRow(
                 }
                 if (c.note.isNotBlank()) {
                     Spacer(Modifier.height(6.dp))
-                    Text(c.note, style = Type.caption, color = Palette.accentBright, maxLines = 3)
+                    Text(humanNote(c.note), style = Type.caption, color = Palette.accentBright, maxLines = 3)
                 }
             }
         }

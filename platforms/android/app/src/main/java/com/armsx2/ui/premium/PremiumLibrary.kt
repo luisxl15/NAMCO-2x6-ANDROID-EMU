@@ -276,15 +276,21 @@ private fun LibraryBackdrop(game: GameInfo) {
             alignment = Alignment.TopEnd,
             modifier = Modifier.fillMaxSize(),
         )
-        // Two scrims: one flat, one falling off towards the top-right where the art is
-        // brightest, so the header and the grid keep their contrast.
-        Box(Modifier.fillMaxSize().background(Palette.ground.copy(alpha = 0.58f)))
+        // Two scrims: one flat, one falling off towards the bottom-right so the art keeps some
+        // presence where nothing is written over it.
+        //
+        // The flat one carries most of the weight, and it has to: the key art is whatever the
+        // game's publisher made it, and half of these are bright. Tuned against Battle Gear 3
+        // Tuned, whose backdrop is a yellow car in daylight -- at the old 0.58 the grid's game
+        // titles washed out completely against it. Atmosphere is the backdrop's whole job here;
+        // it is not meant to be looked at.
+        Box(Modifier.fillMaxSize().background(Palette.ground.copy(alpha = 0.72f)))
         Box(
             Modifier.fillMaxSize().background(
                 Brush.linearGradient(
                     0.0f to Palette.ground.copy(alpha = 0.86f),
                     0.58f to Palette.ground.copy(alpha = 0.30f),
-                    1.0f to Color.Transparent,
+                    1.0f to Palette.ground.copy(alpha = 0.14f),
                 ),
             ),
         )
@@ -477,6 +483,12 @@ private fun DetailPane(game: GameInfo, onLaunch: (GameInfo) -> Unit) {
     Column(
         Modifier
             .fillMaxHeight()
+            // A dark plate UNDER the glass. The backdrop's scrim deliberately thins out towards
+            // the top-right so the key art can breathe -- which is exactly where this pane sits,
+            // and the materials are white veils that lighten rather than darken, so over bright
+            // art the compatibility warning was red text on orange. The panel is the one surface
+            // here that has to be readable whatever is behind it.
+            .background(Palette.ground.copy(alpha = 0.80f), RoundedCornerShape(Radii.card))
             .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.card))
             .padding(24.dp),
     ) {
@@ -523,7 +535,7 @@ private fun DetailPane(game: GameInfo, onLaunch: (GameInfo) -> Unit) {
                 }
                 if (compat.note.isNotBlank()) {
                     Spacer(Modifier.height(8.dp))
-                    Text(compat.note, style = Type.footnote, color = Palette.accentBright)
+                    Text(humanNote(compat.note), style = Type.footnote, color = Palette.accentBright)
                 }
             }
 

@@ -3,6 +3,7 @@ package com.armsx2
 import com.armsx2.data.library.AcgameWizard
 import com.armsx2.data.library.ArcadeBios
 import com.armsx2.data.library.ArcadeCompat
+import com.armsx2.ui.premium.humanNote
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -229,6 +230,19 @@ class ArcadeTest {
             val e = shipped[id]
             assertTrue("regra de BIOS para $id, que nao esta na lista", e != null)
             assertTrue("$id sem nota que justifique a regra", e!!.note.isNotBlank())
+        }
+    }
+
+    @Test
+    fun `every note the bundled list carries is rewritten for the player`() {
+        // The tracker's notes are shorthand written by and for its maintainers ("Game Rejects
+        // system256 BIOS!"). Unrecognised ones pass through on purpose, so this is the check
+        // that none of the notes we SHIP are falling through -- which is what a reworded entry
+        // upstream would cause, silently, next to a green "playable" badge.
+        val raw = shipped.values.map { it.note }.filter { it.isNotBlank() }.distinct()
+        assertTrue("a lista deveria ter notas", raw.isNotEmpty())
+        raw.forEach { note ->
+            assertTrue("nota nao reescrita: $note", humanNote(note) != note)
         }
     }
 }

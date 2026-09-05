@@ -51,6 +51,35 @@ fun explain(status: ArcadeCompat.Status): String? = when (status) {
     ArcadeCompat.Status.Playable, ArcadeCompat.Status.Unknown -> null
 }
 
+/**
+ * The tracker's note, said in the app's own voice.
+ *
+ * The notes are written by and for the people maintaining the list, which is why they read like
+ * "Game Rejects system256 BIOS!" -- shorthand, in English, and phrased as a fault rather than as
+ * something the player can act on. Shown raw, next to a green "Jogável" badge, it says a game
+ * both works and is broken.
+ *
+ * So the ones we know are rewritten to say what it means for the person holding the phone, and
+ * anything unrecognised is passed through unchanged: a note the tracker adds tomorrow is still
+ * worth more on screen than nothing, even in its original words.
+ */
+fun humanNote(note: String): String {
+    val n = note.lowercase()
+    return when {
+        // "Game Rejects system256 BIOS!"
+        n.contains("rejects system256") ->
+            "Não inicia com uma BIOS de System 256. O emulador troca sozinho se você tiver uma de 246."
+        // "crashes when using official sony COH-H ps2 board bios ... 246C and 256 bios work ok"
+        n.contains("a-000-010") ->
+            "Trava com a BIOS oficial da Sony (COH-H A-000-010). Funciona com as de 246C e 256, e o " +
+                "emulador troca sozinho se tiver uma delas."
+        // "game studio recycled security dongles bought for vampire night here..."
+        n.contains("recycled security dongles") ->
+            "O estúdio reaproveitou o dongle de outro jogo, então este usa um código de jogo não oficial."
+        else -> note
+    }
+}
+
 // Not the accent red: this is a verdict, and colouring "playable" with the brand colour would
 // make the good case indistinguishable from every other chip on the screen.
 private val PLAYABLE = Color(0xFF4ADE80)
