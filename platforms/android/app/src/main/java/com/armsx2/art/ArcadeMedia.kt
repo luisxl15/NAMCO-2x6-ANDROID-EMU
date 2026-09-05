@@ -124,9 +124,36 @@ object ArcadeMedia {
         "NM10003" to "Technic Beat",
     )
 
-    /** `<data root>/<name>/`, created on demand. */
-    fun dir(context: Context, name: String): File =
-        File(MainActivityRuntime.assetCopyRoot(context), name).apply { mkdirs() }
+    /**
+     * `<data root>/<name>/`, created on demand, with a fallback.
+     *
+     * The data root is whichever folder the player pointed the emulator at, and that is not
+     * guaranteed to be somewhere this process can create directories in — a folder reached
+     * through the storage picker rather than as a real path, an SD card that went away, a
+     * permission that was not granted for writing. When it is not, everything downloaded here
+     * fails at the first write and the only symptom is artwork that never appears.
+     *
+     * So: try the data root, and if a directory cannot be made and written there, use the app's
+     * own external files folder, which always exists and is always writable. Still a folder the
+     * player can open; just not the one they chose.
+     */
+    fun dir(context: Context, name: String): File {
+        val preferred = File(MainActivityRuntime.assetCopyRoot(context), name)
+        if (usable(preferred)) return preferred
+        val fallback = File(context.getExternalFilesDir(null), name)
+        Log.w(TAG, "media dir ${preferred.absolutePath} not writable, using ${fallback.absolutePath}")
+        return fallback.apply { mkdirs() }
+    }
+
+    private fun usable(dir: File): Boolean = runCatching {
+        dir.mkdirs()
+        if (!dir.isDirectory) return false
+        // isDirectory is not enough: a path can exist and still refuse a write. Ask by writing.
+        val probe = File(dir, ".probe")
+        probe.writeText("")
+        probe.delete()
+        true
+    }.getOrDefault(false)
 
     fun hasLogo(gameId: String?): Boolean = LOGOS.containsKey(gameId?.uppercase())
 

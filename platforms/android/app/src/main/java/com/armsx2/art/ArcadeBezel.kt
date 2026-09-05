@@ -50,7 +50,37 @@ object ArcadeBezel {
             runCatching { MainActivityRuntime.prefs.getBoolean(KEY, true) }.getOrDefault(true)
     }
 
-    fun setEnabled(on: Boolean) {
+    /**
+     * Aspect ratios the bezel is drawn for: 4:3, and the Auto that resolves to 4:3 on these
+     * boards. (Settings.aspectRatio: 0 Stretch, 1 Auto 4:3/3:2, 2 4:3, 3 16:9, ...)
+     *
+     * The art is a photograph of a cabinet with a hole cut where the screen was, and the hole is
+     * 4:3 because the screen was. Stretch the picture to fill a phone and the game runs out under
+     * the cabinet -- the bezel stops being a frame and becomes something covering the game.
+     */
+    private val FOUR_THREE = setOf(1, 2)
+
+    /** Whether the running game's picture is the shape the bezel was cut for. */
+    fun aspectAllowsBezel(): Boolean = runCatching {
+        val serial = MainActivityRuntime.currentGame.value?.settingsKey
+        com.armsx2.config.ConfigStore.resolveForGame(serial).aspectRatio in FOUR_THREE
+    }.getOrDefault(true)
+
+    /**
+     * Turn it on, if the picture is the right shape.
+     *
+     * Refuses rather than turning on and drawing something wrong: a bezel over a stretched
+     * picture looks like a bug in the bezel, and the player would have no way to know the aspect
+     * setting three screens away is what did it. So it says so.
+     */
+    fun setEnabled(on: Boolean, onRefused: (String) -> Unit = {}) {
+        if (on && !aspectAllowsBezel()) {
+            onRefused(
+                "O bezel só funciona com a imagem em 4:3. Mude a proporção para 4:3 ou Automático " +
+                    "em Configurações → Renderizador.",
+            )
+            return
+        }
         enabled.value = on
         runCatching { MainActivityRuntime.prefs.edit().putBoolean(KEY, on).apply() }
         if (!on) forget()
@@ -71,6 +101,9 @@ object ArcadeBezel {
      */
     fun bitmapFor(context: Context, serial: String?): Bitmap? {
         if (!enabled.value) return null
+        // Checked here too, not only where it is switched on: the aspect can be changed later,
+        // from a different screen, and the bezel has to stop rather than sit over the picture.
+        if (!aspectAllowsBezel()) return null
         val id = serial?.uppercase()?.takeIf { it.isNotBlank() }
         if (id == null) {
             if (loadedFor.value != null) forget()

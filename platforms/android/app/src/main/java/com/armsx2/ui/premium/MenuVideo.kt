@@ -12,7 +12,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.armsx2.art.ArcadeMedia
@@ -49,12 +54,34 @@ fun MenuVideoBackground(modifier: Modifier = Modifier, alpha: Float = 0.30f) {
         MainActivityRuntime.eState.value == EmuState.PAUSED
     if (playing) return
 
+    var fetching by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         // Off the main thread: the first run downloads 27 MB.
+        fetching = true
         file = withContext(Dispatchers.IO) { runCatching { ArcadeMedia.menuVideo(context) }.getOrNull() }
+        fetching = false
+        failed = file == null
     }
 
-    val path = file ?: return
+    val path = file
+    if (path == null) {
+        // Say which of the two nothings this is. A 27 MB download over a phone connection takes a
+        // while, and until now the wait and a failure looked identical -- an empty background,
+        // with no way to tell whether to keep waiting.
+        if (fetching || failed) {
+            Box(modifier, contentAlignment = Alignment.BottomStart) {
+                Text(
+                    if (fetching) "Baixando o fundo do menu…" else "Não foi possível baixar o fundo do menu.",
+                    color = Palette.labelTertiary,
+                    style = Type.caption,
+                    modifier = Modifier.padding(start = 34.dp, bottom = 6.dp),
+                )
+            }
+        }
+        return
+    }
 
     // One player for the life of this composable. Held outside AndroidView's factory so the
     // DisposableEffect below can release it — a MediaPlayer left running holds a codec, and

@@ -648,8 +648,11 @@ private fun SessionPane(state: EmulationMenuUiState, viewModel: EmulationMenuVie
             com.armsx2.diag.PerfMonitor.setEnabled(it)
         }
         Spacer(Modifier.height(6.dp))
+        val bezelCtx = androidx.compose.ui.platform.LocalContext.current
         MenuSwitchRow("Bezel do gabinete", com.armsx2.art.ArcadeBezel.enabled.value) {
-            com.armsx2.art.ArcadeBezel.setEnabled(it)
+            com.armsx2.art.ArcadeBezel.setEnabled(it) { why ->
+                android.widget.Toast.makeText(bezelCtx, why, android.widget.Toast.LENGTH_LONG).show()
+            }
         }
         Spacer(Modifier.height(6.dp))
         // #357: the pause button replaced the settings cog, so it's front-and-centre here. This is
