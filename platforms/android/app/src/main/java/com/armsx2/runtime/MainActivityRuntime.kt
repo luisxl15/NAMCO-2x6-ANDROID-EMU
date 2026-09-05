@@ -2059,6 +2059,9 @@ open class MainActivityRuntime : ComponentActivity() {
                 com.armsx2.input.UsbDevices.applyAtBoot()
             }
 
+            // The performance monitor's own on/off, read before the first frame it could draw.
+            runCatching { com.armsx2.diag.PerfMonitor.load() }
+
             // Pin Filenames/BIOS to the file the setup wizard copied —
             // deferred to here because Host::SetBaseStringSettingValue
             // null-derefs when called before initializeOnce installs the

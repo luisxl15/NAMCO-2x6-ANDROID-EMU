@@ -21,7 +21,7 @@ import java.util.Locale
 data class AboutUiState(
     // Both versions are this fork's own. VERSION_NAME still carries the upstream launcher's
     // numbering, which says nothing about this build.
-    val appVersion: String = "1.0",
+    val appVersion: String = com.armsx2.BuildConfig.VERSION_NAME,
     val coreVersion: String = "",
     val device: String = "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
     val androidVersion: String = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",

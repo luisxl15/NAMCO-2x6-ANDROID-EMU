@@ -101,7 +101,10 @@ android {
         minSdk = armsx2MinSdk.get().toInt()
         targetSdk = 37
         versionCode = providers.gradleProperty("armsx2.versionCode").orNull?.toInt() ?: 1088
-        versionName = providers.gradleProperty("armsx2.versionName").orNull ?: "2.6.1"
+        // This fork's own version, not upstream's. The About screen already said 1.0 while the
+        // package still called itself 2.6.1, which is the number every OS-level surface shows --
+        // the app info page, the installer, a crash report. One number, defined once.
+        versionName = providers.gradleProperty("armsx2.versionName").orNull ?: "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {

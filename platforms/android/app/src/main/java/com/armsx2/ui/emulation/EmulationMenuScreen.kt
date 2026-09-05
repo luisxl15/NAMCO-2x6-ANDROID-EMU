@@ -641,6 +641,13 @@ private fun SessionPane(state: EmulationMenuUiState, viewModel: EmulationMenuVie
     // toggles live in All Settings. Plus a frame-limit switch so fast-forward is one
     // tap away.
     SectionCard(str("tab.overlay")) {
+        // This fork's own performance panel, in place of PCSX2's OSD strip. Directly above the
+        // OSD mode selector because turning it on sets that to Off -- the two are one decision,
+        // and separating them would read as the OSD breaking.
+        MenuSwitchRow("Monitor de desempenho", com.armsx2.diag.PerfMonitor.enabled.value) {
+            com.armsx2.diag.PerfMonitor.setEnabled(it)
+        }
+        Spacer(Modifier.height(6.dp))
         // #357: the pause button replaced the settings cog, so it's front-and-centre here. This is
         // "tap to reveal", NOT show/hide: on = the glyph stays hidden until you tap its top-right
         // corner, which surfaces it. Either way that corner always opens this menu, so unlike the
@@ -1196,6 +1203,14 @@ private fun PerformancePane(state: EmulationMenuUiState, viewModel: EmulationMen
                 lsfgFlowScale = flow,
                 lsfgTargetRate = target,
             )
+        }
+    }
+    SectionCard("Diagnóstico") {
+        // Closes the menu first: every figure the report reads is zero or stale while the VM is
+        // paused, and the menu is what pauses it.
+        CompactAction("Medir desempenho (10s)", Arc.performance, Modifier.fillMaxWidth()) {
+            com.armsx2.diag.PerfReport.start()
+            viewModel.dismissHandler?.invoke()
         }
     }
     SectionCard(str("tab.recompiler")) {
