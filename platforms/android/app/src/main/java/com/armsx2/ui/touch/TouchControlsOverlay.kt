@@ -66,6 +66,7 @@ import com.armsx2.EmuState
 import com.armsx2.R
 import com.armsx2.i18n.str
 import com.armsx2.input.ControllerMappings
+import com.armsx2.input.Lightgun
 import com.armsx2.runtime.MainActivityRuntime
 import com.armsx2.ui.Colors
 import com.armsx2.ui.InGameOverlay
@@ -249,8 +250,20 @@ fun TouchControlsOverlay() {
             }
         }
 
-        val showPad = edit || (visMode != 0 && TouchControls.visible.value)
-        if (!showPad) return@BoxWithConstraints
+        // An arcade lightgun cabinet has no d-pad and no face buttons, so the pad is not just
+        // useless there -- it is a large piece of the screen that swallows shots. Hide it while
+        // one of those games runs; the gun's own controls appear in its place.
+        val showPad = edit || (visMode != 0 && TouchControls.visible.value && !Lightgun.arcade.value)
+        if (!showPad) {
+            // The gun does NOT follow the pad's visibility. It used to, by accident: everything
+            // below this point stops composing when the pad auto-hides, which took the aim layer
+            // with it and left a gun game with no way to aim after a few idle seconds.
+            if (!edit) {
+                LightgunLayer(widthPx = widthPx, heightPx = heightPx)
+                LightgunButtons()
+            }
+            return@BoxWithConstraints
+        }
 
         if (edit) {
             // Dim backdrop. Two jobs:
