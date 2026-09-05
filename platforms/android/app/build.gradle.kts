@@ -228,6 +228,17 @@ android {
     // all-files / custom-folder path in the setup wizard. applicationId is left
     // to defaultConfig (driven by -Parmsx2.applicationId) so both flavors honor
     // the release/AAB pipeline's CLI override.
+    testOptions {
+        unitTests {
+            // Unmocked android.jar methods do nothing instead of throwing "not mocked". Needed
+            // because the code under test logs: android.util.Log has no implementation on the
+            // JVM, so a single diagnostic Log.w in an error path took a test down with it -- and
+            // dropping the log to please the test would remove the one thing that explains the
+            // failure on a device.
+            isReturnDefaultValues = true
+        }
+    }
+
     flavorDimensions += "store"
     productFlavors {
         create("github") {

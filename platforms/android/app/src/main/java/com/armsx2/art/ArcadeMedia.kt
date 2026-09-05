@@ -245,6 +245,30 @@ object ArcadeMedia {
     }.onFailure { Log.w(TAG, "media fetch failed for $url: ${it.message}") }
         .getOrDefault(false)
 
+    /** Fetch a small text file. Blocking; null when it could not be had. */
+    fun fetchText(url: String): String? = runCatching {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 10_000
+            readTimeout = 20_000
+            instanceFollowRedirects = true
+        }
+        try {
+            if (conn.responseCode != HttpURLConnection.HTTP_OK) {
+                Log.w(TAG, "text ${conn.responseCode} for $url")
+                return null
+            }
+            conn.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            conn.disconnect()
+        }
+    }.onFailure { Log.w(TAG, "text fetch failed for $url: ${it.message}") }.getOrNull()
+
+    /** Download [url] to [dest], through the same staged rename everything else here uses. */
+    fun fetchTo(url: String, dest: File): Boolean {
+        dest.parentFile?.mkdirs()
+        return download(url, dest)
+    }
+
     /**
      * Remove the app-private cache an earlier build downloaded into.
      *

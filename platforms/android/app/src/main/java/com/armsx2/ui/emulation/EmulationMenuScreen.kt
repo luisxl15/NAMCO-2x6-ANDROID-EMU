@@ -640,6 +640,14 @@ private fun SessionPane(state: EmulationMenuUiState, viewModel: EmulationMenuVie
     // On-screen display — a single universal on/off (old-UI style); the per-stat
     // toggles live in All Settings. Plus a frame-limit switch so fast-forward is one
     // tap away.
+    // Widescreen patches for THIS game, fetched from the project's patch repository. Here and
+    // nowhere else: the list is per game, so on a settings screen it would be a list of patches
+    // for other people's games. Draws nothing when this game has none.
+    ArcadePatchSection(
+        serial = com.armsx2.runtime.MainActivityRuntime.currentGame.value?.serial
+            ?: com.armsx2.ui.InGameOverlay.currentSerial.value,
+    )
+    Spacer(Modifier.height(10.dp))
     SectionCard(str("tab.overlay")) {
         // This fork's own performance panel, in place of PCSX2's OSD strip. Directly above the
         // OSD mode selector because turning it on sets that to Off -- the two are one decision,

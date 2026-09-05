@@ -2,6 +2,7 @@ package com.armsx2
 
 import com.armsx2.data.library.AcgameWizard
 import com.armsx2.data.library.ArcadeBios
+import com.armsx2.art.ArcadePatches
 import com.armsx2.data.library.ArcadeCompat
 import com.armsx2.ui.premium.humanNote
 import org.junit.Assert.assertEquals
@@ -244,5 +245,63 @@ class ArcadeTest {
         raw.forEach { note ->
             assertTrue("nota nao reescrita: $note", humanNote(note) != note)
         }
+    }
+
+    // ------------------------------------------------------------- patches
+
+    private val patchIndex = """
+        {"version":1,"patches":[
+          {"gameid":"NM00004","game":"Tekken 4","title":"Widescreen",
+           "file":"patches/NM00004-tekken4.pnach","author":"Lorizzuoso","groups":["Widescreen"]},
+          {"gameid":"NM00001","game":"Ridge Racer V","title":"Widescreen (RRV1 A)",
+           "file":"patches/NM00001-rrv1a.pnach","author":"Franco23444",
+           "groups":["Widescreen 16:9","No-Interlacing"]},
+          {"gameid":"NM00001","game":"Ridge Racer V","title":"Widescreen (RRV2 B)",
+           "file":"patches/NM00001-rrv2b.pnach","author":"Franco23444","groups":["Widescreen 16:9"]},
+          {"gameid":"","game":"quebrado","title":"x","file":"patches/x.pnach"},
+          {"gameid":"NM00099","game":"sem arquivo","title":"y","file":""}
+        ]}
+    """.trimIndent()
+
+    @Test
+    fun `the patch index parses, and entries with no id or no file are dropped`() {
+        val all = ArcadePatches.parseIndex(patchIndex)
+        assertEquals(3, all.size)
+        val t4 = all.first { it.gameId == "NM00004" }
+        assertEquals("Widescreen", t4.title)
+        assertEquals("Lorizzuoso", t4.author)
+        assertEquals(listOf("Widescreen"), t4.groups)
+    }
+
+    @Test
+    fun `a game is only ever offered its own patches`() {
+        // The reason this is a rule and not tidiness: PCSX2 finds patches by filename, so a pnach
+        // installed under another game's id is not ignored -- it is applied, writing one game's
+        // addresses into another's memory.
+        ArcadePatches.index.value = ArcadePatches.parseIndex(patchIndex)
+        assertEquals(1, ArcadePatches.forGame("NM00004").size)
+        assertEquals(2, ArcadePatches.forGame("NM00001").size)
+        assertTrue(ArcadePatches.forGame("NM00010").isEmpty())
+        assertTrue(ArcadePatches.forGame(null).isEmpty())
+        assertTrue(ArcadePatches.forGame("").isEmpty())
+        // Case is not the player's problem.
+        assertEquals(1, ArcadePatches.forGame("nm00004").size)
+    }
+
+    @Test
+    fun `the installed filename is the one the emulator actually looks for`() {
+        // pcsx2x6 keys arcade patches by the game id and reports CRC 0 for them, so the search is
+        // "NM00004*.pnach". A CRC-named file -- which is how these arrive from everywhere else --
+        // is never found, and that is the whole reason this name is built rather than kept.
+        val t4 = ArcadePatches.parseIndex(patchIndex).first { it.gameId == "NM00004" }
+        assertEquals("NM00004 - Widescreen.pnach", t4.installName)
+        assertTrue(t4.installName.startsWith("NM00004"))
+        assertTrue(t4.installName.endsWith(".pnach"))
+    }
+
+    @Test
+    fun `a broken index is an empty list, not a crash`() {
+        assertTrue(ArcadePatches.parseIndex("nao e json").isEmpty())
+        assertTrue(ArcadePatches.parseIndex("""{"patches":null}""").isEmpty())
     }
 }
