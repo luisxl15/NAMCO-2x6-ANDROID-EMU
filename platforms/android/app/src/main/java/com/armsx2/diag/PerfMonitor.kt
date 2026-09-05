@@ -267,18 +267,16 @@ object PerfMonitor {
 
     /** What the machine is: fixed for the session, so read once. */
     private fun machineLines(context: Context): Machine {
-        val soc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            Build.SOC_MODEL.takeIf { it.isNotBlank() && it != "unknown" }
-        } else {
-            null
-        }
         val totalGb = runCatching {
             val info = ActivityManager.MemoryInfo()
             (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(info)
             info.totalMem / (1024.0 * 1024.0 * 1024.0)
         }.getOrNull()
         return Machine(
-            device = soc ?: Build.MODEL,
+            // The phone, not the chip inside it. SOC_MODEL was here first and it is the wrong
+            // answer twice over: it is a part number almost nobody recognises as their device,
+            // and it is blank on plenty of phones, so half of them fell back to this line anyway.
+            device = Build.MODEL,
             abi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty(),
             gpu = runCatching { GpuInfo.rendererName() }.getOrNull()?.let { shortGpu(it) } ?: "?",
             ram = totalGb?.let { String.format(Locale.US, "%.1fGB", it) } ?: "?",
