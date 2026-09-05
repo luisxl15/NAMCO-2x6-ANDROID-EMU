@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -25,15 +24,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -89,12 +84,13 @@ fun PremiumHome(
         viewModel.load(MainActivityRuntime.romsDirs.value, MainActivityRuntime.nativeReady.value)
     }
 
-    val games = remember(state.recentGames, state.allGames) {
-        state.recentGames.ifEmpty { state.allGames }
+    // The one game the card shows: the last one played, or the first in the library on a fresh
+    // install. There used to be a row of recents under the card whose only job was to choose
+    // which game the card showed; without it there is nothing to choose, so this is just the head
+    // of the list.
+    val hero = remember(state.recentGames, state.allGames) {
+        state.recentGames.ifEmpty { state.allGames }.firstOrNull()
     }
-    var selected by remember { mutableIntStateOf(0) }
-    if (selected >= games.size) selected = (games.size - 1).coerceAtLeast(0)
-    val hero = games.getOrNull(selected)
 
     if (showLibrary) {
         PremiumLibrary(
@@ -143,17 +139,6 @@ fun PremiumHome(
                         .heightIn(max = 360.dp),
                 )
                 Spacer(Modifier.height(20.dp))
-            }
-
-            if (games.size > 1) {
-                Text("RECENTES", style = Type.eyebrow, color = Palette.labelTertiary)
-                Spacer(Modifier.height(10.dp))
-                RecentRow(
-                    games = games,
-                    selectedIndex = selected,
-                    onSelect = { selected = it },
-                )
-                Spacer(Modifier.height(18.dp))
             }
 
             DestinationRow(
@@ -376,47 +361,6 @@ private fun PlayButton(onPlay: () -> Unit) {
         ) { ArcIcon(Arc.play, tint = Palette.accent, size = 12.dp) }
         Spacer(Modifier.width(11.dp))
         Text("Jogar", style = Type.headline, color = Color.White)
-    }
-}
-
-@Composable
-private fun RecentRow(games: List<GameInfo>, selectedIndex: Int, onSelect: (Int) -> Unit) {
-    val listState = rememberLazyListState()
-    LaunchedEffect(selectedIndex) { listState.animateScrollToItem(selectedIndex) }
-    LazyRow(
-        state = listState,
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(end = 34.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        itemsIndexed(games, key = { _, g -> g.uri.toString() }) { index, game ->
-            val isSelected = index == selectedIndex
-            val scale by animateFloatAsState(
-                if (isSelected) 1f else 0.93f,
-                spring(stiffness = Spring.StiffnessMediumLow), label = "recentScale",
-            )
-            Column(
-                Modifier.width(86.dp).scale(scale).clickable { onSelect(index) },
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(CoverAspect)
-                        .clip(RoundedCornerShape(Radii.chip))
-                        .alpha(if (isSelected) 1f else 0.55f),
-                ) {
-                    CoverArt(game, Modifier.fillMaxSize())
-                }
-                Spacer(Modifier.height(7.dp))
-                Text(
-                    game.displayTitle(EnglishTitles.enabled.value),
-                    style = Type.caption,
-                    color = if (isSelected) Palette.label else Palette.labelTertiary,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
     }
 }
 

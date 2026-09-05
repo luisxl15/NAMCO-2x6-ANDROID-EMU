@@ -3,7 +3,8 @@ package com.armsx2
 import com.armsx2.runtime.MainActivityRuntime
 
 import android.os.SystemClock
-import java.text.SimpleDateFormat
+import com.armsx2.i18n.I18n
+import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
 
@@ -122,6 +123,17 @@ object PlayTime {
     /** "" when never played, else e.g. "Jun 26, 2026 04:02". */
     fun formatLastPlayed(millis: Long): String {
         if (millis <= 0L) return ""
-        return SimpleDateFormat("MMM d, yyyy HH:mm", Locale.getDefault()).format(Date(millis))
+        // The APP's language, not the device's, and no hand-written pattern.
+        //
+        // "MMM d, yyyy" is American ordering spelled out, so a Portuguese interface was printing
+        // "Sep 5, 2026" -- English month, English order -- because the device this runs on is set
+        // to English and nothing here ever asked what language the app is in. Asking the platform
+        // for a MEDIUM date in that language gives each one its own ordering and its own month
+        // names, which is the whole reason the platform has this call.
+        val tag = I18n.current.ifBlank { "en" }
+        val locale = runCatching { Locale.forLanguageTag(tag) }.getOrNull()
+            ?.takeIf { it.language.isNotEmpty() } ?: Locale.getDefault()
+        val fmt = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale)
+        return fmt.format(Date(millis))
     }
 }
