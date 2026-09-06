@@ -315,58 +315,6 @@ private fun HeroCard(game: GameInfo, onPlay: () -> Unit, modifier: Modifier = Mo
 }
 
 /**
- * A game's logo from the media repository, or [fallback] when there is none.
- *
- * Fetched on first use and cached; the pack covers about 35 of the ids the compatibility list
- * knows, so [fallback] is a normal outcome and not an error path. Left-aligned and sized by
- * HEIGHT, because the logos are one canvas size (1920x800) with the artwork floating inside it at
- * whatever width the wordmark happens to be -- fitting them to a width would make a short logo
- * enormous and a long one tiny.
- */
-@Composable
-private fun GameLogo(
-    game: GameInfo,
-    height: androidx.compose.ui.unit.Dp,
-    fallback: @Composable () -> Unit,
-) {
-    val context = LocalContext.current
-    val serial = game.serial
-    var logo by remember(serial) { mutableStateOf<File?>(null) }
-    var settled by remember(serial) { mutableStateOf(false) }
-
-    LaunchedEffect(serial) {
-        if (!ArcadeMedia.hasLogo(serial)) {
-            settled = true
-            return@LaunchedEffect
-        }
-        logo = withContext(Dispatchers.IO) {
-            runCatching { ArcadeMedia.logo(context, serial) }.getOrNull()
-        }
-        settled = true
-    }
-
-    val file = logo
-    if (file == null) {
-        // Nothing at all until the lookup has settled: flashing the title for a frame and then
-        // replacing it with the logo is worse than a beat of nothing.
-        if (settled) fallback()
-        return
-    }
-    AsyncImage(
-        model = ImageRequest.Builder(context)
-            .data(file)
-            .memoryCacheKey(fileCacheKey(file))
-            .diskCacheKey(fileCacheKey(file))
-            .crossfade(true)
-            .build(),
-        contentDescription = game.displayTitle(EnglishTitles.enabled.value),
-        contentScale = ContentScale.Fit,
-        alignment = Alignment.CenterStart,
-        modifier = Modifier.height(height).fillMaxWidth(),
-    )
-}
-
-/**
  * Time played and last session, on the card. Real numbers from [PlayTime]: the featured card
  * would otherwise be the one place in the launcher that says nothing about the game you have
  * actually been playing. Hidden entirely until there is something to report, so a fresh install

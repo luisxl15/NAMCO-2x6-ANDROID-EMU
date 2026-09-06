@@ -514,10 +514,19 @@ private fun DetailPane(game: GameInfo, onLaunch: (GameInfo) -> Unit) {
             }
 
             Spacer(Modifier.height(18.dp))
-            Text(
-                game.displayTitle(EnglishTitles.enabled.value),
-                style = Type.title2, color = Palette.label,
-                maxLines = 3, overflow = TextOverflow.Ellipsis,
+            // The same wordmark the home card shows, for the same reason: it is the game's own
+            // lettering and no font stands in for it. Falls back to the title as type for the
+            // games the pack has no logo for, which is most of the list.
+            GameLogo(
+                game = game,
+                height = 44.dp,
+                fallback = {
+                    Text(
+                        game.displayTitle(EnglishTitles.enabled.value),
+                        style = Type.title2, color = Palette.label,
+                        maxLines = 3, overflow = TextOverflow.Ellipsis,
+                    )
+                },
             )
             Spacer(Modifier.height(6.dp))
             Text(metaLine(game), style = Type.footnote, color = Palette.labelSecondary)
@@ -538,6 +547,12 @@ private fun DetailPane(game: GameInfo, onLaunch: (GameInfo) -> Unit) {
                     Text(humanNote(compat.note), style = Type.footnote, color = Palette.accentBright)
                 }
             }
+
+            // What this game is actually set up with -- BIOS, patch, cover, bezel -- which
+            // otherwise lives on four different screens, none of which says which game it is
+            // talking about once you are on it.
+            Spacer(Modifier.height(18.dp))
+            GameSetupCard(game)
 
             if (seconds > 0L || last > 0L) {
                 Spacer(Modifier.height(16.dp))

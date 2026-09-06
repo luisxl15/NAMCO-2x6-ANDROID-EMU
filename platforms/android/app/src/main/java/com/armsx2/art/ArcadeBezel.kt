@@ -110,7 +110,7 @@ object ArcadeBezel {
             return null
         }
         if (loadedFor.value == id) return bitmap.value
-        if (!ArcadeMedia.hasBezel(id)) {
+        if (!ArcadeMedia.hasBezel(id) && !hasOverride(context, serial)) {
             loadedFor.value = id
             bitmap.value = null
             return null
@@ -119,12 +119,64 @@ object ArcadeBezel {
         return null
     }
 
+    /**
+     * A bezel the player chose for this game, which wins over the pack's.
+     *
+     * Named by game id rather than by the pack's title, so the two can never collide: the pack
+     * writes "Tekken 4.png" and an override is "NM00004.png".
+     */
+    private fun overrideFile(context: Context, id: String): File =
+        File(ArcadeMedia.dir(context, ArcadeMedia.DIR_BEZELS), "$id.png")
+
+    fun hasOverride(context: Context, serial: String?): Boolean {
+        val id = serial?.uppercase()?.takeIf { it.isNotBlank() } ?: return false
+        return overrideFile(context, id).length() > 0L
+    }
+
+    /** The file this game would draw right now, fetching nothing. Null when there is none yet. */
+    fun fileFor(context: Context, serial: String?): File? {
+        val id = serial?.uppercase()?.takeIf { it.isNotBlank() } ?: return null
+        overrideFile(context, id).takeIf { it.length() > 0L }?.let { return it }
+        val packName = ArcadeMedia.bezelName(id) ?: return null
+        return File(ArcadeMedia.dir(context, ArcadeMedia.DIR_BEZELS), "$packName.png")
+            .takeIf { it.length() > 0L }
+    }
+
+    /** Copy a picked image in as this game's bezel. */
+    fun setOverride(context: Context, serial: String?, uri: android.net.Uri): Boolean {
+        val id = serial?.uppercase()?.takeIf { it.isNotBlank() } ?: return false
+        return runCatching {
+            val dest = overrideFile(context, id)
+            // Staged then renamed, like every other file written here: a half-copied image
+            // already carrying the final name is indistinguishable from a finished one.
+            val part = File(dest.parentFile, "$id.png.part")
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                part.outputStream().use { input.copyTo(it) }
+            } ?: return false
+            if (part.length() <= 0L) {
+                part.delete()
+                return false
+            }
+            dest.delete()
+            part.renameTo(dest)
+        }.getOrDefault(false).also { if (it) forget() }
+    }
+
+    /** Drop the player's bezel and go back to the pack's. */
+    fun clearOverride(context: Context, serial: String?) {
+        val id = serial?.uppercase()?.takeIf { it.isNotBlank() } ?: return
+        runCatching { overrideFile(context, id).delete() }
+        forget()
+    }
+
     /** Fetch if missing, decode, and publish — all off the UI thread. */
     private fun loadInBackground(context: Context, id: String) {
         if (fetching == id) return
         fetching = id
         Thread {
-            val file = runCatching { ArcadeMedia.bezel(context, id) }.getOrNull()
+            // The player's own file wins, and needs no fetching.
+            val file = overrideFile(context, id).takeIf { it.length() > 0L }
+                ?: runCatching { ArcadeMedia.bezel(context, id) }.getOrNull()
             val bmp = file?.let {
                 runCatching { BitmapFactory.decodeFile(it.absolutePath) }.getOrNull()
             }
