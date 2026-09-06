@@ -304,4 +304,21 @@ class ArcadeTest {
         assertTrue(ArcadePatches.parseIndex("nao e json").isEmpty())
         assertTrue(ArcadePatches.parseIndex("""{"patches":null}""").isEmpty())
     }
+
+    @Test
+    fun `installing one patch supersedes the others for that game only`() {
+        // Ridge Racer V has four, and they are alternatives for different revisions of the game.
+        // The emulator searches "NM00001*.pnach", so two left in the folder are both found and
+        // both applied -- which is why installing one has to remove the rest.
+        ArcadePatches.index.value = ArcadePatches.parseIndex(patchIndex)
+        val rrv = ArcadePatches.forGame("NM00001")
+        val superseded = ArcadePatches.supersededBy(rrv.first())
+        assertEquals(1, superseded.size)
+        assertEquals(rrv[1].installName, superseded.first().installName)
+
+        // And never another game's: deleting across games would take away a patch nobody touched.
+        val t4 = ArcadePatches.forGame("NM00004").first()
+        assertTrue(ArcadePatches.supersededBy(t4).isEmpty())
+        assertTrue(superseded.none { it.gameId != "NM00001" })
+    }
 }

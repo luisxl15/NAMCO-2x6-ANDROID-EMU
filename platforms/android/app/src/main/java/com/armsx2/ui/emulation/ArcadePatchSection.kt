@@ -73,6 +73,11 @@ fun ArcadePatchSection(serial: String?) {
                 val installed = remember(refresh, entry.installName) {
                     ArcadePatches.isInstalled(context, entry)
                 }
+                // Another patch for this game is on: tapping this one swaps them, so say so
+                // rather than offering a "Baixar" that quietly removes something.
+                val replacing = remember(refresh, entry.installName) {
+                    !installed && ArcadePatches.installedFor(context, entry.gameId) != null
+                }
                 PatchRow(
                     title = entry.title,
                     subtitle = listOfNotNull(
@@ -80,6 +85,7 @@ fun ArcadePatchSection(serial: String?) {
                         entry.groups.joinToString(" · ").takeIf { it.isNotBlank() },
                     ).joinToString("  —  "),
                     installed = installed,
+                    replacing = replacing,
                     busy = busy == entry.installName,
                 ) {
                     busy = entry.installName
@@ -136,6 +142,7 @@ private fun PatchRow(
     title: String,
     subtitle: String,
     installed: Boolean,
+    replacing: Boolean,
     busy: Boolean,
     onToggle: () -> Unit,
 ) {
@@ -164,6 +171,7 @@ private fun PatchRow(
                 when {
                     busy -> "…"
                     installed -> "Instalado"
+                    replacing -> "Trocar"
                     else -> "Baixar"
                 },
                 color = if (installed) Color(0xFF4ADE80) else Color.White,

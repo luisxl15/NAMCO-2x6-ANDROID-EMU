@@ -110,9 +110,40 @@ object ArcadePatches {
         emptyList()
     }
 
-    /** Download a patch into the emulator's patches folder. Returns null on success, else why not. */
+    /**
+     * The other patches for this game -- the ones installing [entry] replaces.
+     *
+     * Separated from [install] so the rule can be tested without a device: getting this wrong
+     * either leaves two patches applied at once or deletes a patch belonging to another game.
+     */
+    internal fun supersededBy(entry: Entry): List<Entry> =
+        forGame(entry.gameId).filter { it.installName != entry.installName }
+
+    /** The patch currently installed for a game, if any. At most one, by construction. */
+    fun installedFor(context: Context, gameId: String?): Entry? =
+        forGame(gameId).firstOrNull { isInstalled(context, it) }
+
+    /**
+     * Download a patch, replacing whatever else was installed for the same game.
+     *
+     * One at a time, and that is not tidiness. The emulator searches by "{gameid}*.pnach", so
+     * every patch for a game matches at once — Ridge Racer V has four, they are alternatives for
+     * different revisions of the game, and leaving two in the folder means both are found and
+     * both are applied.
+     *
+     * Only files this app installed are removed: a pnach the player wrote or dropped in
+     * themselves is not ours to delete, so the sweep goes over the index's own entries rather
+     * than over the folder.
+     *
+     * Returns null on success, else why not.
+     */
     fun install(context: Context, entry: Entry): String? {
-        val dest = File(patchesDir(context), entry.installName)
+        val dir = patchesDir(context)
+        supersededBy(entry).forEach { other ->
+            runCatching { File(dir, other.installName).delete() }
+        }
+
+        val dest = File(dir, entry.installName)
         return if (ArcadeMedia.fetchTo(BASE + entry.file, dest)) {
             null
         } else {
