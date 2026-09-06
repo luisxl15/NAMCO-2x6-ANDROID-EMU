@@ -59,12 +59,18 @@ fun LightgunLayer(widthPx: Float, heightPx: Float) {
             delay(1000)
         }
     }
-    if (!Lightgun.active) return
-    if (widthPx <= 0f || heightPx <= 0f) return
-
     // Where the gun is pointing, for the reticle below. Null when nothing is touching.
+    //
+    // ★ ABOVE the early returns, and it has to be. A remember placed after a conditional return
+    // is reached on some compositions and not others, which misaligns the slot table for the
+    // whole composition -- and the damage shows up somewhere else entirely. Put here, it cost the
+    // launcher its cover art and its logo, which rendered as gradients: those widgets were
+    // reading remembered state that no longer belonged to them.
     var aim by remember { mutableStateOf<Offset?>(null) }
     var firing by remember { mutableStateOf(false) }
+
+    if (!Lightgun.active) return
+    if (widthPx <= 0f || heightPx <= 0f) return
 
     Box(
         Modifier

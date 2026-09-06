@@ -44,7 +44,13 @@ import java.io.File
 @Composable
 fun MenuVideoBackground(modifier: Modifier = Modifier, alpha: Float = 0.30f) {
     val context = LocalContext.current
+    // Every remember in this function lives here, above the early return below. A remember placed
+    // after a conditional return runs on some compositions and not others, which misaligns the
+    // slot table for the whole composition -- and the damage lands somewhere else entirely. The
+    // same mistake in the lightgun layer cost the launcher its cover art.
     var file by remember { mutableStateOf<File?>(null) }
+    var fetching by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
 
     // Never while a game is up. Decoding a looping 1080p film behind a screen nobody is looking at
     // costs a core and a slice of the GPU on a device that is, by the time anyone notices, already
@@ -53,9 +59,6 @@ fun MenuVideoBackground(modifier: Modifier = Modifier, alpha: Float = 0.30f) {
     val playing = MainActivityRuntime.eState.value == EmuState.RUNNING ||
         MainActivityRuntime.eState.value == EmuState.PAUSED
     if (playing) return
-
-    var fetching by remember { mutableStateOf(false) }
-    var failed by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         // Off the main thread: the first run downloads 27 MB.

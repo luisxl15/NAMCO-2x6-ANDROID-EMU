@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,6 +67,9 @@ fun ArcadePatchSection(serial: String?) {
         Column(Modifier.fillMaxWidth()) {
             entries.forEachIndexed { i, entry ->
                 if (i > 0) Spacer(Modifier.height(6.dp))
+                // key(), because there is a remember inside this loop: without it the slots are
+                // positional, and a list that changes length hands one row's state to another.
+                key(entry.file) {
                 val installed = remember(refresh, entry.installName) {
                     ArcadePatches.isInstalled(context, entry)
                 }
@@ -116,6 +120,7 @@ fun ArcadePatchSection(serial: String?) {
                         busy = null
                         refresh++
                     }
+                }
                 }
             }
             message?.let {

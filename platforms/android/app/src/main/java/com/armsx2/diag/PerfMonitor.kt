@@ -115,11 +115,15 @@ object PerfMonitor {
 
     @Composable
     fun Overlay() {
-        if (!enabled.value) return
+        // Remembers first, the gate after. A remember reached on some compositions and not others
+        // misaligns the composition's slot table, and what breaks is whatever else happens to sit
+        // in those slots -- the launcher's cover art, when this mistake was made in the lightgun
+        // layer.
         val context = LocalContext.current
         val live = remember { mutableStateOf(Live()) }
         val history = remember { mutableStateListOf<Float>() }
         val machine = remember { machineLines(context) }
+        if (!enabled.value) return
 
         LaunchedEffect(Unit) {
             while (true) {
