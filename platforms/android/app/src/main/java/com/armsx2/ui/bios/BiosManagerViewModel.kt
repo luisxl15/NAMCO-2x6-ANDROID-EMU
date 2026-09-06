@@ -106,7 +106,7 @@ class BiosManagerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     /**
-     * Item 7: import every valid PS2 BIOS from a chosen folder in one shot (refresh parity — the
+     * Item 7: import every valid arcade BIOS from a chosen folder in one shot (refresh parity — the
      * old UI let you point at a BIOS folder and pick between them, not import one file at a time).
      * Non-BIOS files are silently skipped (importFile validates via getBiosInfoFromFd); the existing
      * list + "Use selected" UI then lets the user choose between the imported BIOSes.
@@ -137,7 +137,10 @@ class BiosManagerViewModel(application: Application) : AndroidViewModel(applicat
                 count
             }
             if (imported == 0) {
-                state.value = state.value.copy(busy = false, error = "No valid PlayStation 2 BIOS found in that folder.")
+                state.value = state.value.copy(
+                    busy = false,
+                    error = com.armsx2.i18n.I18n.get("arcadeBios.error.noneInFolder"),
+                )
             } else {
                 refresh()
             }
@@ -222,7 +225,8 @@ class BiosManagerViewModel(application: Application) : AndroidViewModel(applicat
             return@runCatching dest
         }
         val descriptor = context.contentResolver.openFileDescriptor(uri, "r") ?: error("Unable to open the file.")
-        NativeApp.getBiosInfoFromFd(descriptor.detachFd()) ?: error("Not a valid PlayStation 2 BIOS.")
+        NativeApp.getBiosInfoFromFd(descriptor.detachFd())
+            ?: error(com.armsx2.i18n.I18n.get("arcadeBios.error.notValid"))
         val directory = MainActivityRuntime.internalBiosDir(context).apply { mkdirs() }
         val safeName = name.replace(Regex("[^A-Za-z0-9._-]"), "_")
         val target = uniqueFile(directory, safeName)

@@ -123,7 +123,10 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                 busy = false,
             )
         } else {
-            state.value.copy(busy = false, error = "The selected file is not a valid PlayStation 2 BIOS.")
+            state.value.copy(
+                busy = false,
+                error = com.armsx2.i18n.I18n.get("arcadeBios.error.notValid"),
+            )
         }
     }
 
@@ -168,7 +171,10 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
                     busy = false,
                 )
             } else {
-                state.value.copy(busy = false, error = "No PlayStation 2 BIOS files were found in that folder.")
+                state.value.copy(
+                    busy = false,
+                    error = com.armsx2.i18n.I18n.get("arcadeBios.error.noneInFolder"),
+                )
             }
         }
     }

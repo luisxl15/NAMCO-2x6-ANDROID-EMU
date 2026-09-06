@@ -46,6 +46,34 @@ internal object BrandStrings {
                 "arcade System 246/256) e sobre o ARMSX2 (o launcher Android e o trabalho de " +
                 "recompilador ARM64) — ambos projetos de código aberto derivados do PCSX2.",
         ),
+        // Upstream is asking for a console BIOS. This build boots arcade boards, whose BIOS is
+        // the COH-H image off a System 246/256 -- a different file, from different hardware, and
+        // a player who goes looking for "a PS2 BIOS" comes back with one that will not boot a
+        // single game here.
+        "setup.step.bios.description" to mapOf(
+            "en" to "Pick a folder holding your NAMCO System 246/256 arcade BIOS (the COH-H " +
+                "image) — every BIOS inside is added, along with any matching .mec and .nvm files.",
+            "pt-BR" to "Escolha uma pasta com a BIOS do fliperama NAMCO System 246/256 (a imagem " +
+                "COH-H) — toda BIOS que estiver dentro é adicionada, junto com os .mec e .nvm " +
+                "correspondentes.",
+        ),
+        "setup.bios.error.noneFound" to mapOf(
+            "en" to "No valid arcade BIOS found in that folder.",
+            "pt-BR" to "Nenhuma BIOS de fliperama válida foi encontrada nessa pasta.",
+        ),
+        // Two loose literals in upstream view models, given ids here so they can be said in the
+        // player's language as well as about the right hardware. Keys of this fork's own making:
+        // I18n has none, so the lookup falls through to exactly this table.
+        "arcadeBios.error.notValid" to mapOf(
+            "en" to "That file is not a BIOS this emulator can use. It needs a System 246/256 " +
+                "arcade BIOS (COH-H).",
+            "pt-BR" to "Esse arquivo não é uma BIOS que este emulador consiga usar. É preciso uma " +
+                "BIOS de fliperama System 246/256 (COH-H).",
+        ),
+        "arcadeBios.error.noneInFolder" to mapOf(
+            "en" to "No arcade BIOS was found in that folder.",
+            "pt-BR" to "Nenhuma BIOS de fliperama foi encontrada nessa pasta.",
+        ),
         // The library takes .acgame manifests, not console disc images.
         "setup.step.rom.description" to mapOf(
             "en" to "Pick one or more folders holding your arcade games. Each game is a .acgame " +

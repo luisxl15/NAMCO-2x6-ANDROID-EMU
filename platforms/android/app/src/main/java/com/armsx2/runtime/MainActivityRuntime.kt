@@ -2352,6 +2352,9 @@ open class MainActivityRuntime : ComponentActivity() {
         com.armsx2.art.SteamGridDb.load()
         ControllerMappings.installRuntimeCacheInvalidation()
         com.armsx2.i18n.I18n.init(applicationContext)
+        // Whether the language still has to be asked. Read here, right after the language itself
+        // is restored, because the answer decides which screen the app opens on.
+        com.armsx2.ui.onboarding.LanguageGate.load()
         applyEmulationOrientation()
         com.armsx2.CoverArtStyle.load()
         com.armsx2.GridLabels.load()
@@ -2591,7 +2594,16 @@ open class MainActivityRuntime : ComponentActivity() {
             // setupComplete the main emulator UI takes over. Re-entering
             // setup requires clearing app data (or wiping the prefs key).
             if (!setupComplete.value || setupEditorVisible.value) {
-                com.armsx2.ui.onboarding.OnboardingScreen()
+                // The wizard is five screens of prose -- storage, BIOS images, where the games
+                // live -- and it used to come up in whatever the phone's locale resolved to,
+                // with the language picker sitting in the settings BEHIND it. Ask first.
+                // Only ever on a first run: re-entering setup from the settings finds this
+                // answered and goes straight to the wizard.
+                if (com.armsx2.ui.onboarding.LanguageGate.needed.value && !setupEditorVisible.value) {
+                    com.armsx2.ui.onboarding.LanguageGateScreen()
+                } else {
+                    com.armsx2.ui.onboarding.OnboardingScreen()
+                }
             } else if (setupComplete.value) {
                 // A launch found an active memory card it could not read, and has a verified
                 // backup to put back. The boot is held until this is answered — restoring after
