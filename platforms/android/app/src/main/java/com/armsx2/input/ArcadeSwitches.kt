@@ -65,6 +65,11 @@ object ArcadeSwitches {
         // The board has two sides and no more; a third pad folded onto player 1 by the router
         // arrives here as port 0 already.
         val player = if (port == 1) 1 else 0
+        // On the press only: these are switches, and a switch is felt going down.
+        if (down) {
+            if (h == ControllerMappings.SysHotkey.ARCADE_COIN) CabinetHaptics.coin()
+            else CabinetHaptics.switchClick()
+        }
         when (h) {
             ControllerMappings.SysHotkey.ARCADE_COIN ->
                 if (down) runCatching { NativeApp.jvsInsertCoin(player) }

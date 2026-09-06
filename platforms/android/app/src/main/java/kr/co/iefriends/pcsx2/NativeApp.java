@@ -684,6 +684,26 @@ public class NativeApp {
 		try { rumbleOne(systemVibrator(), 0.6f, 12); } catch (Throwable ignored) {}
 	}
 
+	/**
+	 * A cabinet control's own kick: a drum head, a shot, a coin dropping.
+	 *
+	 * Separate from {@link #touchHaptic()} because those are all one tick, and these are not
+	 * meant to be: a drum head and its rim have to feel different or the panel is four identical
+	 * buzzes, which tells the player nothing. Same scaling and the same vibrator, so the one
+	 * Vibration Strength slider still governs it.
+	 *
+	 * Rate-limited harder than the touch tick (8 ms rather than 24): a fast drum roll is real
+	 * input, and collapsing it into one buzz would be dropping the very hits the player is
+	 * proudest of.
+	 */
+	private static volatile long sLastCabinetHapticMs = 0L;
+	public static void cabinetHaptic(float intensity, int ms) {
+		long now = android.os.SystemClock.uptimeMillis();
+		if (now - sLastCabinetHapticMs < 8L) return;
+		sLastCabinetHapticMs = now;
+		try { rumbleOne(systemVibrator(), intensity, ms); } catch (Throwable ignored) {}
+	}
+
 	/** Index (0-based) of the [index]th connected physical gamepad, or -1. Used as a
 	 *  fallback so the rumble test works even before a port has been claimed in-game. */
 	private static int nthGamepadDeviceId(int index) {

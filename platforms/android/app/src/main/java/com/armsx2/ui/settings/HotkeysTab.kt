@@ -60,7 +60,10 @@ fun HotkeysTab(@Suppress("UNUSED_PARAMETER") state: MutableState<Settings>) {
         ControllerMappings.SysHotkey.entries.forEach { hk ->
             @Suppress("UNUSED_EXPRESSION") ControllerMappings.hotkeyBindTick.value
             val capturing = ControllerMappings.captureHotkey.value == hk
-            val binding = ControllerMappings.hotkeyLabel(hk)
+            // The hotkey list is the last English in the app, and for a structural reason: these
+            // names are literals in the enum, not keys in the string tables. Translated at the
+            // point of display -- see com.armsx2.i18n.HotkeyNames.
+            val binding = com.armsx2.i18n.HotkeyNames.binding(ControllerMappings.hotkeyLabel(hk))
             val unset = binding.isEmpty()
             Row(
                 modifier = Modifier
@@ -76,7 +79,12 @@ fun HotkeysTab(@Suppress("UNUSED_PARAMETER") state: MutableState<Settings>) {
                     .padding(horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(hk.label, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    com.armsx2.i18n.HotkeyNames.action(hk),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
                 Spacer(Modifier.weight(1f))
                 if (!unset && !capturing) {
                     Text(

@@ -2071,6 +2071,7 @@ open class MainActivityRuntime : ComponentActivity() {
                 com.armsx2.input.UsbDevices.load()
                 com.armsx2.input.Lightgun.load()
                 com.armsx2.input.LightgunAim.load()
+                com.armsx2.input.CabinetHaptics.load()
                 com.armsx2.input.UsbDevices.applyAtBoot()
             }
 
@@ -3510,7 +3511,9 @@ open class MainActivityRuntime : ComponentActivity() {
                         val on = runCatching { NativeApp.toggleTextureDumping() }.getOrDefault(false)
                         android.widget.Toast.makeText(
                             this,
-                            if (on) "Texture dumping ON" else "Texture dumping OFF",
+                            com.armsx2.i18n.HotkeyNames.feedback(
+                                if (on) "Texture dumping ON" else "Texture dumping OFF",
+                            ),
                             android.widget.Toast.LENGTH_SHORT,
                         ).show()
                     }
@@ -3719,7 +3722,7 @@ open class MainActivityRuntime : ComponentActivity() {
     private fun toggleGyro() {
         val on = !gyroActive.value
         gyroActive.value = on
-        hotkeyToast(if (on) "Gyro ON" else "Gyro OFF")
+        hotkeyToast(com.armsx2.i18n.HotkeyNames.feedback(if (on) "Gyro ON" else "Gyro OFF"))
     }
 
     /** Re-zero the motion neutral. Routed through [gyroRecenterHook] because the sensor
@@ -3728,11 +3731,11 @@ open class MainActivityRuntime : ComponentActivity() {
     private fun recenterGyro() {
         val hook = gyroRecenterHook
         if (hook == null) {
-            hotkeyToast("Motion not active")
+            hotkeyToast(com.armsx2.i18n.HotkeyNames.feedback("Motion not active"))
             return
         }
         hook()
-        hotkeyToast("Motion recentered")
+        hotkeyToast(com.armsx2.i18n.HotkeyNames.feedback("Motion recentered"))
     }
 
     fun toggleFastForward() {
@@ -3741,7 +3744,7 @@ open class MainActivityRuntime : ComponentActivity() {
         // Fast-forward supersedes an active slow-down latch (mutually exclusive).
         if (on) slowDownToggleActive = false
         runCatching { NativeApp.speedhackLimitermode(if (on) ffLimiterMode() else baseLimiterMode()) }
-        hotkeyToast(if (on) "Fast Forward ON" else "Fast Forward OFF")
+        hotkeyToast(com.armsx2.i18n.HotkeyNames.feedback(if (on) "Fast Forward ON" else "Fast Forward OFF"))
     }
 
     /** Toggle slow motion (native LimiterModeType::Slomo, ~50% speed). BLOCKED in
@@ -3750,7 +3753,7 @@ open class MainActivityRuntime : ComponentActivity() {
     fun toggleSlowDown() {
         if (InGameOverlay.hardcoreOn.value) {
             slowDownToggleActive = false
-            hotkeyToast("Slow Down is disabled in RetroAchievements Hardcore mode")
+            hotkeyToast(com.armsx2.i18n.HotkeyNames.feedback("Slow Down is disabled in RetroAchievements Hardcore mode"))
             return
         }
         slowDownToggleActive = !slowDownToggleActive
@@ -3758,7 +3761,7 @@ open class MainActivityRuntime : ComponentActivity() {
         // Slow-down supersedes an active fast-forward latch (mutually exclusive).
         if (on) fastForwardToggleActive = false
         runCatching { NativeApp.speedhackLimitermode(if (on) 2 else baseLimiterMode()) }
-        hotkeyToast(if (on) "Slow Down ON (50%)" else "Slow Down OFF")
+        hotkeyToast(com.armsx2.i18n.HotkeyNames.feedback(if (on) "Slow Down ON (50%)" else "Slow Down OFF"))
     }
 
     // Hotkey pop-up toasts (Fast-Forward, etc.). Android Toasts QUEUE, so toggling a
@@ -3887,7 +3890,7 @@ open class MainActivityRuntime : ComponentActivity() {
             .distinctBy { Math.round(it.refreshRate) }
             .sortedByDescending { it.refreshRate }
         if (modes.size < 2) {
-            hotkeyToast("Only ${Math.round(disp.mode.refreshRate)} Hz available")
+            hotkeyToast(com.armsx2.i18n.HotkeyNames.feedback("Only %s Hz available").format(Math.round(disp.mode.refreshRate)))
             return
         }
         // Start from whatever the panel is on now, not from index 0, so the first press
@@ -3899,7 +3902,7 @@ open class MainActivityRuntime : ComponentActivity() {
         runCatching {
             window.attributes = window.attributes.apply { preferredDisplayModeId = next.modeId }
         }
-        hotkeyToast("Display ${Math.round(next.refreshRate)} Hz")
+        hotkeyToast(com.armsx2.i18n.HotkeyNames.feedback("Display %s Hz").format(Math.round(next.refreshRate)))
     }
 
     // Corrects the Samsung QHD on-screen-touch offset before the event is dispatched (a strict no-op
@@ -4968,14 +4971,14 @@ open class MainActivityRuntime : ComponentActivity() {
             ControllerMappings.SysHotkey.TEXTURE_DUMP -> {
                 val on = runCatching { NativeApp.toggleTextureDumping() }.getOrDefault(false)
                 android.widget.Toast.makeText(this,
-                    if (on) "Texture dumping ON" else "Texture dumping OFF",
+                    com.armsx2.i18n.HotkeyNames.feedback(if (on) "Texture dumping ON" else "Texture dumping OFF"),
                     android.widget.Toast.LENGTH_SHORT).show()
             }
             ControllerMappings.SysHotkey.FAST_FORWARD_TOGGLE -> {
                 fastForwardToggleActive = !fastForwardToggleActive
                 val on = fastForwardToggleActive
                 runCatching { NativeApp.speedhackLimitermode(if (on) ffLimiterMode() else baseLimiterMode()) }
-                hotkeyToast(if (on) "Fast Forward ON" else "Fast Forward OFF")
+                hotkeyToast(com.armsx2.i18n.HotkeyNames.feedback(if (on) "Fast Forward ON" else "Fast Forward OFF"))
             }
             ControllerMappings.SysHotkey.GYRO_TOGGLE -> toggleGyro()
             // GYRO_HOLD needs key up/down edges, which this edge-triggered path (stick

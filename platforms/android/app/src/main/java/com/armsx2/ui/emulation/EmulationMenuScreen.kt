@@ -665,6 +665,14 @@ private fun SessionPane(state: EmulationMenuUiState, viewModel: EmulationMenuVie
             com.armsx2.diag.PerfMonitor.setEnabled(it)
         }
         Spacer(Modifier.height(6.dp))
+        // The drum, the gun, the coin slot and the cabinet switches have their own weight and
+        // length under the finger. Rides the same vibrator and the same Vibration Strength
+        // slider as everything else, so this only decides whether the cabinet's own controls
+        // speak at all.
+        MenuSwitchRow("Vibração da cabine", com.armsx2.input.CabinetHaptics.enabled.value) {
+            com.armsx2.input.CabinetHaptics.setEnabled(it)
+        }
+        Spacer(Modifier.height(6.dp))
         val bezelCtx = androidx.compose.ui.platform.LocalContext.current
         MenuSwitchRow("Bezel do gabinete", com.armsx2.art.ArcadeBezel.enabled.value) {
             com.armsx2.art.ArcadeBezel.setEnabled(it) { why ->

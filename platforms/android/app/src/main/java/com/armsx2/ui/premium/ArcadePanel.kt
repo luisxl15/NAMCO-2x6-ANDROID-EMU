@@ -85,17 +85,23 @@ fun ArcadePanel(modifier: Modifier = Modifier) {
             } else {
                 MomentaryChip("FICHA") { pressed ->
                     // Coin is an event, not a held switch: fire once on press.
-                    if (pressed) runCatching { NativeApp.jvsInsertCoin(0) }
+                    if (pressed) {
+                        runCatching { NativeApp.jvsInsertCoin(0) }
+                        com.armsx2.input.CabinetHaptics.coin()
+                    }
                 }
                 MomentaryChip("START") { pressed ->
                     runCatching { NativeApp.jvsSetButton(0, JVS_START, pressed) }
+                    if (pressed) com.armsx2.input.CabinetHaptics.switchClick()
                 }
                 MomentaryChip("SERVICE") { pressed ->
                     runCatching { NativeApp.jvsSetButton(0, JVS_SERVICE, pressed) }
+                    if (pressed) com.armsx2.input.CabinetHaptics.switchClick()
                 }
                 // TEST is a switch on the real cabinet, so it latches here too.
                 Chip(if (testOn) "TEST ▪" else "TEST", accent = testOn) {
                     runCatching { NativeApp.jvsToggleDipSwitch(DIP_TEST) }
+                    com.armsx2.input.CabinetHaptics.switchClick()
                     testOn = runCatching { NativeApp.jvsGetDipSwitchState(DIP_TEST) }.getOrDefault(!testOn)
                 }
                 IconChip(Arc.close) { expanded = false }

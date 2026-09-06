@@ -11,6 +11,7 @@ import com.armsx2.input.AndroidGyroscopeInput
 import com.armsx2.input.ArcadeSwitches
 import com.armsx2.input.LightgunAim
 import com.armsx2.input.Taiko
+import com.armsx2.i18n.HotkeyNames
 import com.armsx2.input.ControllerMappings
 import com.armsx2.ui.premium.humanNote
 import org.junit.Assert.assertEquals
@@ -585,5 +586,59 @@ class ArcadeTest {
         val jump = LightgunAim.next(AndroidGyroscopeInput.KIND_GYRO, 0.5f, 0.5f, 1f, 0f, 60_000L)
         val capped = LightgunAim.next(AndroidGyroscopeInput.KIND_GYRO, 0.5f, 0.5f, 1f, 0f, 100L)
         assertEquals(capped.first, jump.first, 0.0001f)
+    }
+
+    // ---------------------------------------------------------- hotkey names
+
+    @Test
+    fun `every hotkey has a Portuguese name`() {
+        // The point of this one is the NEXT hotkey somebody adds. The list is translated by a
+        // map keyed on the enum's own names, so a new entry silently shows its English label in
+        // an otherwise Portuguese screen -- which is exactly the kind of thing nobody notices
+        // until a user does.
+        val english = ControllerMappings.SysHotkey.values().filter {
+            HotkeyNames.actionIn("pt-BR", it) == it.label && !it.name.startsWith("ARCADE_")
+        }
+        assertTrue("sem tradução: ${english.map { it.name }}", english.isEmpty())
+    }
+
+    @Test
+    fun `the per-slot hotkeys name their own slot`() {
+        assertEquals(
+            "Salvar estado no slot 3",
+            HotkeyNames.actionIn("pt-BR", ControllerMappings.SysHotkey.SAVE_SLOT_3),
+        )
+        assertEquals(
+            "Carregar estado do slot 7",
+            HotkeyNames.actionIn("pt-BR", ControllerMappings.SysHotkey.LOAD_SLOT_7),
+        )
+    }
+
+    @Test
+    fun `another language is left alone`() {
+        val hk = ControllerMappings.SysHotkey.SAVE_STATE
+        assertEquals(hk.label, HotkeyNames.actionIn("en", hk))
+        assertEquals("D-Pad Up", HotkeyNames.bindingIn("en", "D-Pad Up"))
+        assertEquals("Fast Forward ON", HotkeyNames.feedbackIn("de", "Fast Forward ON"))
+    }
+
+    @Test
+    fun `what is printed on the controller is not translated`() {
+        // L1, R2 and Start are moulded into the plastic in the player's hand. Translating those
+        // would make the screen disagree with the thing it is describing.
+        assertEquals("Select + R1", HotkeyNames.bindingIn("pt-BR", "Select + R1"))
+        assertEquals("L2", HotkeyNames.bindingIn("pt-BR", "L2"))
+        // What IS language gets translated, whole rather than half.
+        assertEquals("Direcional cima", HotkeyNames.bindingIn("pt-BR", "D-Pad Up"))
+        assertEquals("Analógico E esquerda", HotkeyNames.bindingIn("pt-BR", "L-Stick Left"))
+        assertEquals("Botão A", HotkeyNames.bindingIn("pt-BR", "Button A"))
+    }
+
+    @Test
+    fun `a message the hotkeys no longer send falls back to English`() {
+        // Keyed by the English text, so an upstream rewording misses the map. Coming through in
+        // English is the right failure; coming through as a raw key would not be.
+        assertEquals("Something New", HotkeyNames.feedbackIn("pt-BR", "Something New"))
+        assertEquals("Avanço rápido ligado", HotkeyNames.feedbackIn("pt-BR", "Fast Forward ON"))
     }
 }

@@ -131,6 +131,9 @@ object Lightgun {
         triggerDown = down
         val margin = minOf(widthPx, heightPx) * EDGE_RELOAD_FRAC
         val offscreen = x <= margin || y <= margin || x >= widthPx - margin || y >= heightPx - margin
+        // Only on the pull. A release is not something you feel on a trigger, and buzzing on
+        // both edges would double every shot.
+        if (down) { if (offscreen) CabinetHaptics.reload() else CabinetHaptics.shot() }
         if (arcade.value) {
             // The cabinet's own reload: a pedal where the machine had one, and the
             // aimed-away-from-the-screen report where it did not. Which of the two this is gets

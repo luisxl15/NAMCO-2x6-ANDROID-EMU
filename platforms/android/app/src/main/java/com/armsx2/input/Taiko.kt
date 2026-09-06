@@ -55,6 +55,9 @@ object Taiko {
     fun hit(pad: Int, player: Int = 0) {
         if (!active.value) return
         runCatching { NativeApp.jvsDrumHit(player, pad, true) }
+        // Head and rim have to feel different, or the panel is four identical buzzes and the
+        // only way to know which one you hit is to look at the chart you should be reading.
+        if (isDon(pad)) CabinetHaptics.don() else CabinetHaptics.ka()
         if (player == 0) lit.value = lit.value or (1 shl pad)
         main.postDelayed({
             runCatching { NativeApp.jvsDrumHit(player, pad, false) }
