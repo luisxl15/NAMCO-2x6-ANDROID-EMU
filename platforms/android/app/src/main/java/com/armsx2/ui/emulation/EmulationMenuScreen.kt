@@ -647,6 +647,12 @@ private fun SessionPane(state: EmulationMenuUiState, viewModel: EmulationMenuVie
         serial = com.armsx2.runtime.MainActivityRuntime.currentGame.value?.serial
             ?: com.armsx2.ui.InGameOverlay.currentSerial.value,
     )
+    // Steering, for a driving cabinet and nothing else. Draws nothing for every other board.
+    Spacer(Modifier.height(10.dp))
+    ArcadeWheelSection(
+        serial = com.armsx2.runtime.MainActivityRuntime.currentGame.value?.serial
+            ?: com.armsx2.ui.InGameOverlay.currentSerial.value,
+    )
     Spacer(Modifier.height(10.dp))
     SectionCard(str("tab.overlay")) {
         // This fork's own performance panel, in place of PCSX2's OSD strip. Directly above the

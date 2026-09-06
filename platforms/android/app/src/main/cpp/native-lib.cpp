@@ -1152,6 +1152,29 @@ static void ApplyJvsPadButton(u32 port, GenericInputBinding generic, float state
 // Without this, driving games had no steering at all on Android. Their buttons worked -- shift,
 // view, sidebrake are ordinary switches and were already mirrored -- so the cabinet looked wired
 // up right up until the car would not turn.
+// Steering feel. A cabinet's wheel is a metre of travel with a spring in it; a thumbstick is a
+// centimetre with none, so the same deflection means something different at each end. The
+// deadzone throws away the drift a resting stick reports (and a phone that is never perfectly
+// level, under tilt steering), and the gain decides how much lock a full push is worth.
+//
+// Applied to the two STEERING half-axes only. Gas and brake are a pedal each: a driver holds
+// them at whatever fraction they mean, and rescaling that would be answering a question nobody
+// asked.
+static float s_jvs_wheel_dead = 0.0f;
+static float s_jvs_wheel_gain = 1.0f;
+
+// bind_index of the steering halves in s_jvs_wheel_bindings (0 = right, 1 = left).
+static constexpr u32 JVS_WHEEL_STEER_MAX = 1;
+
+static float ShapeSteering(float v) {
+    if (v <= s_jvs_wheel_dead)
+        return 0.0f;
+    const float span = 1.0f - s_jvs_wheel_dead;
+    if (span <= 0.0f)
+        return 0.0f;
+    return std::min(1.0f, ((v - s_jvs_wheel_dead) / span) * s_jvs_wheel_gain);
+}
+
 static void ApplyJvsWheelAxis(u32 port, GenericInputBinding generic, float state) {
     // One player per driving cabinet, and the axes mirror pad 0.
     if (!ACJV::enabled || port != 0 || generic == GenericInputBinding::Unknown)
@@ -1159,8 +1182,10 @@ static void ApplyJvsWheelAxis(u32 port, GenericInputBinding generic, float state
     if (ACJV::GetMode() != JVS_MODE::DRIVE)
         return;
     for (const InputBindingInfo& bi : ACJV::GetWheelBindings()) {
-        if (bi.generic_mapping == generic)
-            ACJV::SetWheelAxis(bi.bind_index, state);
+        if (bi.generic_mapping == generic) {
+            const float value = (bi.bind_index <= JVS_WHEEL_STEER_MAX) ? ShapeSteering(state) : state;
+            ACJV::SetWheelAxis(bi.bind_index, value);
+        }
     }
 }
 
@@ -1399,6 +1424,16 @@ Java_kr_co_iefriends_pcsx2_NativeApp_jvsGetDipSwitchState(JNIEnv*, jclass, jint 
 }
 
 // Which control layout the running cabinet uses, so the UI can show the right panel.
+// Steering deadzone (0..0.9 of full deflection) and gain (a multiplier on what is left). Set
+// from the pause menu; global rather than per-VM because it is a property of the player's hands
+// and their phone, not of the game.
+extern "C" JNIEXPORT void JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_jvsSetWheelCalibration(JNIEnv*, jclass, jfloat p_deadzone,
+                                                           jfloat p_gain) {
+    s_jvs_wheel_dead = std::clamp(static_cast<float>(p_deadzone), 0.0f, 0.9f);
+    s_jvs_wheel_gain = std::clamp(static_cast<float>(p_gain), 0.1f, 4.0f);
+}
+
 extern "C" JNIEXPORT jstring JNICALL
 Java_kr_co_iefriends_pcsx2_NativeApp_jvsGetModeName(JNIEnv* env, jclass) {
     const char* name = "none";

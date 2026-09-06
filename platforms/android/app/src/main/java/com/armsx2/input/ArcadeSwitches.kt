@@ -20,6 +20,12 @@ import kr.co.iefriends.pcsx2.NativeApp
  *
  * Every call is a no-op unless an arcade board is actually live: the hotkeys are visible in the
  * list at all times, and pressing one at the menu should do nothing rather than something.
+ *
+ * Each switch belongs to the controller that pressed it. A cabinet has two coin slots and two
+ * sets of switches, and the pad path already routes a second controller to JVS player 2 -- so
+ * player 2's own controller puts in player 2's credit. Without that the second player has the
+ * whole game wired up and no way to pay for it. TEST is the exception: it is one switch inside
+ * the cabinet, not one per side.
  */
 object ArcadeSwitches {
 
@@ -29,9 +35,6 @@ object ArcadeSwitches {
 
     // DIP index 0 is the Test switch (ACJV::GetTestModeDIPSwitch).
     private const val DIP_TEST = 0
-
-    /** Coin slot 0. The cabinets this build targets are single-slot. */
-    private const val COIN_SLOT = 0
 
     /** How long a tapped switch stays down when the source gives us no release edge. */
     private const val TAP_MS = 120L
@@ -57,15 +60,19 @@ object ArcadeSwitches {
      * button: press for press, release for release. A credit is an event, not a state, and the
      * TEST switch is a latch on the real cabinet — both act on the press and ignore the release.
      */
-    fun onKey(h: ControllerMappings.SysHotkey, down: Boolean) {
+    fun onKey(h: ControllerMappings.SysHotkey, down: Boolean, port: Int = 0) {
         if (!live()) return
+        // The board has two sides and no more; a third pad folded onto player 1 by the router
+        // arrives here as port 0 already.
+        val player = if (port == 1) 1 else 0
         when (h) {
             ControllerMappings.SysHotkey.ARCADE_COIN ->
-                if (down) runCatching { NativeApp.jvsInsertCoin(COIN_SLOT) }
+                if (down) runCatching { NativeApp.jvsInsertCoin(player) }
             ControllerMappings.SysHotkey.ARCADE_START ->
-                runCatching { NativeApp.jvsSetButton(0, JVS_START, down) }
+                runCatching { NativeApp.jvsSetButton(player, JVS_START, down) }
             ControllerMappings.SysHotkey.ARCADE_SERVICE ->
-                runCatching { NativeApp.jvsSetButton(0, JVS_SERVICE, down) }
+                runCatching { NativeApp.jvsSetButton(player, JVS_SERVICE, down) }
+            // One switch in the cabinet, reachable from either seat.
             ControllerMappings.SysHotkey.ARCADE_TEST ->
                 if (down) runCatching { NativeApp.jvsToggleDipSwitch(DIP_TEST) }
             else -> {}
@@ -79,15 +86,15 @@ object ArcadeSwitches {
      * reading a held START is worse than not binding it at all. So they are tapped: down now, up
      * a moment later.
      */
-    fun tap(h: ControllerMappings.SysHotkey) {
+    fun tap(h: ControllerMappings.SysHotkey, port: Int = 0) {
         if (!live()) return
         when (h) {
             ControllerMappings.SysHotkey.ARCADE_START,
             ControllerMappings.SysHotkey.ARCADE_SERVICE -> {
-                onKey(h, true)
-                main.postDelayed({ onKey(h, false) }, TAP_MS)
+                onKey(h, true, port)
+                main.postDelayed({ onKey(h, false, port) }, TAP_MS)
             }
-            else -> onKey(h, true)
+            else -> onKey(h, true, port)
         }
     }
 

@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.armsx2.ui.settings.controllerFocusable
 import com.armsx2.data.library.AcgameWizard
 import com.armsx2.data.library.ArcadeCompat
+import com.armsx2.data.library.ArcadeZipInstall
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -64,6 +66,44 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
     var found by remember { mutableStateOf<List<AcgameWizard.Candidate>>(emptyList()) }
     var done by remember { mutableStateOf(setOf<String>()) }
     var note by remember { mutableStateOf<String?>(null) }
+
+    // Installing straight from the archive the game arrived in. Held here rather than in its own
+    // sheet because it is the same job as the list below -- get a folder into the library with a
+    // manifest beside it -- and the two answers to "why is my game not here" belong together.
+    var zip by remember { mutableStateOf<ArcadeZipInstall.Preview?>(null) }
+    var zipUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var reading by remember { mutableStateOf(false) }
+    var installing by remember { mutableStateOf(false) }
+    var installedBytes by remember { mutableStateOf(0L) }
+
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { picked ->
+        if (picked == null) return@rememberLauncherForActivityResult
+        val name = displayNameOf(context, picked)
+        when {
+            ArcadeZipInstall.unsupported(name) ->
+                note = "Só consigo abrir .zip. Extraia o .7z antes e copie a pasta."
+            ArcadeZipInstall.romsDir() == null ->
+                note = "Nenhuma pasta de ROMs com caminho real e permissao de escrita."
+            else -> {
+                note = null
+                zipUri = picked
+                reading = true
+                scope.launch {
+                    val preview = withContext(Dispatchers.IO) {
+                        runCatching { ArcadeZipInstall.inspect(context, picked, name) }.getOrNull()
+                    }
+                    reading = false
+                    if (preview == null) {
+                        note = "Nao achei uma imagem de jogo (.chd/.iso) dentro do arquivo."
+                    } else {
+                        zip = preview
+                    }
+                }
+            }
+        }
+    }
 
     // Claim the D-pad while this is up. The registry keeps an exclusive layer stack precisely so
     // a modal's selection cannot walk out through its own scrim onto the screen behind it -- and
@@ -115,6 +155,26 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
                         style = Type.footnote, color = Palette.labelSecondary,
                     )
                 }
+                if (zip == null && !installing) {
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(Radii.pill))
+                            .material(MaterialLevel.Thin, RoundedCornerShape(Radii.pill))
+                            .controllerFocusable("add.zip", RoundedCornerShape(Radii.pill)) {
+                                picker.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+                            }
+                            .clickable {
+                                picker.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+                            }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    ) {
+                        Text(
+                            if (reading) "Lendo..." else "Instalar de um .zip",
+                            style = Type.subheadline, color = Palette.label,
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                }
                 Box(
                     Modifier
                         .size(36.dp)
@@ -129,6 +189,43 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
             Spacer(Modifier.height(18.dp))
 
             when {
+                zip != null -> ZipPanel(
+                    preview = zip!!,
+                    installing = installing,
+                    written = installedBytes,
+                    onCancel = { zip = null; zipUri = null; installedBytes = 0L },
+                    onInstall = {
+                        val uri = zipUri ?: return@ZipPanel
+                        val preview = zip ?: return@ZipPanel
+                        installing = true
+                        installedBytes = 0L
+                        scope.launch {
+                            val error = withContext(Dispatchers.IO) {
+                                // Every 64KB block reports; a 2 GB game is thirty thousand of
+                                // them, and a Compose state written that often recomposes the
+                                // sheet faster than the copy runs. Once every 4 MB is still a
+                                // bar that moves.
+                                var lastShown = 0L
+                                ArcadeZipInstall.install(context, uri, preview) { written ->
+                                    if (written - lastShown >= (4L shl 20)) {
+                                        lastShown = written
+                                        installedBytes = written
+                                    }
+                                }
+                            }
+                            installing = false
+                            if (error == null) {
+                                zip = null
+                                zipUri = null
+                                note = "${preview.gameId} instalado."
+                                found = withContext(Dispatchers.IO) { AcgameWizard.findCandidates(context) }
+                                onCreated()
+                            } else {
+                                note = error
+                            }
+                        }
+                    },
+                )
                 loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(Modifier.size(26.dp), strokeWidth = 2.dp, color = Palette.accentBright)
                 }
@@ -168,6 +265,123 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
         }
     }
     }
+}
+
+/** The archive's own name, for the "is this a .7z" test and the gameid fallback. */
+private fun displayNameOf(context: android.content.Context, uri: android.net.Uri): String {
+    if (uri.scheme == "file") return uri.lastPathSegment.orEmpty()
+    return runCatching {
+        context.contentResolver.query(uri, null, null, null, null)?.use { c ->
+            val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            if (i >= 0 && c.moveToFirst()) c.getString(i) else null
+        }
+    }.getOrNull() ?: uri.lastPathSegment.orEmpty()
+}
+
+/**
+ * What the archive holds, before anything is written.
+ *
+ * Shown rather than just extracting: the destination folder and the gameid are decisions, and
+ * both are guessed from names inside a file the player did not write. Getting the gameid wrong
+ * produces a game that installs cleanly and never boots, so it is on screen before the copy
+ * starts, not in a log afterwards.
+ */
+@Composable
+private fun ZipPanel(
+    preview: ArcadeZipInstall.Preview,
+    installing: Boolean,
+    written: Long,
+    onCancel: () -> Unit,
+    onInstall: () -> Unit,
+) {
+    Column(Modifier.fillMaxSize()) {
+        Text(preview.title ?: preview.gameId, style = Type.title3, color = Palette.label)
+        Spacer(Modifier.height(3.dp))
+        Text(
+            preview.gameId + "  ·  " + preview.files.size + " arquivos  ·  " + human(preview.totalBytes),
+            style = Type.footnote, color = Palette.labelTertiary,
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PieceChip("Mídia", preview.media)
+            PieceChip("Dongle", preview.dongle)
+            PieceChip("ELF", preview.elf)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Vai para " + preview.destination.absolutePath,
+            style = Type.caption, color = Palette.labelSecondary,
+        )
+        if (preview.hasManifest) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "O arquivo já traz o próprio .acgame; ele será mantido.",
+                style = Type.caption, color = Palette.labelSecondary,
+            )
+        }
+        if (!preview.complete) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Falta pelo menos um arquivo que a placa procura no boot. Dá para instalar, mas " +
+                    "provavelmente não vai iniciar.",
+                style = Type.footnote, color = Palette.accentBright,
+            )
+        }
+        if (preview.alreadyThere) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Já existe uma pasta com esse nome na biblioteca.",
+                style = Type.footnote, color = Palette.accentBright,
+            )
+        }
+
+        Spacer(Modifier.height(18.dp))
+        if (installing) {
+            val total = preview.totalBytes
+            if (total > 0L) {
+                LinearProgressIndicator(
+                    progress = { (written.toFloat() / total).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Palette.accentBright,
+                )
+            } else {
+                LinearProgressIndicator(Modifier.fillMaxWidth(), color = Palette.accentBright)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                human(written) + (if (total > 0L) " de " + human(total) else "") + " copiados",
+                style = Type.footnote, color = Palette.labelSecondary,
+            )
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(Radii.pill))
+                        .material(MaterialLevel.Thin, RoundedCornerShape(Radii.pill))
+                        .controllerFocusable("zip.cancel", RoundedCornerShape(Radii.pill), onConfirm = onCancel)
+                        .clickable(onClick = onCancel)
+                        .padding(horizontal = 20.dp, vertical = 11.dp),
+                ) { Text("Cancelar", style = Type.subheadline, color = Palette.label) }
+                if (!preview.alreadyThere) {
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(Radii.pill))
+                            .background(Palette.accent)
+                            .controllerFocusable("zip.install", RoundedCornerShape(Radii.pill), onConfirm = onInstall)
+                            .clickable(onClick = onInstall)
+                            .padding(horizontal = 20.dp, vertical = 11.dp),
+                    ) { Text("Instalar", style = Type.subheadline, color = Color.White) }
+                }
+            }
+        }
+    }
+}
+
+private fun human(bytes: Long): String = when {
+    bytes <= 0L -> "tamanho desconhecido"
+    bytes >= 1L shl 30 -> "%.1f GB".format(bytes.toDouble() / (1L shl 30))
+    bytes >= 1L shl 20 -> "%.0f MB".format(bytes.toDouble() / (1L shl 20))
+    else -> "%.0f KB".format(bytes.toDouble() / 1024.0)
 }
 
 @Composable

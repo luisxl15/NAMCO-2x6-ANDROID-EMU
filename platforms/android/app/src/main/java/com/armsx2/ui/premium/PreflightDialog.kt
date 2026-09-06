@@ -19,11 +19,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.armsx2.data.library.ArcadePreflight
+import com.armsx2.data.library.ArcadeRepair
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * What is missing, said before the black screen instead of after it.
@@ -39,7 +50,19 @@ fun PreflightDialogHost() {
     // that some compositions reach and others do not. BackHandler carries its own, which is why
     // it is called unconditionally and told when to be enabled instead.
     val scroll = rememberScrollState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val held = ArcadePreflight.held.value
+    // What of this the manifest can be corrected for. Worked out off the main thread while the
+    // sheet is up, so the button only appears once there is something behind it.
+    var repairs by remember(held) { mutableStateOf<List<ArcadeRepair.Change>>(emptyList()) }
+    var busy by remember(held) { mutableStateOf(false) }
+    LaunchedEffect(held) {
+        val h = held ?: return@LaunchedEffect
+        repairs = withContext(Dispatchers.IO) {
+            runCatching { ArcadeRepair.plan(context, h.uri) }.getOrDefault(emptyList())
+        }
+    }
     BackHandler(enabled = held != null) { ArcadePreflight.dismiss() }
     if (held == null) return
 
@@ -93,9 +116,41 @@ fun PreflightDialogHost() {
                 }
             }
 
+            // Several of these are not a missing file but a manifest naming the wrong one, and
+            // the fix is a line of text in a file the player would have to go and edit. Offered
+            // only when the folder answers the question by itself.
+            if (repairs.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                Text("O MANIFESTO PODE SER CORRIGIDO", style = Type.eyebrow, color = Palette.labelTertiary)
+                Spacer(Modifier.height(6.dp))
+                repairs.forEach { c ->
+                    Text(
+                        "${c.key} = ${c.to}  —  ${c.why}",
+                        style = Type.footnote,
+                        color = Palette.labelSecondary,
+                    )
+                }
+            }
+
             Spacer(Modifier.height(18.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DialogAction("Voltar", strong = true) { ArcadePreflight.dismiss() }
+                if (repairs.isNotEmpty()) {
+                    DialogAction(if (busy) "…" else "Corrigir", strong = false) {
+                        if (!busy) {
+                            busy = true
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    ArcadeRepair.apply(context, held.uri, repairs)
+                                }
+                                // Straight into the boot when nothing blocking is left, because
+                                // that is what the player was doing when this interrupted them.
+                                ArcadePreflight.recheck(context, held)
+                                busy = false
+                            }
+                        }
+                    }
+                }
                 DialogAction("Iniciar mesmo assim", strong = false) { held.proceed() }
             }
         }

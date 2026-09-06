@@ -423,6 +423,9 @@ public class NativeApp {
 	public static native boolean jvsGetDipSwitchState(int index);
 	/** "none", "default", "lightgun", "fighting", "drive", "drum", "touch", "standard", "twinstick" */
 	public static native String jvsGetModeName();
+	/** Steering feel for a driving cabinet: deadzone as a fraction of full deflection (0..0.9)
+	 *  and a gain on what is left (0.1..4). Steering only -- the pedals stay linear. */
+	public static native void jvsSetWheelCalibration(float deadzone, float sensitivity);
 
 	/* ARCADE lightgun (Time Crisis 3/4, Vampire Night, Cobra). These games aim through the JVS
 	 * board, not through the USB GunCon 2, and their trigger/pedal/start are different JVS bits

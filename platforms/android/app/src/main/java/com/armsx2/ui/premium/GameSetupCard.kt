@@ -36,8 +36,11 @@ import com.armsx2.art.ArcadeBezel
 import com.armsx2.art.ArcadeMedia
 import com.armsx2.art.ArcadePatches
 import com.armsx2.data.library.ArcadePreflight
+import com.armsx2.data.library.ArcadeRepair
 import com.armsx2.runtime.MainActivityRuntime
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -81,12 +84,18 @@ fun GameSetupCard(game: GameInfo) {
     }
 
     // Off the main thread: this one reads the manifest and stats the game's files.
+    val scope = rememberCoroutineScope()
+    val launchPath = remember(game.uri) {
+        if (game.uri.scheme == "file") game.uri.path ?: game.uri.toString() else game.uri.toString()
+    }
     var report by remember(serial, refresh) { mutableStateOf<ArcadePreflight.Report?>(null) }
-    LaunchedEffect(serial, refresh) {
-        val path = if (game.uri.scheme == "file") game.uri.path ?: game.uri.toString()
-        else game.uri.toString()
+    var repairs by remember(serial, refresh) { mutableStateOf<List<ArcadeRepair.Change>>(emptyList()) }
+    LaunchedEffect(serial, refresh, launchPath) {
         report = withContext(Dispatchers.IO) {
-            runCatching { ArcadePreflight.inspect(context, path) }.getOrNull()
+            runCatching { ArcadePreflight.inspect(context, launchPath) }.getOrNull()
+        }
+        repairs = withContext(Dispatchers.IO) {
+            runCatching { ArcadeRepair.plan(context, launchPath) }.getOrDefault(emptyList())
         }
     }
 
@@ -171,6 +180,20 @@ fun GameSetupCard(game: GameInfo) {
                             Text(p.what, style = Type.footnote, color = Palette.label)
                             Text(p.fix, style = Type.caption, color = Palette.labelSecondary)
                         }
+                    }
+                }
+            }
+
+            // Only for the ones whose answer is sitting in the folder: the file is there under a
+            // different name than the manifest gives. The original is kept as .acgame.bak.
+            if (repairs.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                SetupAction("Corrigir manifesto (${repairs.size})") {
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            ArcadeRepair.apply(context, launchPath, repairs)
+                        }
+                        refresh++
                     }
                 }
             }

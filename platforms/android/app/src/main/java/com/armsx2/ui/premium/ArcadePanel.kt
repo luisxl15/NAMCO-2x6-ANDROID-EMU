@@ -51,13 +51,19 @@ fun ArcadePanel(modifier: Modifier = Modifier) {
     var isArcade by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
     var testOn by remember { mutableStateOf(false) }
+    // Whether a second controller has claimed the other seat. Shown as a word, never as a second
+    // set of buttons: a cabinet's player 2 plays on their own controller or not at all.
+    var coop by remember { mutableStateOf(false) }
 
     // The VM decides this, and it only becomes true once a game has booted far enough for ACJV
     // to be live — so poll rather than reading once.
     LaunchedEffect(Unit) {
         while (true) {
             isArcade = runCatching { NativeApp.jvsIsArcade() }.getOrDefault(false)
-            if (isArcade) testOn = runCatching { NativeApp.jvsGetDipSwitchState(DIP_TEST) }.getOrDefault(false)
+            if (isArcade) {
+                testOn = runCatching { NativeApp.jvsGetDipSwitchState(DIP_TEST) }.getOrDefault(false)
+                coop = com.armsx2.input.PadRouter.coopActive()
+            }
             delay(1000)
         }
     }
@@ -73,7 +79,9 @@ fun ArcadePanel(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             if (!expanded) {
-                Chip("ARCADE", accent = false) { expanded = true }
+                // The board wires both sides on its own once a second controller shows up; the
+                // suffix is there so the player can see that it happened.
+                Chip(if (coop) "ARCADE · 2P" else "ARCADE", accent = false) { expanded = true }
             } else {
                 MomentaryChip("FICHA") { pressed ->
                     // Coin is an event, not a held switch: fire once on press.

@@ -1658,6 +1658,10 @@ open class MainActivityRuntime : ComponentActivity() {
         @JvmStatic
         fun onVmRunning() {
             adoptExternalGameIdentity()
+            // Steering feel is held in the core, so it has to be handed over once per boot; the
+            // pause menu is where it is edited, and a player who never opens it still gets what
+            // they set last time. A no-op unless the board turns out to be a driving cabinet.
+            com.armsx2.input.ArcadeWheel.apply(currentGame.value?.serial)
             val requestedSlot = pendingSlotLoadOnBoot
             val loadAutosave = pendingAutoLoadOnBoot && requestedSlot == null
             if (requestedSlot == null && !loadAutosave) return
@@ -3603,7 +3607,9 @@ open class MainActivityRuntime : ComponentActivity() {
                 // released. Auto-repeat is dropped -- a held START must stay one press.
                 in com.armsx2.input.ArcadeSwitches.hotkeys -> {
                     if (event.repeatCount == 0) {
-                        matched?.let { com.armsx2.input.ArcadeSwitches.onKey(it, down) }
+                        // Whose seat this is: the second controller puts in the second coin.
+                        val seat = com.armsx2.input.PadRouter.portForDevice(event.deviceId)
+                        matched?.let { com.armsx2.input.ArcadeSwitches.onKey(it, down, seat) }
                     }
                     return true
                 }
@@ -4931,7 +4937,7 @@ open class MainActivityRuntime : ComponentActivity() {
                     // Edge: fire a hotkey with this direction as its MAIN key —
                     // combo-aware (e.g. "hold Select + push R-Stick Up"), falling
                     // back to a plain single-direction binding.
-                    ControllerMappings.matchHotkey(code, heldKeys)?.let { runEdgeHotkey(it) }
+                    ControllerMappings.matchHotkey(code, heldKeys)?.let { runEdgeHotkey(it, port) }
                 }
             } else {
                 heldKeys.remove(code)
@@ -4945,7 +4951,7 @@ open class MainActivityRuntime : ComponentActivity() {
      *  (FAST_FORWARD hold, PRESSURE_MOD) are no-ops here: a stick edge has no hold semantics,
      *  and sendTrigger handles them itself on both edges. The rest mirror the one-shot
      *  actions in dispatchKeyEvent. */
-    private fun runEdgeHotkey(h: ControllerMappings.SysHotkey) {
+    private fun runEdgeHotkey(h: ControllerMappings.SysHotkey, port: Int = 0) {
         when (h) {
             ControllerMappings.SysHotkey.MENU -> InGameOverlay.toggle()
             ControllerMappings.SysHotkey.SCREENSHOT -> com.armsx2.Screenshots.capture(applicationContext)
@@ -4994,7 +5000,7 @@ open class MainActivityRuntime : ComponentActivity() {
             ControllerMappings.SysHotkey.PRESSURE_MOD -> {}
             // Cabinet switches: a stick edge gives no release, so the momentary ones are tapped
             // rather than latched on with nothing to let them go.
-            in com.armsx2.input.ArcadeSwitches.hotkeys -> com.armsx2.input.ArcadeSwitches.tap(h)
+            in com.armsx2.input.ArcadeSwitches.hotkeys -> com.armsx2.input.ArcadeSwitches.tap(h, port)
             // Per-slot save/load: same one-shot meaning on a stick edge as on a button.
             else -> if (h in slotHotkeys) fireSlotHotkey(h)
         }
@@ -5009,7 +5015,7 @@ open class MainActivityRuntime : ComponentActivity() {
         ControllerMappings.hotkeyForStickCode(code)?.let { hk ->
             val held = stickHotkeyHeld[port]
             if (mag > STICK_DIGITAL_THRESHOLD) {
-                if (held.add(code)) runEdgeHotkey(hk)
+                if (held.add(code)) runEdgeHotkey(hk, port)
             } else {
                 held.remove(code)
             }
@@ -5209,7 +5215,7 @@ open class MainActivityRuntime : ComponentActivity() {
                     ControllerMappings.SysHotkey.PRESSURE_MOD ->
                         com.armsx2.ui.touch.TouchControls.pressureModifierHeld.value = pressed
                     ControllerMappings.SysHotkey.GYRO_HOLD -> gyroActive.value = pressed
-                    else -> if (pressed) runEdgeHotkey(hk)
+                    else -> if (pressed) runEdgeHotkey(hk, port)
                 }
             }
             // Macros are keyed on the physical code too, and the Pad tab now lets a trigger be

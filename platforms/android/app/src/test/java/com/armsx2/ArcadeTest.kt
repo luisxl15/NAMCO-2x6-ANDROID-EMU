@@ -5,6 +5,8 @@ import com.armsx2.data.library.ArcadeBios
 import com.armsx2.art.ArcadePatches
 import com.armsx2.data.library.ArcadeCompat
 import com.armsx2.data.library.ArcadePreflight
+import com.armsx2.data.library.ArcadeRepair
+import com.armsx2.data.library.ArcadeZipInstall
 import com.armsx2.input.ArcadeSwitches
 import com.armsx2.input.ControllerMappings
 import com.armsx2.ui.premium.humanNote
@@ -392,5 +394,125 @@ class ArcadeTest {
         // fifth switch added to the enum and not to this set binds fine and then does nothing.
         val declared = ControllerMappings.SysHotkey.values().filter { it.name.startsWith("ARCADE_") }
         assertEquals(declared.toSet(), ArcadeSwitches.hotkeys)
+    }
+
+    // -------------------------------------------------------------- repair
+
+    private fun facts(
+        gameId: String = "NM00004",
+        fileGameId: String? = "NM00004",
+        baseNames: List<String> = listOf("NM00004.chd", "NM00004.ps2", "proverb.elf"),
+        mediaDirs: List<String> = listOf("NM00004"),
+        baseDirExists: Boolean = true,
+        compatMedia: String? = "DVD",
+    ) = ArcadeRepair.Facts(gameId, fileGameId, baseNames, mediaDirs, baseDirExists, compatMedia)
+
+    @Test
+    fun `a manifest that names boot dot elf beside a proverb dot elf is corrected`() {
+        val ini = ArcadePreflight.parseIni(
+            "[game]\ngameid=NM00004\n[data]\nsubdir=NM00004\nmediasrc=NM00004.chd\nmedia=DVD\n",
+        )
+        val plan = ArcadeRepair.plan(ini, facts())
+        assertEquals(1, plan.size)
+        assertEquals("elf", plan.first().key)
+        assertEquals("proverb.elf", plan.first().to)
+    }
+
+    @Test
+    fun `two candidates of the same kind are left alone`() {
+        // Picking one would rewrite the line that decides what boots. Better to say nothing and
+        // let the check keep reporting the problem.
+        val ini = ArcadePreflight.parseIni("[game]\ngameid=NM00004\n[data]\nelf=boot.elf\nmedia=DVD\n")
+        val two = facts(baseNames = listOf("NM00004.chd", "a.elf", "b.elf", "NM00004.ps2"))
+        assertTrue(ArcadeRepair.plan(ini, two).none { it.key == "elf" })
+    }
+
+    @Test
+    fun `proverb wins even when the folder carries another elf`() {
+        val ini = ArcadePreflight.parseIni("[game]\ngameid=NM00004\n[data]\nelf=boot.elf\nmedia=DVD\n")
+        val f = facts(baseNames = listOf("NM00004.chd", "extra.elf", "proverb.elf", "NM00004.ps2"))
+        assertEquals("proverb.elf", ArcadeRepair.plan(ini, f).first { it.key == "elf" }.to)
+    }
+
+    @Test
+    fun `a payload folder that got renamed is found when there is only one`() {
+        val ini = ArcadePreflight.parseIni("[game]\ngameid=NM00004\n[data]\nsubdir=NM00004\n")
+        val plan = ArcadeRepair.plan(ini, facts(baseDirExists = false, mediaDirs = listOf("tekken4")))
+        assertEquals(listOf("subdir"), plan.map { it.key })
+        assertEquals("tekken4", plan.first().to)
+        // And nothing else: the filenames were read out of a folder that does not exist, so
+        // judging them would be judging an empty list.
+        assertEquals(1, plan.size)
+    }
+
+    @Test
+    fun `nothing is proposed for a folder that is already right`() {
+        val ini = ArcadePreflight.parseIni(
+            "[game]\ngameid=NM00004\n[data]\nsubdir=NM00004\nelf=proverb.elf\n" +
+                "dongle=NM00004.ps2\nmediasrc=NM00004.chd\nmedia=DVD\n",
+        )
+        assertTrue(ArcadeRepair.plan(ini, facts()).isEmpty())
+    }
+
+    @Test
+    fun `the rewrite keeps every line it was not asked about`() {
+        val before = "[game]\nname=Tekken 4\ngameid=NM00004\n\n[data]\n" +
+            "subdir=NM00004\nelf=boot.elf\njvsmode=fighting\n"
+        val after = ArcadeRepair.applyTo(
+            before,
+            listOf(ArcadeRepair.Change("data", "elf", "boot.elf", "proverb.elf", "")),
+        )
+        assertTrue(after.contains("elf=proverb.elf"))
+        assertTrue("jvsmode= foi perdido:\n$after", after.contains("jvsmode=fighting"))
+        assertTrue(after.contains("name=Tekken 4"))
+        assertTrue(!after.contains("elf=boot.elf"))
+    }
+
+    @Test
+    fun `a key that was not there is added under its own section`() {
+        val after = ArcadeRepair.applyTo(
+            "[game]\ngameid=NM00004\n\n[data]\nsubdir=NM00004\n",
+            listOf(ArcadeRepair.Change("data", "media", null, "DVD", "")),
+        )
+        val parsed = ArcadePreflight.parseIni(after)
+        assertEquals("DVD", parsed["data.media"])
+        assertEquals("NM00004", parsed["data.subdir"])
+        assertEquals("NM00004", parsed["game.gameid"])
+    }
+
+    // ----------------------------------------------------------------- zip
+
+    @Test
+    fun `the folder an archive wraps everything in is stripped once`() {
+        assertEquals(
+            "NM00004/",
+            ArcadeZipInstall.commonRoot(listOf("NM00004/NM00004.chd", "NM00004/proverb.elf")),
+        )
+        // A flat archive has no root.
+        assertEquals("", ArcadeZipInstall.commonRoot(listOf("NM00004.chd", "proverb.elf")))
+        // Neither does one whose entries do not all share a first folder -- stripping "NM00004/"
+        // there would drop the other files out of the install entirely.
+        assertEquals(
+            "",
+            ArcadeZipInstall.commonRoot(listOf("NM00004/NM00004.chd", "leiame.txt")),
+        )
+    }
+
+    @Test
+    fun `the game id comes from the archive when anything in it says so`() {
+        assertEquals(
+            "NM00004",
+            ArcadeZipInstall.gameIdFrom(listOf("NM00004/x.chd"), "x.chd", "tekken.zip"),
+        )
+        assertEquals(
+            "NM00021",
+            ArcadeZipInstall.gameIdFrom(listOf("game/NM00021.chd"), "NM00021.chd", "qualquer.zip"),
+        )
+        assertEquals(
+            "NM00015",
+            ArcadeZipInstall.gameIdFrom(listOf("disc.chd"), "disc.chd", "NM00015.zip"),
+        )
+        // Nothing states it: better to refuse than to install under a name that boots nothing.
+        assertEquals(null, ArcadeZipInstall.gameIdFrom(listOf("disc.chd"), "disc.chd", "jogo.zip"))
     }
 }

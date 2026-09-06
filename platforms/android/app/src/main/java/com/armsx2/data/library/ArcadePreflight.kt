@@ -42,7 +42,13 @@ object ArcadePreflight {
     }
 
     /** A launch held back, and the way to let it through. Read by the dialog. */
-    class Held(val title: String, val report: Report, val proceed: () -> Unit)
+    class Held(
+        val title: String,
+        /** Kept so the dialog can repair the manifest and check it again without a launch. */
+        val uri: String,
+        val report: Report,
+        val proceed: () -> Unit,
+    )
 
     val held = mutableStateOf<Held?>(null)
 
@@ -343,12 +349,22 @@ object ArcadePreflight {
         if (!isManifest(uri) || uri in confirmed) return false
         val report = runCatching { inspect(context, uri) }.getOrNull() ?: return false
         if (!report.blocking) return false
-        held.value = Held(title, report) {
+        held.value = Held(title, uri, report) {
             confirmed += uri
             held.value = null
             proceed()
         }
         return true
+    }
+
+    /** Re-check a held launch after something was changed on disk under it. */
+    fun recheck(context: Context, current: Held) {
+        val report = runCatching { inspect(context, current.uri) }.getOrNull() ?: return
+        if (!report.blocking) {
+            current.proceed()
+            return
+        }
+        held.value = Held(current.title, current.uri, report, current.proceed)
     }
 
     fun dismiss() {
