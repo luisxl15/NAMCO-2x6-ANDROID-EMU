@@ -641,4 +641,31 @@ class ArcadeTest {
         assertEquals("Something New", HotkeyNames.feedbackIn("pt-BR", "Something New"))
         assertEquals("Avanço rápido ligado", HotkeyNames.feedbackIn("pt-BR", "Fast Forward ON"))
     }
+
+    @Test
+    fun `a manifest at the top of the archive is not a wrapping folder`() {
+        // The shape these games are actually distributed in: NM00018.acgame sitting beside the
+        // NM00018/ folder its subdir= names. Nothing wraps them, so nothing may be stripped --
+        // treating the first entry as a root would put the payload one level below where the
+        // manifest says it is, and the game would install cleanly and then find nothing.
+        val entries = listOf(
+            "NM00018.acgame",
+            "NM00018/NM00018.chd",
+            "NM00018/NM00018.ps2",
+            "NM00018/proverb.elf",
+        )
+        assertEquals("", ArcadeZipInstall.commonRoot(entries))
+    }
+
+    @Test
+    fun `a wrapping folder is still stripped when the manifest is inside it`() {
+        // Same drop, zipped one level down. Here NM00018/ IS the wrapper and comes off, leaving
+        // the same layout as the test above.
+        val entries = listOf(
+            "Capcom Fighting Jam/NM00018.acgame",
+            "Capcom Fighting Jam/NM00018/NM00018.chd",
+            "Capcom Fighting Jam/NM00018/proverb.elf",
+        )
+        assertEquals("Capcom Fighting Jam/", ArcadeZipInstall.commonRoot(entries))
+    }
 }

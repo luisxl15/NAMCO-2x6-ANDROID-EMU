@@ -38,15 +38,26 @@ object ArcadeZipInstall {
         val media: String?,
         val dongle: String?,
         val elf: String?,
-        /** The archive carries its own manifest; we extract it instead of writing one. */
-        val hasManifest: Boolean,
+        /**
+         * The archive's own `.acgame`, sitting at its top level beside the payload folder.
+         *
+         * This is the difference between the two shapes an archive comes in, and it decides
+         * where the whole thing is extracted -- see [install]. Null means the archive is a bare
+         * payload and a manifest has to be written for it.
+         */
+        val manifest: String?,
         /** Sum of the uncompressed sizes, or 0 when the archive does not declare them. */
         val totalBytes: Long,
         val destination: File,
         val compat: ArcadeCompat.Entry?,
     ) {
         val complete: Boolean get() = media != null && dongle != null && elf != null
-        val alreadyThere: Boolean get() = destination.exists()
+        val hasManifest: Boolean get() = manifest != null
+        /** Where it lands: the ROM folder itself for a drop, a folder of its own otherwise. */
+        val landsIn: File get() = if (manifest != null) destination.parentFile ?: destination else destination
+        val alreadyThere: Boolean
+            get() = destination.exists() ||
+                (manifest != null && File(destination.parentFile, manifest).exists())
     }
 
     /** Where a game can be written. The first ROM folder that is a real, writable path. */
@@ -106,7 +117,10 @@ object ArcadeZipInstall {
             media = media,
             dongle = names.firstOrNull { it.endsWith(".ps2", true) },
             elf = names.firstOrNull { it.endsWith(".elf", true) },
-            hasManifest = names.any { it.endsWith(".acgame", true) },
+            // Only one at the TOP level counts. A .acgame buried inside the payload folder is
+            // not the archive's own layout, it is a stray file, and treating it as one would
+            // scatter the payload across the ROM folder.
+            manifest = stripped.firstOrNull { !it.contains('/') && it.endsWith(".acgame", true) },
             totalBytes = entries.sumOf { it.second },
             destination = File(roms, gameId),
             compat = compat,
@@ -167,8 +181,12 @@ object ArcadeZipInstall {
         onProgress: (Long) -> Unit,
     ): String? {
         val dest = preview.destination
+        val roms = dest.parentFile ?: return "Sem pasta de ROMs."
         if (dest.exists()) return "Já existe uma pasta chamada ${preview.gameId}."
-        val staging = File(dest.parentFile, ".${preview.gameId}.part")
+        preview.manifest?.let {
+            if (File(roms, it).exists()) return "Já existe um $it na biblioteca."
+        }
+        val staging = File(roms, ".${preview.gameId}.part")
         runCatching { staging.deleteRecursively() }
         if (!staging.mkdirs()) return "Não foi possível criar a pasta do jogo."
 
@@ -211,22 +229,41 @@ object ArcadeZipInstall {
             return problem
         }
 
-        // The single common folder was stripped on the way in, so what is now in staging is the
-        // payload itself -- which is exactly the shape the manifest's subdir expects.
+        // An archive that brought its own manifest is ALREADY in the on-disk layout: the .acgame
+        // at the top beside the folder its subdir= names. That is the commonest way these games
+        // are passed around, and it has to be extracted into the ROM folder AS IT IS. Dropping
+        // the whole thing into a folder of its own instead would put the payload one level below
+        // where the manifest says it is -- a game that installs cleanly and then finds nothing.
+        //
+        // Its own manifest is also kept rather than rewritten: whoever packed it may have set
+        // jvsmode or 256Region, and nothing here would reproduce those.
+        if (preview.manifest != null) {
+            val children = staging.listFiles().orEmpty()
+            children.firstOrNull { File(roms, it.name).exists() }?.let { clash ->
+                runCatching { staging.deleteRecursively() }
+                return "Já existe ${clash.name} na biblioteca."
+            }
+            val moved = mutableListOf<Pair<File, File>>()
+            for (child in children) {
+                val target = File(roms, child.name)
+                if (child.renameTo(target)) {
+                    moved += child to target
+                } else {
+                    // Put back whatever went, so a half-installed game is never left behind.
+                    moved.forEach { (from, to) -> runCatching { to.renameTo(from) } }
+                    runCatching { staging.deleteRecursively() }
+                    return "Não foi possível mover os arquivos para a biblioteca."
+                }
+            }
+            runCatching { staging.delete() }
+            return null
+        }
+
+        // No manifest in the archive: what is in staging is the payload itself, so it becomes the
+        // folder the written manifest will name.
         if (!staging.renameTo(dest)) {
             runCatching { staging.deleteRecursively() }
             return "Não foi possível mover a pasta para a biblioteca."
-        }
-
-        // An archive that brought its own .acgame keeps it: someone wrote that on purpose, and it
-        // may carry jvsmode or 256Region, which nothing here would reproduce.
-        if (preview.hasManifest) {
-            val inside = dest.listFiles().orEmpty().firstOrNull { it.name.endsWith(".acgame", true) }
-            if (inside != null) {
-                val moved = File(dest.parentFile, "${preview.gameId}.acgame")
-                runCatching { inside.renameTo(moved) }
-                return null
-            }
         }
 
         return AcgameWizard.create(

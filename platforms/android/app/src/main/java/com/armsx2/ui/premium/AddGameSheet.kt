@@ -309,7 +309,7 @@ private fun ZipPanel(
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            "Vai para " + preview.destination.absolutePath,
+            "Vai para " + preview.landsIn.absolutePath,
             style = Type.caption, color = Palette.labelSecondary,
         )
         if (preview.hasManifest) {
