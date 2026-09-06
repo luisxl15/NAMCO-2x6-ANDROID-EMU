@@ -231,6 +231,11 @@ object WindowImpl {
                 // instead of a block inside a scrolling pane.
                 com.armsx2.ui.common.ShaderParamsEditorHost()
 
+                // "This game is missing X" instead of a black screen. Hosted here for the same
+                // reason as the editor above: the launch it interrupts can come from the library
+                // or from the hero card, so it has to draw over both.
+                com.armsx2.ui.premium.PreflightDialogHost()
+
                 // The modal host and the on-screen keyboard host used to sit here. Both moved UP
                 // to setContent — see the comment there. Short version: this Box is one arm of
                 // an `if` whose other arm is the setup wizard, so anything hosted here does not

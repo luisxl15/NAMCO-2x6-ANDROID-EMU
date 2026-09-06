@@ -1071,6 +1071,16 @@ open class MainActivityRuntime : ComponentActivity() {
                 println("@@ANDROID_LAUNCH_REJECT@@ reason=blank_uri title=${info?.title ?: ""}")
                 return
             }
+            // An arcade board that cannot find its dongle, its image or its boot ELF stops with
+            // the reason on the native console and a black screen on the phone. Check the same
+            // conditions the loader will, first, and say what is missing. Holds only for what the
+            // loader would refuse outright, and always offers to boot anyway.
+            instance?.applicationContext?.let { ctx ->
+                val held = com.armsx2.data.library.ArcadePreflight.holdLaunch(
+                    ctx, uri, info?.title ?: uri.substringAfterLast('/'),
+                ) { launchGame(uri, info, external) }
+                if (held) return
+            }
             // Remember the game for a post-exit re-launch from the Save Manager (#374).
             if (info != null) contextGame.value = info
             println(
@@ -3588,6 +3598,15 @@ open class MainActivityRuntime : ComponentActivity() {
                     if (down) restart()
                     return true
                 }
+                // Cabinet switches (coin / START / SERVICE / TEST). Both edges: START and
+                // SERVICE are momentary switches the board reads as held, so they have to be
+                // released. Auto-repeat is dropped -- a held START must stay one press.
+                in com.armsx2.input.ArcadeSwitches.hotkeys -> {
+                    if (event.repeatCount == 0) {
+                        matched?.let { com.armsx2.input.ArcadeSwitches.onKey(it, down) }
+                    }
+                    return true
+                }
                 null -> {}
                 // The per-slot hotkeys are all handled by the `in slotHotkeys` branch above;
                 // the compiler cannot prove that covers them, so this closes the when.
@@ -4973,6 +4992,9 @@ open class MainActivityRuntime : ComponentActivity() {
             // Hold-type hotkeys have no one-shot stick-edge meaning.
             ControllerMappings.SysHotkey.FAST_FORWARD,
             ControllerMappings.SysHotkey.PRESSURE_MOD -> {}
+            // Cabinet switches: a stick edge gives no release, so the momentary ones are tapped
+            // rather than latched on with nothing to let them go.
+            in com.armsx2.input.ArcadeSwitches.hotkeys -> com.armsx2.input.ArcadeSwitches.tap(h)
             // Per-slot save/load: same one-shot meaning on a stick edge as on a button.
             else -> if (h in slotHotkeys) fireSlotHotkey(h)
         }

@@ -968,6 +968,15 @@ object ControllerMappings {
         // Requested for battery — dropping a 120Hz panel to 60 while a 60fps game runs costs
         // nothing visually. Appended last for the persisted-by-ordinal reason above.
         DISPLAY_REFRESH("pad.displayrefresh.keycode", "Cycle Display Refresh Rate"),
+        // The four switches a System 246/256 cabinet has and a DualShock2 does not. They already
+        // exist on the touch panel, but a player holding a gamepad or a wheel had to let go of it
+        // and reach for the glass to put in a credit. Fired by com.armsx2.input.ArcadeSwitches,
+        // which no-ops unless an arcade board is live. Named as the on-screen chips are, so the
+        // binding and the button agree. Appended last for the persisted-by-ordinal reason above.
+        ARCADE_COIN("pad.arcadecoin.keycode", "Cabine: Ficha"),
+        ARCADE_START("pad.arcadestart.keycode", "Cabine: START"),
+        ARCADE_SERVICE("pad.arcadeservice.keycode", "Cabine: SERVICE"),
+        ARCADE_TEST("pad.arcadetest.keycode", "Cabine: TEST"),
     }
 
     // A hotkey is either a single button or a two-button combo. The main key is

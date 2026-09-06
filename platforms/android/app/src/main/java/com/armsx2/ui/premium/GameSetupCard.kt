@@ -35,6 +35,7 @@ import com.armsx2.GameInfo
 import com.armsx2.art.ArcadeBezel
 import com.armsx2.art.ArcadeMedia
 import com.armsx2.art.ArcadePatches
+import com.armsx2.data.library.ArcadePreflight
 import com.armsx2.runtime.MainActivityRuntime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -77,6 +78,16 @@ fun GameSetupCard(game: GameInfo) {
     val bezelCustom = remember(serial, refresh) { ArcadeBezel.hasOverride(context, serial) }
     val coverCustom = remember(serial, refresh, com.armsx2.CustomCovers.version.value) {
         com.armsx2.CustomCovers.matchIn(com.armsx2.CustomCovers.loadAll(context), game) != null
+    }
+
+    // Off the main thread: this one reads the manifest and stats the game's files.
+    var report by remember(serial, refresh) { mutableStateOf<ArcadePreflight.Report?>(null) }
+    LaunchedEffect(serial, refresh) {
+        val path = if (game.uri.scheme == "file") game.uri.path ?: game.uri.toString()
+        else game.uri.toString()
+        report = withContext(Dispatchers.IO) {
+            runCatching { ArcadePreflight.inspect(context, path) }.getOrNull()
+        }
     }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -133,6 +144,34 @@ fun GameSetupCard(game: GameInfo) {
                 SetupAction("Usar o do pacote") {
                     ArcadeBezel.clearOverride(context, serial)
                     refresh++
+                }
+            }
+        }
+
+        // Whether this game can actually boot. The same check that stops the launch, shown here
+        // where there is room to read it -- and shown even when it only found warnings, which the
+        // launch does not interrupt for.
+        report?.let { r ->
+            Spacer(Modifier.height(16.dp))
+            Text("VERIFICAÇÃO", style = Type.eyebrow, color = Palette.labelTertiary)
+            Spacer(Modifier.height(7.dp))
+            if (r.ok) {
+                Text("Tudo o que a placa procura está no lugar.", style = Type.footnote, color = Palette.labelSecondary)
+            } else {
+                r.problems.forEachIndexed { i, p ->
+                    if (i > 0) Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth()) {
+                        Text(
+                            if (p.blocking) "■" else "▫",
+                            style = Type.footnote,
+                            color = if (p.blocking) Palette.accentBright else Palette.labelTertiary,
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                        Column {
+                            Text(p.what, style = Type.footnote, color = Palette.label)
+                            Text(p.fix, style = Type.caption, color = Palette.labelSecondary)
+                        }
+                    }
                 }
             }
         }

@@ -4,6 +4,9 @@ import com.armsx2.data.library.AcgameWizard
 import com.armsx2.data.library.ArcadeBios
 import com.armsx2.art.ArcadePatches
 import com.armsx2.data.library.ArcadeCompat
+import com.armsx2.data.library.ArcadePreflight
+import com.armsx2.input.ArcadeSwitches
+import com.armsx2.input.ControllerMappings
 import com.armsx2.ui.premium.humanNote
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -320,5 +323,74 @@ class ArcadeTest {
         val t4 = ArcadePatches.forGame("NM00004").first()
         assertTrue(ArcadePatches.supersededBy(t4).isEmpty())
         assertTrue(superseded.none { it.gameId != "NM00001" })
+    }
+
+    // ---------------------------------------------------------------- pre-flight
+
+    private val manifest = """
+        [game]
+        name=Tekken 4
+        gameid=NM00004
+        platform=256
+
+        ; a comment, and a blank line above
+        [data]
+        subdir=NM00004
+        Elf=proverb.elf
+        dongle=NM00004.ps2
+        mediasrc=NM00004.chd
+        media=DVD
+    """.trimIndent()
+
+    @Test
+    fun `the manifest is read section by section`() {
+        val ini = ArcadePreflight.parseIni(manifest)
+        assertEquals("NM00004", ini["game.gameid"])
+        assertEquals("Tekken 4", ini["game.name"])
+        assertEquals("NM00004.chd", ini["data.mediasrc"])
+        // Keys are matched case-insensitively: a manifest typed by hand says Elf=, and the
+        // check that reads it must not decide the boot ELF is missing because of a capital.
+        assertEquals("proverb.elf", ini["data.elf"])
+        // The name lives in [game] only. A flat parse would answer for "data.name" too, which is
+        // how a stray key from the wrong block gets read as configuration.
+        assertEquals(null, ini["data.name"])
+    }
+
+    @Test
+    fun `a missing key and an empty one are different answers`() {
+        // The loader's defaults only apply when the key is ABSENT: `subdir=` with nothing after
+        // it means the payload sits beside the manifest, not in a folder named after the game.
+        val ini = ArcadePreflight.parseIni("[data]\nsubdir=\n")
+        assertEquals("", ini["data.subdir"])
+        assertEquals(null, ini["data.dongle"])
+    }
+
+    @Test
+    fun `only NM plus five digits is a game id`() {
+        assertTrue(ArcadePreflight.looksLikeGameId("NM00004"))
+        assertTrue(!ArcadePreflight.looksLikeGameId("NM0004"))
+        assertTrue(!ArcadePreflight.looksLikeGameId("NM0000A"))
+        assertTrue(!ArcadePreflight.looksLikeGameId("SLUS_200.81"))
+        assertTrue(!ArcadePreflight.looksLikeGameId(""))
+    }
+
+    // ------------------------------------------------------------ cabinet keys
+
+    @Test
+    fun `the cabinet hotkeys are the last entries in the enum`() {
+        // Hotkeys are persisted by ORDINAL (stickCodeForHotkey is base + ordinal), so an entry
+        // inserted before these re-points bindings people already have. The enum says so in a
+        // comment; this is the part that notices when someone does it anyway.
+        val all = ControllerMappings.SysHotkey.values()
+        val tail = all.takeLast(4).map { it.name }
+        assertEquals(listOf("ARCADE_COIN", "ARCADE_START", "ARCADE_SERVICE", "ARCADE_TEST"), tail)
+    }
+
+    @Test
+    fun `every cabinet hotkey is dispatched`() {
+        // The dispatch in MainActivityRuntime is one `in ArcadeSwitches.hotkeys` branch, so a
+        // fifth switch added to the enum and not to this set binds fine and then does nothing.
+        val declared = ControllerMappings.SysHotkey.values().filter { it.name.startsWith("ARCADE_") }
+        assertEquals(declared.toSet(), ArcadeSwitches.hotkeys)
     }
 }
