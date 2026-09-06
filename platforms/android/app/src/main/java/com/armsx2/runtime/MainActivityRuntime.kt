@@ -2531,14 +2531,17 @@ open class MainActivityRuntime : ComponentActivity() {
             androidx.compose.runtime.SideEffect {
                 window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(themedWindowBackground.toArgb()))
             }
-            // Keep the library/menu immersive (nav bar hidden, swipe-transient) just like
-            // in-game, so it doesn't sit on top of the toolbar. Bars stay visible only where
-            // reliable system UI is genuinely needed: the setup wizard, the touch-layout
-            // editor, and the unsupported-hardware error screens. (Previously `showLibrary`
-            // and plain STOPPED forced the bar on for the whole library.)
-            val showSystemBars = !setupComplete.value ||
-                setupEditorVisible.value ||
-                eState.value == EmuState.RENDER_UNSUPPORTED ||
+            // Immersive everywhere: nav bar hidden, revealed transiently by a swipe from the
+            // edge. It used to stay up for the setup wizard on the reasoning that a wizard is
+            // where you least want the navigation hidden -- but on a phone in landscape the
+            // three-button bar is not a thin strip at the bottom, it is an opaque column down
+            // one side taking a tenth of the screen, and it is up for the whole of setup. The
+            // wizard has its own Voltar button, and the swipe still brings the real one back.
+            //
+            // The two unsupported-hardware states keep the bars: those screens exist because
+            // the app cannot render, and that is the one case where "you can always get out"
+            // should not depend on this app's own UI working.
+            val showSystemBars = eState.value == EmuState.RENDER_UNSUPPORTED ||
                 eState.value == EmuState.EMULATOR_UNSUPPORTED
             val themeMode = com.armsx2.ui.theme.ThemePreferences.mode.value
             val darkTheme = when {
