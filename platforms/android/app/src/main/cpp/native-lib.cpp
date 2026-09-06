@@ -1124,6 +1124,35 @@ static void ApplyJvsPadButton(u32 port, GenericInputBinding generic, float state
         s_jvs_binds_layout != ACJV::GetCurrentLayoutKey())
         RebuildJvsGenericBinds();
 
+    // Taiko. The drum is not a switch: its four sensors hang off JVS ANALOG channels, so they
+    // cannot be reached through the switch-mask table below at all. That is why these ten games
+    // had no input whatsoever on Android -- every other cabinet's controls are switches, and the
+    // one that is not fell through a path that only knows about switches.
+    //
+    // The mapping is the one the PS2 Taiko controller uses: the two inner heads (don) on the face
+    // buttons, the two rims (ka) on the shoulders, left stick on the left. START and SERVICE are
+    // ordinary switches and keep falling through to the table below.
+    if (ACJV::GetMode() == JVS_MODE::DRUM)
+    {
+        int pad = -1;
+        switch (generic)
+        {
+            case GenericInputBinding::Square: pad = 0; break; // don, left
+            case GenericInputBinding::Circle: pad = 1; break; // don, right
+            case GenericInputBinding::L1:     pad = 2; break; // ka, left
+            case GenericInputBinding::R1:     pad = 3; break; // ka, right
+            default: break;
+        }
+        if (pad >= 0)
+        {
+            const std::span<const InputBindingInfo> drum = ACJV::GetDrumBindings();
+            const size_t index = static_cast<size_t>(port) * 4 + static_cast<size_t>(pad);
+            if (index < drum.size())
+                ACJV::SetDrumHit(static_cast<u32>(drum[index].bind_index), state > 0.5f);
+            return;
+        }
+    }
+
     u16 mask = s_jvs_generic_binds[port][static_cast<size_t>(generic)];
     if (mask == 0)
         return;
@@ -1424,6 +1453,33 @@ Java_kr_co_iefriends_pcsx2_NativeApp_jvsGetDipSwitchState(JNIEnv*, jclass, jint 
 }
 
 // Which control layout the running cabinet uses, so the UI can show the right panel.
+// ---- ARCADE drum (Taiko no Tatsujin) ------------------------------------------------
+//
+// Four sensors per side and eight analog channels, in an order that is NOT the order they sit in
+// on the drum: the numbers in s_jvs_drum_bindings were measured in the game's own TAIKO TEST
+// screen. So the UI sends a PAD (0..3 = don left, don right, ka left, ka right) and the channel
+// is resolved here, from the same table, rather than being restated on the Kotlin side where it
+// would eventually drift.
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_jvsDrumActive(JNIEnv*, jclass) {
+    return (JvsReady() && ACJV::GetMode() == JVS_MODE::DRUM) ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_jvsDrumHit(JNIEnv*, jclass, jint p_player, jint p_pad,
+                                                jboolean p_pressed) {
+    if (!JvsReady() || ACJV::GetMode() != JVS_MODE::DRUM)
+        return;
+    if (p_player < 0 || p_player > 1 || p_pad < 0 || p_pad > 3)
+        return;
+    const std::span<const InputBindingInfo> drum = ACJV::GetDrumBindings();
+    const size_t index = static_cast<size_t>(p_player) * 4 + static_cast<size_t>(p_pad);
+    if (index >= drum.size())
+        return;
+    ACJV::SetDrumHit(static_cast<u32>(drum[index].bind_index), p_pressed == JNI_TRUE);
+}
+
 // Steering deadzone (0..0.9 of full deflection) and gain (a multiplier on what is left). Set
 // from the pause menu; global rather than per-VM because it is a property of the player's hands
 // and their phone, not of the game.

@@ -7,7 +7,10 @@ import com.armsx2.data.library.ArcadeCompat
 import com.armsx2.data.library.ArcadePreflight
 import com.armsx2.data.library.ArcadeRepair
 import com.armsx2.data.library.ArcadeZipInstall
+import com.armsx2.input.AndroidGyroscopeInput
 import com.armsx2.input.ArcadeSwitches
+import com.armsx2.input.LightgunAim
+import com.armsx2.input.Taiko
 import com.armsx2.input.ControllerMappings
 import com.armsx2.ui.premium.humanNote
 import org.junit.Assert.assertEquals
@@ -514,5 +517,73 @@ class ArcadeTest {
         )
         // Nothing states it: better to refuse than to install under a name that boots nothing.
         assertEquals(null, ArcadeZipInstall.gameIdFrom(listOf("disc.chd"), "disc.chd", "jogo.zip"))
+    }
+
+    // ---------------------------------------------------------------- taiko
+
+    @Test
+    fun `the drum reads left to right as rim head head rim`() {
+        val w = 1000f
+        assertEquals(Taiko.KA_LEFT, Taiko.padForX(10f, w))
+        assertEquals(Taiko.DON_LEFT, Taiko.padForX(300f, w))
+        assertEquals(Taiko.DON_RIGHT, Taiko.padForX(700f, w))
+        assertEquals(Taiko.KA_RIGHT, Taiko.padForX(990f, w))
+        // A touch outside the surface still has to answer with a pad rather than throw.
+        assertEquals(Taiko.KA_LEFT, Taiko.padForX(-40f, w))
+        assertEquals(Taiko.KA_RIGHT, Taiko.padForX(4000f, w))
+    }
+
+    @Test
+    fun `the drawn columns and the hit test are the same four columns`() {
+        // Two descriptions of one layout: if they drift, the player hits a red column and the
+        // game hears a blue rim, which is the kind of bug that reads as bad timing.
+        val w = 1000f
+        Taiko.columns.forEachIndexed { column, range ->
+            val middle = (range.start + range.endInclusive) / 2f * w
+            assertEquals(column, Taiko.columnOf(Taiko.padForX(middle, w)))
+        }
+        assertTrue(Taiko.isDon(Taiko.DON_LEFT) && Taiko.isDon(Taiko.DON_RIGHT))
+        assertTrue(!Taiko.isDon(Taiko.KA_LEFT) && !Taiko.isDon(Taiko.KA_RIGHT))
+    }
+
+    // ------------------------------------------------------------ gun aiming
+
+    @Test
+    fun `a gyroscope moves the crosshair and stopping leaves it where it is`() {
+        // A rate: held still the sensor reports zero, and zero must mean "stay", not "recentre".
+        var (x, y) = LightgunAim.next(AndroidGyroscopeInput.KIND_GYRO, 0.5f, 0.5f, 1f, 0f, 100L)
+        assertTrue("esperava andar para a direita, veio $x", x > 0.5f)
+        val moved = x
+        val held = LightgunAim.next(AndroidGyroscopeInput.KIND_GYRO, moved, y, 0f, 0f, 100L)
+        assertEquals(moved, held.first, 0.0001f)
+    }
+
+    @Test
+    fun `tilt is a position, not a speed`() {
+        // The bug this guards: treating gravity's ANGLE as a rate accelerates the crosshair off
+        // the screen while the phone sits perfectly still at a tilt. The same input twice has to
+        // give the same place twice.
+        val first = LightgunAim.next(AndroidGyroscopeInput.KIND_TILT, 0.5f, 0.5f, 0.4f, 0f, 100L)
+        val second = LightgunAim.next(AndroidGyroscopeInput.KIND_TILT, first.first, first.second, 0.4f, 0f, 100L)
+        assertEquals(first.first, second.first, 0.0001f)
+        // And level means centre.
+        assertEquals(0.5f, LightgunAim.next(AndroidGyroscopeInput.KIND_TILT, 0.9f, 0.1f, 0f, 0f, 100L).first, 0.0001f)
+    }
+
+    @Test
+    fun `the crosshair never leaves the screen`() {
+        var x = 0.5f
+        repeat(200) { x = LightgunAim.next(AndroidGyroscopeInput.KIND_GYRO, x, 0.5f, 1f, 0f, 100L).first }
+        assertEquals(1f, x, 0.0001f)
+        repeat(400) { x = LightgunAim.next(AndroidGyroscopeInput.KIND_GYRO, x, 0.5f, -1f, 0f, 100L).first }
+        assertEquals(0f, x, 0.0001f)
+    }
+
+    @Test
+    fun `a long gap between samples cannot fling the crosshair`() {
+        // The app was paused for a minute; the next sample must not carry a minute of travel.
+        val jump = LightgunAim.next(AndroidGyroscopeInput.KIND_GYRO, 0.5f, 0.5f, 1f, 0f, 60_000L)
+        val capped = LightgunAim.next(AndroidGyroscopeInput.KIND_GYRO, 0.5f, 0.5f, 1f, 0f, 100L)
+        assertEquals(capped.first, jump.first, 0.0001f)
     }
 }

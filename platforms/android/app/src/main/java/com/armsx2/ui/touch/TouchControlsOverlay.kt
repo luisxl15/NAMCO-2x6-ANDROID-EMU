@@ -253,7 +253,10 @@ fun TouchControlsOverlay() {
         // An arcade lightgun cabinet has no d-pad and no face buttons, so the pad is not just
         // useless there -- it is a large piece of the screen that swallows shots. Hide it while
         // one of those games runs; the gun's own controls appear in its place.
-        val showPad = edit || (visMode != 0 && TouchControls.visible.value && !Lightgun.arcade.value)
+        // Same for a Taiko cabinet: its panel is a drum and nothing else, and a d-pad sitting on
+        // top of the left head swallows every hit that lands on it.
+        val showPad = edit || (visMode != 0 && TouchControls.visible.value &&
+            !Lightgun.arcade.value && !com.armsx2.input.Taiko.active.value)
         if (!showPad) {
             // The gun does NOT follow the pad's visibility. It used to, by accident: everything
             // below this point stops composing when the pad auto-hides, which took the aim layer
@@ -261,6 +264,7 @@ fun TouchControlsOverlay() {
             if (!edit) {
                 LightgunLayer(widthPx = widthPx, heightPx = heightPx)
                 LightgunButtons()
+                TaikoLayer(widthPx = widthPx, heightPx = heightPx)
             }
             return@BoxWithConstraints
         }
@@ -355,6 +359,10 @@ fun TouchControlsOverlay() {
         // attached, a touch on empty screen IS the shot.
         if (!edit) {
             LightgunLayer(widthPx = widthPx, heightPx = heightPx)
+            // The drum, for the ten Taiko games. Draws nothing for every other board -- and it
+            // has to be composed here as well as in the no-pad branch above, because a drum game
+            // that somehow keeps the pad visible must still be playable.
+            TaikoLayer(widthPx = widthPx, heightPx = heightPx)
         }
         // Gesture layer (swipes / double-tap on empty area). Composed here — below every visual
         // widget — for the same reason as the layers around it: a finger that starts on a control

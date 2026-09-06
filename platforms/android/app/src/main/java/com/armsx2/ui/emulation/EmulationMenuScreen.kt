@@ -647,6 +647,9 @@ private fun SessionPane(state: EmulationMenuUiState, viewModel: EmulationMenuVie
         serial = com.armsx2.runtime.MainActivityRuntime.currentGame.value?.serial
             ?: com.armsx2.ui.InGameOverlay.currentSerial.value,
     )
+    // The gun, for the four cabinets that have one. Draws nothing for every other board.
+    Spacer(Modifier.height(10.dp))
+    ArcadeGunSection()
     // Steering, for a driving cabinet and nothing else. Draws nothing for every other board.
     Spacer(Modifier.height(10.dp))
     ArcadeWheelSection(

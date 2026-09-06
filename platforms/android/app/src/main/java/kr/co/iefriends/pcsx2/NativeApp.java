@@ -427,6 +427,13 @@ public class NativeApp {
 	 *  and a gain on what is left (0.1..4). Steering only -- the pedals stay linear. */
 	public static native void jvsSetWheelCalibration(float deadzone, float sensitivity);
 
+	/* ARCADE drum (Taiko no Tatsujin). The drum's four sensors per side are JVS ANALOG channels,
+	 * not switches, so nothing in the ordinary pad mirror could ever reach them. pad: 0 = don
+	 * left (inner, red), 1 = don right, 2 = ka left (outer, blue), 3 = ka right. The scrambled
+	 * channel numbers stay native, resolved from the game's own measured table. */
+	public static native boolean jvsDrumActive();
+	public static native void jvsDrumHit(int player, int pad, boolean pressed);
+
 	/* ARCADE lightgun (Time Crisis 3/4, Vampire Night, Cobra). These games aim through the JVS
 	 * board, not through the USB GunCon 2, and their trigger/pedal/start are different JVS bits
 	 * per game -- so send an ACTION and let the native side resolve it from the game's mapping.

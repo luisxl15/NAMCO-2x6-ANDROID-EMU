@@ -30,12 +30,18 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.Icon
+import androidx.compose.ui.platform.LocalContext
+import com.armsx2.input.AndroidGyroscopeInput
+import com.armsx2.input.ControllerMappings
 import com.armsx2.input.Lightgun
+import com.armsx2.input.LightgunAim
 import com.armsx2.ui.premium.Arc
 import kotlinx.coroutines.delay
+import com.armsx2.runtime.MainActivityRuntime
 import kr.co.iefriends.pcsx2.NativeApp
 
 /**
@@ -69,6 +75,45 @@ fun LightgunLayer(widthPx: Float, heightPx: Float) {
     var aim by remember { mutableStateOf<Offset?>(null) }
     var firing by remember { mutableStateOf(false) }
 
+    // Pointing the phone instead of the finger. Registered here, above the returns, for the same
+    // reason as the two remembers: a DisposableEffect placed below one is a slot that some
+    // compositions have and others do not.
+    val context = LocalContext.current
+    val gyroAiming = LightgunAim.active
+    // Which sensor mode 1 resolves to on this device decides whether the samples are a rate or
+    // an angle -- the whole of LightgunAim.next. Resolved once: it cannot change while the app
+    // runs, and asking per sample would query the sensor service fifty times a second.
+    val aimKind = remember { AndroidGyroscopeInput.resolveKind(context, 1) }
+    val reader = remember(aimKind) {
+        var last = 0L
+        AndroidGyroscopeInput(context) { _, gx, gy ->
+            val now = android.os.SystemClock.uptimeMillis()
+            val dt = if (last == 0L) 16L else now - last
+            last = now
+            val (nx, ny) = LightgunAim.step(aimKind, gx, gy, dt)
+            if (widthPx > 0f && heightPx > 0f) Lightgun.aim(nx * widthPx, ny * heightPx)
+        }
+    }
+    DisposableEffect(gyroAiming) {
+        if (gyroAiming) {
+            // The player's own sensitivity and invert choices from the Pad tab: there is one set
+            // of sensors and one set of preferences for them, and a second copy here would be a
+            // second answer to the same question.
+            reader.start(
+                1,
+                ControllerMappings.gyroSensitivity(),
+                ControllerMappings.gyroSmoothing(),
+                ControllerMappings.gyroInvertX(),
+                ControllerMappings.gyroInvertY(),
+            )
+            MainActivityRuntime.gyroRecenterHook = { reader.recenter(); LightgunAim.recenter() }
+        }
+        onDispose {
+            reader.stop()
+            if (gyroAiming) MainActivityRuntime.gyroRecenterHook = null
+        }
+    }
+
     if (!Lightgun.active) return
     if (widthPx <= 0f || heightPx <= 0f) return
 
@@ -85,26 +130,35 @@ fun LightgunLayer(widthPx: Float, heightPx: Float) {
                                 // A widget above us already owns this finger (gun buttons, pause).
                                 if (ch.isConsumed || aiming != null) continue
                                 aiming = ch.id
-                                aim = ch.position
                                 firing = true
-                                Lightgun.aim(ch.position.x, ch.position.y)
+                                // Where the shot goes. With the phone aiming, a touch does NOT
+                                // move the gun -- it is the trigger, and the trigger has to fire
+                                // where the barrel is pointing, not where the thumb landed.
+                                val at = shotPoint(gyroAiming, ch.position, widthPx, heightPx)
+                                if (!gyroAiming) {
+                                    aim = at
+                                    Lightgun.aim(at.x, at.y)
+                                }
                                 // Aim BEFORE the trigger, in that order: the core samples the
                                 // pointer when the trigger goes down, so firing first would shoot
                                 // at wherever the previous shot landed.
-                                Lightgun.trigger(true, ch.position.x, ch.position.y, widthPx, heightPx)
+                                Lightgun.trigger(true, at.x, at.y, widthPx, heightPx)
                                 ch.consume()
                                 continue
                             }
                             if (ch.id != aiming) continue
                             if (ch.pressed) {
-                                aim = ch.position
-                                Lightgun.aim(ch.position.x, ch.position.y)
+                                if (!gyroAiming) {
+                                    aim = ch.position
+                                    Lightgun.aim(ch.position.x, ch.position.y)
+                                }
                                 ch.consume()
                             } else {
-                                Lightgun.trigger(false, ch.position.x, ch.position.y, widthPx, heightPx)
+                                val at = shotPoint(gyroAiming, ch.position, widthPx, heightPx)
+                                Lightgun.trigger(false, at.x, at.y, widthPx, heightPx)
                                 aiming = null
                                 firing = false
-                                aim = null
+                                if (!gyroAiming) aim = null
                                 ch.consume()
                             }
                         }
@@ -112,9 +166,28 @@ fun LightgunLayer(widthPx: Float, heightPx: Float) {
                 }
             },
     ) {
-        aim?.let { Reticle(it, firing, widthPx, heightPx) }
+        // With the phone aiming the crosshair is always up, because the gun is always pointing
+        // somewhere -- that is the difference from touch aiming, where it exists only while a
+        // finger is down.
+        val at = if (gyroAiming) {
+            Offset(LightgunAim.x.value * widthPx, LightgunAim.y.value * heightPx)
+        } else {
+            aim
+        }
+        at?.let { Reticle(it, firing, widthPx, heightPx) }
     }
 }
+
+/**
+ * Where a shot lands.
+ *
+ * The reload matters here and not only the hit: these games reload by pointing away from the
+ * screen, and [Lightgun.trigger] decides that from the coordinates it is handed. Handing it the
+ * touch position while the phone is doing the aiming would reload whenever a thumb happened to
+ * rest near an edge.
+ */
+private fun shotPoint(gyroAiming: Boolean, touch: Offset, widthPx: Float, heightPx: Float): Offset =
+    if (gyroAiming) Offset(LightgunAim.x.value * widthPx, LightgunAim.y.value * heightPx) else touch
 
 /**
  * The crosshair, drawn around the finger rather than under it.

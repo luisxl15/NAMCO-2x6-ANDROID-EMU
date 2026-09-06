@@ -2070,6 +2070,7 @@ open class MainActivityRuntime : ComponentActivity() {
             runCatching {
                 com.armsx2.input.UsbDevices.load()
                 com.armsx2.input.Lightgun.load()
+                com.armsx2.input.LightgunAim.load()
                 com.armsx2.input.UsbDevices.applyAtBoot()
             }
 
