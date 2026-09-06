@@ -29,7 +29,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -156,7 +156,15 @@ fun OnboardingScreen(viewModel: OnboardingViewModel = viewModel()) {
         BoxWithConstraints(
             Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
+                // Every system bar, not just the status bar. Android 15 enforces edge-to-edge, so
+                // the window is the whole screen -- and this is one of the few screens that keeps
+                // the bars ON SCREEN (a wizard is where you least want the navigation hidden). In
+                // landscape a three-button bar sits on the SIDE, which is where the Next button
+                // is, so padding only the top left the wizard's one required control underneath
+                // it. safeDrawing rather than systemBars because the cutout is also in play:
+                // layoutInDisplayCutoutMode is `always`. The aurora is a sibling and still fills
+                // the screen, so nothing is boxed in visually.
+                .safeDrawingPadding()
                 .pointerInput(state.page, state.busy, canContinue) {
                     detectHorizontalDragGestures(
                         onDragStart = { swipeDistance = 0f },
