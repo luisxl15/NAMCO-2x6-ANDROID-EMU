@@ -534,7 +534,14 @@ private fun WizardPage(
     when (page) {
         0 -> WelcomePage()
         1 -> StoragePage(state, viewModel::selectStorage, onCustomStorage)
-        2 -> BiosPage(state, onPick = biosPicker, onSelectBios = viewModel::selectBiosCandidate)
+        2 -> BiosPage(
+            state,
+            onPick = biosPicker,
+            onSelectBios = viewModel::selectBiosCandidate,
+            // Downloading one here has to finish the step, or the wizard would offer a BIOS and
+            // then refuse to move on. importBios is the same path the file picker takes.
+            onUseDownloaded = { file -> viewModel.importBios(android.net.Uri.fromFile(file)) },
+        )
         3 -> GamesPage(state, folderPicker, viewModel::removeGameFolder)
         else -> ReadyPage(state)
     }
@@ -611,9 +618,18 @@ private fun StoragePage(
 }
 
 @Composable
-private fun BiosPage(state: OnboardingUiState, onPick: () -> Unit, onSelectBios: (BiosCandidate) -> Unit) {
+private fun BiosPage(
+    state: OnboardingUiState,
+    onPick: () -> Unit,
+    onSelectBios: (BiosCandidate) -> Unit,
+    onUseDownloaded: (java.io.File) -> Unit,
+) {
     StepHeader(2, str("setup.page.bios.title"), str("setup.step.bios.description"))
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // The open images, offered here as well as in the BIOS manager. This is the step where
+        // someone with no BIOS at all is stuck, so it is the step that most needs the one kind
+        // this project can hand out. Draws nothing when the catalogue cannot be reached.
+        com.armsx2.ui.bios.OpenBiosSection(onUse = onUseDownloaded)
         when {
             state.biosInfo == null -> OptionCard(
                 title = str("setup.bios.selectTitle"),

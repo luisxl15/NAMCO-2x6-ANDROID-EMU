@@ -23,12 +23,18 @@ import java.io.File
  * without an app release. Where there is no index yet the repository's own file listing is used
  * instead, so a repo with two files in it and nothing else works today.
  *
+ * A download lands in TWO places, and the split is the point:
+ *
+ *  - `<data root>/BIOS/` — a plain folder next to the player's own files, which is where an image
+ *    under development belongs. They can open it, replace it, diff it.
+ *  - the emulator's own BIOS folder — but only once the core recognises the image. That folder is
+ *    pinned to the app's externalFilesDir/bios (native-lib pins `Folders/Bios` to it), it is the
+ *    only folder the core ever reads, and putting an unusable file there would fill the BIOS list
+ *    with entries that cannot boot anything.
+ *
  * Nothing here decides whether an image is any good. A download is handed straight to the core's
- * own `IsBIOSFromFd`, which is the same check the BIOS list uses, and whatever it answers is what
- * the player is told: a board name when the image is real, and a plain "not recognised" when it
- * is not. That distinction matters more here than anywhere else in the app -- an open BIOS under
- * development will spend a long time being the second thing, and saying so is the difference
- * between a project you can measure and a black screen.
+ * own `IsBIOSFromFd`, the same check the BIOS list uses, and whatever it answers is what the
+ * player is told.
  */
 object OpenBiosRepo {
 
@@ -40,6 +46,9 @@ object OpenBiosRepo {
 
     private const val RAW = "https://raw.githubusercontent.com/$OWNER/$REPO/$BRANCH/"
     private const val LISTING = "https://api.github.com/repos/$OWNER/$REPO/contents/?ref=$BRANCH"
+
+    /** The folder downloads land in, beside the player's own data. Capitalised as asked for. */
+    private const val VISIBLE_DIR = "BIOS"
 
     /** Files in the repository that are never BIOS images. */
     private val IGNORED = setOf("readme.md", "license", "license.md", "index.json", ".gitignore")
@@ -54,15 +63,17 @@ object OpenBiosRepo {
     /** What the repository offers. Empty until fetched, and after a failure. */
     val index = mutableStateOf<List<Entry>>(emptyList())
 
-    /** What happened to an image once the core looked at it. */
-    sealed interface Outcome {
-        /** The core recognised it; [description] is what the BIOS list will show. */
-        data class Installed(val file: File, val description: String) : Outcome
+    /** Where one of these images stands on this device. */
+    sealed interface Status {
+        data object Missing : Status
 
-        /** Downloaded, kept, and not recognised as a BIOS. Says so rather than pretending. */
-        data class NotRecognised(val file: File) : Outcome
+        /** Downloaded and sitting in the visible folder; the core does not know what it is. */
+        data class Unusable(val file: File) : Status
 
-        data class Failed(val why: String) : Outcome
+        /** The core recognised it, so it is in the emulator's BIOS folder and can be selected. */
+        data class Ready(val file: File, val description: String) : Status
+
+        data class Failed(val why: String) : Status
     }
 
     @Volatile private var loading = false
@@ -138,26 +149,79 @@ object OpenBiosRepo {
         emptyList()
     }
 
-    /** True once this image is in the BIOS folder. */
-    fun isInstalled(context: Context, entry: Entry): Boolean =
-        File(MainActivityRuntime.internalBiosDir(context), entry.name).length() > 0L
+    /**
+     * `<data root>/BIOS`, created on demand.
+     *
+     * Logged, because the data root is not a constant: it is whatever folder the player pointed
+     * the wizard at, and only falls back to the app's own external files directory. When a
+     * download later turns up somewhere unexpected, this line is the answer.
+     */
+    fun visibleDir(context: Context): File {
+        val dir = File(MainActivityRuntime.assetCopyRoot(context), VISIBLE_DIR)
+        if (!dir.isDirectory) {
+            val made = dir.mkdirs()
+            Log.i(TAG, "pasta BIOS ${dir.absolutePath} criada=$made existe=${dir.isDirectory}")
+        }
+        return dir
+    }
+
+    private fun visibleFile(context: Context, entry: Entry) = File(visibleDir(context), entry.name)
+
+    private fun coreFile(context: Context, entry: Entry) =
+        File(MainActivityRuntime.internalBiosDir(context), entry.name)
+
+    /** A real file with bytes in it -- length() alone answers 0 for a directory-less path AND
+     *  for a directory, and the two must not read the same here. */
+    private fun present(file: File) = file.isFile && file.length() > 0L
+
+    /** Where this image stands, without fetching anything. */
+    fun status(context: Context, entry: Entry): Status {
+        val visible = visibleFile(context, entry)
+        val core = coreFile(context, entry)
+        val on = when {
+            present(visible) -> visible
+            // The emulator's own folder counts as downloaded too: that is where an earlier
+            // version of this put them, and it is where the core reads from.
+            present(core) -> core
+            else -> return Status.Missing
+        }
+        val described = describe(on)
+        return if (described == null) Status.Unusable(visible) else Status.Ready(core, described)
+    }
 
     /**
-     * Download one image into the BIOS folder and ask the core what it is.
+     * Download one image, put it where the core can read it, and work out what it is.
      *
-     * The file is kept either way. An image the core does not recognise is not rubbish — for an
-     * open BIOS it is the normal state of the work in progress — and deleting it would take away
-     * the thing the author is trying to iterate on.
+     * It lands in BOTH places, recognised or not. The visible folder is where the author works
+     * on it; the emulator's own folder is the only one the core ever reads, and an image that
+     * cannot be selected is an image that cannot be tested — which for a BIOS under development
+     * is the whole loop. What changes with recognition is what the player is TOLD, not where the
+     * file goes.
      */
-    fun install(context: Context, entry: Entry): Outcome {
-        val dir = MainActivityRuntime.internalBiosDir(context).apply { mkdirs() }
-        val dest = File(dir, entry.name)
-        if (!ArcadeMedia.fetchTo(RAW + entry.file, dest)) {
-            return Outcome.Failed("Não foi possível baixar ${entry.file}.")
+    fun install(context: Context, entry: Entry): Status {
+        val visible = visibleFile(context, entry)
+        val core = coreFile(context, entry)
+        if (!ArcadeMedia.fetchTo(RAW + entry.file, visible)) {
+            Log.w(TAG, "download falhou para ${entry.file} -> ${visible.absolutePath}")
+            return Status.Failed("Não foi possível baixar ${entry.file}.")
         }
-        val info = describe(dest)
-        return if (info == null) Outcome.NotRecognised(dest) else Outcome.Installed(dest, info)
+        val copied = runCatching {
+            core.parentFile?.mkdirs()
+            visible.copyTo(core, overwrite = true)
+            true
+        }.getOrElse {
+            Log.w(TAG, "não deu para copiar para ${core.absolutePath}: ${it.message}")
+            false
+        }
+        if (!copied) {
+            return Status.Failed("Baixada, mas não deu para copiar para a pasta do emulador.")
+        }
+        val described = describe(core)
+        return if (described == null) Status.Unusable(visible) else Status.Ready(core, described)
     }
+
+    /** The file the emulator would boot from, once this image has been downloaded. */
+    fun bootableFile(context: Context, entry: Entry): File = coreFile(context, entry)
 
     /** What the core makes of a file on disk, or null when it is not a BIOS to it. */
     private fun describe(file: File): String? = runCatching {
@@ -167,7 +231,9 @@ object OpenBiosRepo {
         }
     }.getOrNull()
 
-    fun remove(context: Context, entry: Entry): Boolean = runCatching {
-        File(MainActivityRuntime.internalBiosDir(context), entry.name).delete()
-    }.getOrDefault(false)
+    /** Remove both copies. */
+    fun remove(context: Context, entry: Entry) {
+        runCatching { visibleFile(context, entry).delete() }
+        runCatching { coreFile(context, entry).delete() }
+    }
 }
