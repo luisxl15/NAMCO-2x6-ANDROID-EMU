@@ -7,6 +7,7 @@ import com.armsx2.data.library.ArcadeCompat
 import com.armsx2.data.library.ArcadePreflight
 import com.armsx2.data.library.ArcadeRepair
 import com.armsx2.data.library.ArcadeZipInstall
+import com.armsx2.data.library.OpenBiosRepo
 import com.armsx2.input.AndroidGyroscopeInput
 import com.armsx2.input.ArcadeSwitches
 import com.armsx2.input.LightgunAim
@@ -667,5 +668,50 @@ class ArcadeTest {
             "Capcom Fighting Jam/NM00018/proverb.elf",
         )
         assertEquals("Capcom Fighting Jam/", ArcadeZipInstall.commonRoot(entries))
+    }
+
+    // ------------------------------------------------------------ open BIOS
+
+    @Test
+    fun `the open BIOS catalogue reads its own index`() {
+        val entries = OpenBiosRepo.parseIndex(
+            """
+            {"bios":[
+              {"name":"Open246","file":"open246.7d","note":"System 246","bytes":2097152},
+              {"name":"","file":"open256.8g"},
+              {"note":"sem arquivo, não conta"}
+            ]}
+            """.trimIndent(),
+        )
+        assertEquals(2, entries.size)
+        assertEquals("Open246", entries[0].name)
+        assertEquals(2097152L, entries[0].bytes)
+        // A nameless entry falls back to its filename rather than showing an empty row.
+        assertEquals("open256.8g", entries[1].name)
+    }
+
+    @Test
+    fun `without an index the repository listing does`() {
+        // Every such repository starts with no index at all, so the fallback is the normal case
+        // for a while, not an error path.
+        val entries = OpenBiosRepo.parseListing(
+            """
+            [
+              {"name":"open246.7d","type":"file","size":2097152},
+              {"name":"open256.8g","type":"file","size":2097152},
+              {"name":"README.md","type":"file","size":37},
+              {"name":"index.json","type":"file","size":120},
+              {"name":"docs","type":"dir","size":0}
+            ]
+            """.trimIndent(),
+        )
+        assertEquals(listOf("open246.7d", "open256.8g"), entries.map { it.file })
+    }
+
+    @Test
+    fun `a catalogue that will not parse is empty, not a crash`() {
+        assertTrue(OpenBiosRepo.parseIndex("nao e json").isEmpty())
+        assertTrue(OpenBiosRepo.parseIndex("""{"bios":null}""").isEmpty())
+        assertTrue(OpenBiosRepo.parseListing("{}").isEmpty())
     }
 }

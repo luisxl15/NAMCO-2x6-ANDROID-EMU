@@ -116,6 +116,10 @@ fun BiosManagerScreen(onBack: () -> Unit, game: GameInfo? = null, viewModel: Bio
                 },
                 horizontalPadding = 0.dp,
             )
+            // Open BIOS images from the project's repository. Every other way into this folder
+            // starts with a file the player already has; this is the one that does not. Draws
+            // nothing until the catalogue is fetched, so an offline device sees no change.
+            OpenBiosSection(onInstalled = viewModel::refresh)
             if (state.items.isEmpty() && !state.busy) {
                 EmptyState(
                     title = str("setup.bios.error.noneFound"),
