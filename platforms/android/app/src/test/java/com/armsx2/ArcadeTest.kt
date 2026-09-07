@@ -819,4 +819,17 @@ class ArcadeTest {
         assertEquals(null, LanUpload.fileNameFrom("/upload?name="))
         assertEquals(null, LanUpload.fileNameFrom("/upload"))
     }
+
+    @Test
+    fun `an emulator NAT address is known to be unreachable`() {
+        // 10.0.2.15 is what every Android emulator hands its guest, on a network that exists only
+        // inside the emulator's own router. Saying the address without saying that makes a
+        // working server look broken -- which is exactly how it looked.
+        assertTrue(LanUpload.isEmulatorOnly(listOf("10.0.2.15")))
+        assertTrue(!LanUpload.isEmulatorOnly(listOf("192.168.0.14")))
+        // A real address alongside it is the one that counts.
+        assertTrue(!LanUpload.isEmulatorOnly(listOf("10.0.2.15", "192.168.0.14")))
+        // And no address at all is not an emulator, it is no network.
+        assertTrue(!LanUpload.isEmulatorOnly(emptyList()))
+    }
 }

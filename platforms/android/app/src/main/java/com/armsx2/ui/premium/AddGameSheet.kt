@@ -516,6 +516,17 @@ private fun LanPanel() {
                 "estar na mesma rede.",
             style = Type.footnote, color = Palette.labelSecondary,
         )
+        // From the outside an unreachable address looks exactly like a broken feature, so it
+        // says which of the two it is.
+        if (lan.unreachable.value) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Este é o endereço interno de um emulador de Android: ele só existe dentro do " +
+                    "emulador, e o computador que o executa não alcança. Num celular ligado à " +
+                    "mesma Wi-Fi o endereço abre normalmente.",
+                style = Type.footnote, color = Palette.accentBright,
+            )
+        }
 
         lan.receivingName.value?.let { name ->
             Spacer(Modifier.height(18.dp))

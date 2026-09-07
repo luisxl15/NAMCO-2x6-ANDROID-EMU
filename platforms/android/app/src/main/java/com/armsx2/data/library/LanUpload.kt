@@ -64,11 +64,13 @@ object LanUpload {
             log += "Nenhuma pasta de ROMs com caminho de arquivo real e gravável."
             return null
         }
-        val ip = localAddress()
+        val addresses = candidates()
+        val ip = addresses.firstOrNull()
         if (ip == null) {
             log += "Este aparelho não está numa rede local (Wi-Fi desligado?)."
             return null
         }
+        unreachable.value = isEmulatorOnly(addresses)
         val socket = runCatching { ServerSocket(PORT) }.getOrElse {
             log += "Não foi possível abrir a porta $PORT: ${it.message}"
             return null
@@ -94,6 +96,7 @@ object LanUpload {
         worker = null
         address.value = null
         receivingName.value = null
+        unreachable.value = false
     }
 
     // ---- one connection ------------------------------------------------------
@@ -241,15 +244,37 @@ object LanUpload {
         }
     }
 
-    /** This device's address on the local network, or null when it is not on one. */
-    private fun localAddress(): String? = runCatching {
+    /**
+     * The address a computer on the same network would use, or null when there is none.
+     *
+     * Wi-Fi first, then anything else site-local. A phone can have several at once -- a VPN, a
+     * hotspot, USB tethering -- and the first one the system happens to list is not necessarily
+     * the one the computer is on.
+     */
+    private fun localAddress(): String? = candidates().firstOrNull()
+
+    private fun candidates(): List<String> = runCatching {
         NetworkInterface.getNetworkInterfaces().toList()
             .filter { it.isUp && !it.isLoopback }
-            .flatMap { it.inetAddresses.toList() }
-            .filterIsInstance<Inet4Address>()
-            .firstOrNull { it.isSiteLocalAddress }
-            ?.hostAddress
-    }.getOrNull()
+            .sortedBy { if (it.name.startsWith("wlan")) 0 else 1 }
+            .flatMap { nif -> nif.inetAddresses.toList().map { nif to it } }
+            .filter { (_, addr) -> addr is Inet4Address && addr.isSiteLocalAddress }
+            .mapNotNull { (_, addr) -> addr.hostAddress }
+    }.getOrDefault(emptyList())
+
+    /**
+     * True when the only address this device has is an emulator's private NAT.
+     *
+     * 10.0.2.15 with a 10.0.2.2 gateway is the address every Android emulator hands its guest,
+     * and that network exists only inside the emulator's own virtual router -- the machine
+     * running it cannot reach it, however correct the server is. Worth saying out loud, because
+     * from the outside it looks exactly like a broken feature.
+     */
+    internal fun isEmulatorOnly(addresses: List<String>): Boolean =
+        addresses.isNotEmpty() && addresses.all { it.startsWith("10.0.2.") }
+
+    /** Set when the address shown cannot be reached from another machine. */
+    val unreachable = mutableStateOf(false)
 
     /** The page the computer sees. One file input, one drop target, one progress bar. */
     private val PAGE = """
