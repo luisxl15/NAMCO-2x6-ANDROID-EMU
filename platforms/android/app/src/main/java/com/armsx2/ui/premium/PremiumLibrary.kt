@@ -130,7 +130,11 @@ fun PremiumLibrary(
         }
     }
 
-    var selectedKey by remember(games.size) { mutableStateOf(games.firstOrNull()?.uri?.toString()) }
+    // The first card in the GRID, not the first game the scan happened to return. The grid is
+    // sorted -- by default, most recently played first -- so those two are different lists, and
+    // opening the pane on a game that is not the one at the top left reads as the selection
+    // having landed somewhere at random.
+    var selectedKey by remember(games.size) { mutableStateOf(shown.firstOrNull()?.uri?.toString()) }
     // Follow the visible list: a selection filtered out of view would leave the detail pane
     // describing a game that is no longer on screen.
     val selected = shown.firstOrNull { it.uri.toString() == selectedKey } ?: shown.firstOrNull()
