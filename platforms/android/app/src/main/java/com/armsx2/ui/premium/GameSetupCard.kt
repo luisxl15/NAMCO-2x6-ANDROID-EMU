@@ -103,10 +103,42 @@ fun GameSetupCard(game: GameInfo) {
         if (uri != null && ArcadeBezel.setOverride(context, serial, uri)) refresh++
     }
 
-    Column(Modifier.fillMaxWidth()) {
-        Text("CONFIGURAÇÃO", style = Type.eyebrow, color = Palette.labelTertiary)
-        Spacer(Modifier.height(9.dp))
+    // Folded away until asked for. This block grew from four lines into four lines plus a
+    // sixteen-by-nine bezel preview plus a list of everything wrong with the game's folder, and
+    // on a phone the detail pane is barely three hundred points tall -- so it pushed the one
+    // control that matters, Play, to the far end of a long scroll. What it says is worth reading
+    // ONCE, when something is wrong; the summary line says whether that is now.
+    var open by remember(serial) { mutableStateOf(false) }
 
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Radii.control))
+                .clickable { open = !open }
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("CONFIGURAÇÃO", style = Type.eyebrow, color = Palette.labelTertiary)
+            Spacer(Modifier.weight(1f))
+            // A problem is the one thing here you must not have to open a panel to find out
+            // about, so the closed state says it in the accent colour.
+            val blocking = report?.problems?.count { it.blocking } ?: 0
+            Text(
+                when {
+                    open -> "ocultar"
+                    blocking > 0 -> "$blocking problema${if (blocking == 1) "" else "s"}"
+                    report?.ok == true -> "tudo certo"
+                    else -> "ver"
+                },
+                style = Type.caption,
+                color = if (blocking > 0) Palette.accentBright else Palette.labelSecondary,
+            )
+        }
+
+        if (!open) return@Column
+
+        Spacer(Modifier.height(9.dp))
         SetupLine("BIOS", bios ?: "nenhuma escolhida")
         SetupLine("Patch", patch ?: "nenhum")
         SetupLine("Capa", if (coverCustom) "personalizada" else "padrão")
