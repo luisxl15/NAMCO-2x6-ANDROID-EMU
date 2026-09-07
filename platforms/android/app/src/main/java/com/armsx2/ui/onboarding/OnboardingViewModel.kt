@@ -203,6 +203,41 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Re-read the BIOS folder and offer whatever is in it.
+     *
+     * The wizard's BIOS step only ever learned about images through its own file and folder
+     * pickers, so a download that lands in the folder directly was invisible to it -- the step
+     * would go on saying "no BIOS" with one sitting right there. This is the same list-building
+     * the folder import does, over the folder itself.
+     */
+    fun refreshBiosFolder() {
+        val context = getApplication<Application>()
+        val options = MainActivityRuntime.internalBiosDir(context).apply { mkdirs() }
+            .listFiles().orEmpty()
+            .filter(File::isFile)
+            .mapNotNull { file ->
+                runCatching {
+                    val fd = android.os.ParcelFileDescriptor.open(
+                        file, android.os.ParcelFileDescriptor.MODE_READ_ONLY,
+                    )
+                    NativeApp.getBiosInfoFromFd(fd.detachFd())
+                        ?.let { BiosCandidate(file.name, file.absolutePath, it) }
+                }.getOrNull()
+            }
+            .sortedBy { it.name.lowercase() }
+        if (options.isEmpty()) return
+        val chosen = options.firstOrNull { it.path == state.value.selectedBiosPath } ?: options.first()
+        selectBios(context, File(chosen.path))
+        state.value = state.value.copy(
+            biosName = chosen.name,
+            biosInfo = chosen.info,
+            biosCount = options.size,
+            biosOptions = options,
+            selectedBiosPath = chosen.path,
+        )
+    }
+
     /** Switch the active BIOS to one the user tapped in the setup list. */
     fun selectBiosCandidate(candidate: BiosCandidate) {
         selectBios(getApplication(), File(candidate.path))

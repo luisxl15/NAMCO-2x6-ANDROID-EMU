@@ -33,7 +33,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.armsx2.data.library.OpenBiosRepo
-import com.armsx2.runtime.MainActivityRuntime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,19 +45,16 @@ import java.io.File
  * that does not, which is why it appears both here and in the first-run wizard. It draws nothing
  * until the catalogue is fetched, so a device with no network sees the screen it always saw.
  *
- * A row is a name and what you can do with it, and nothing else. It used to carry a verdict per
- * line plus a paragraph explaining the verdict, which is a lot of prose to put between someone
- * and a download button — and the state that actually matters is visible without any of it: the
- * button says Baixar or Remover, and the row says "Em uso" when the emulator is set to boot from
- * it.
+ * A downloader, and only that: a name and Baixar, or Remover once it is here. Choosing which BIOS
+ * to boot from happens in one place, the list below, where every other BIOS on the device is
+ * already chosen from — a second selector up here would be a second answer to the same question.
  *
- * That last part is why selecting appears to do nothing otherwise. Choosing an image writes the
- * emulator's BIOS preference, but the list further down this screen only shows images the core
- * recognises — so an image still under development is selected and then invisible. The row says
- * so itself.
+ * A downloaded image reaches that list even when the core does not recognise it yet, which is the
+ * arrangement that makes an open BIOS possible to work on: it sits with the others and is picked
+ * the same way.
  */
 @Composable
-fun OpenBiosSection(onUse: (File) -> Unit, onChanged: () -> Unit = {}) {
+fun OpenBiosSection(onChanged: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var refresh by remember { mutableIntStateOf(0) }
@@ -77,8 +73,6 @@ fun OpenBiosSection(onUse: (File) -> Unit, onChanged: () -> Unit = {}) {
             .map { it.file }
             .toSet()
     }
-    // Read as state so choosing one repaints the rows immediately.
-    val activePath = MainActivityRuntime.bios.value
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -98,11 +92,9 @@ fun OpenBiosSection(onUse: (File) -> Unit, onChanged: () -> Unit = {}) {
                 // key(), because of the remember inside: without it the slots are positional and
                 // a catalogue that changes length hands one row's state to another.
                 key(entry.file) {
-                    val bootable = OpenBiosRepo.bootableFile(context, entry)
                     OpenBiosRow(
                         title = entry.name,
                         downloaded = entry.file in downloaded,
-                        inUse = activePath == bootable.absolutePath,
                         busy = busy == entry.file,
                         onDownload = {
                             busy = entry.file
@@ -126,7 +118,6 @@ fun OpenBiosSection(onUse: (File) -> Unit, onChanged: () -> Unit = {}) {
                                 onChanged()
                             }
                         },
-                        onUse = { onUse(bootable); onChanged() },
                     )
                 }
             }
@@ -144,11 +135,9 @@ fun OpenBiosSection(onUse: (File) -> Unit, onChanged: () -> Unit = {}) {
 private fun OpenBiosRow(
     title: String,
     downloaded: Boolean,
-    inUse: Boolean,
     busy: Boolean,
     onDownload: () -> Unit,
     onRemove: () -> Unit,
-    onUse: () -> Unit,
 ) {
     Row(
         Modifier
@@ -165,42 +154,26 @@ private fun OpenBiosRow(
             fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(end = 12.dp).weight(1f),
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (downloaded && !busy) {
-                if (inUse) {
-                    Pill("Em uso", accent = true, enabled = false) {}
-                } else {
-                    Pill("Usar", accent = true, onClick = onUse)
-                }
-                Spacer(Modifier.width(8.dp))
-            }
-            Pill(
-                when {
-                    busy -> "…"
-                    downloaded -> "Remover"
-                    else -> "Baixar"
-                },
-                accent = false,
-                enabled = !busy,
-            ) { if (downloaded) onRemove() else onDownload() }
-        }
+        Pill(
+            when {
+                busy -> "…"
+                downloaded -> "Remover"
+                else -> "Baixar"
+            },
+            enabled = !busy,
+        ) { if (downloaded) onRemove() else onDownload() }
     }
 }
 
 @Composable
-private fun Pill(label: String, accent: Boolean, enabled: Boolean = true, onClick: () -> Unit) {
+private fun Pill(label: String, enabled: Boolean = true, onClick: () -> Unit) {
     Box(
         Modifier
             .clip(RoundedCornerShape(50))
-            .background(if (accent) Color(0x2240E070) else Color(0x22FFFFFF))
+            .background(Color(0x22FFFFFF))
             .clickable(enabled = enabled) { onClick() }
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
-        Text(
-            label,
-            color = if (accent) Color(0xFF4ADE80) else Color.White,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-        )
+        Text(label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }

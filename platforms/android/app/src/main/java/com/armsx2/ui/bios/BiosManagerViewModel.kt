@@ -64,7 +64,15 @@ class BiosManagerViewModel(application: Application) : AndroidViewModel(applicat
                     .listFiles()
                     .orEmpty()
                     .filter(File::isFile)
-                    .mapNotNull { file -> probe(file)?.let { InstalledBios(file, it, file.absolutePath == selectedPath) } }
+                    // An image the core cannot read yet still belongs in this list. That is the
+                    // whole of how an open BIOS gets worked on: it has to sit with the others and
+                    // be selectable the same way, or its author can never point the emulator at
+                    // it. Sidecars are excluded by extension and anything small by size, so the
+                    // .nvm and .mec files sharing this folder do not turn into rows.
+                    .mapNotNull { file ->
+                        val info = probe(file) ?: unrecognisedBios(file) ?: return@mapNotNull null
+                        InstalledBios(file, info, file.absolutePath == selectedPath)
+                    }
                     .sortedWith(compareByDescending<InstalledBios> { it.selected }.thenBy { it.file.name.lowercase() })
             }
             val perGame = key?.let {
@@ -253,6 +261,19 @@ class BiosManagerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    /**
+     * A stand-in for a file in the BIOS folder that the core does not recognise.
+     *
+     * Null for anything that was never meant to be an image: the .nvm/.mec/.rom1/.rom2/.erom
+     * companions that live beside a BIOS, and anything too small to be one.
+     */
+    private fun unrecognisedBios(file: File): BiosInfo? {
+        if (file.extension.lowercase() in BIOS_SIDECARS) return null
+        if (file.length() < MIN_BIOS_BYTES) return null
+        // Region 11 is COH-H, which is what an arcade image would report if it could be read.
+        return BiosInfo(0, 11, "Ainda não reconhecida", "")
+    }
+
     private fun probe(file: File): BiosInfo? = runCatching {
         val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
         NativeApp.getBiosInfoFromFd(descriptor.detachFd())
@@ -264,6 +285,12 @@ class BiosManagerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     private companion object {
+        /** Files that live in the BIOS folder and are not images. */
+        private val BIOS_SIDECARS = setOf("nvm", "mec", "rom1", "rom2", "erom", "part")
+
+        /** The smallest real image is 2 MB; a megabyte is a generous floor below it. */
+        private const val MIN_BIOS_BYTES = 1L shl 20
+
         /** Files the core expects to sit beside a BIOS, under the same stem. mec/nvm hold the
          *  console's clock and NVRAM; rom1/rom2/erom are extra ROM regions — rom2 is where the
          *  Chinese SCPH-50009 keeps its fonts, without which those titles black-screen (#540). */

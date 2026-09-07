@@ -40,6 +40,9 @@ class BiosInfo(
         8 -> "DEVKIT"
         9 -> "TEST"
         10 -> "FREE"
+        // The arcade boards this build exists for. BiosTools reports 11 for a COH-H image, the
+        // table stopped at 10, and every arcade BIOS in the list showed a question mark.
+        11 -> "COH-H"
         else -> "?"
     }
 }

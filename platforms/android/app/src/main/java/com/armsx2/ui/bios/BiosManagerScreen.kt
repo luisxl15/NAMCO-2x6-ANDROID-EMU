@@ -119,10 +119,7 @@ fun BiosManagerScreen(onBack: () -> Unit, game: GameInfo? = null, viewModel: Bio
             // Open BIOS images from the project's repository. Every other way into this folder
             // starts with a file the player already has; this is the one that does not. Draws
             // nothing until the catalogue is fetched, so an offline device sees no change.
-            OpenBiosSection(
-                onUse = { file -> viewModel.select(file) },
-                onChanged = viewModel::refresh,
-            )
+            OpenBiosSection(onChanged = viewModel::refresh)
             if (state.items.isEmpty() && !state.busy) {
                 EmptyState(
                     title = str("setup.bios.error.noneFound"),
@@ -281,8 +278,15 @@ private fun BiosRow(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(item.file.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    // Built from the parts that are there. An image the core could not read has
+                    // no version and no zone, and " · v0.00 · " reads as a broken row rather than
+                    // an honest one.
                     Text(
-                        "${item.info.description} · ${item.info.versionString} · ${item.info.zone}",
+                        listOf(
+                            item.info.description,
+                            item.info.versionString.takeIf { item.info.version != 0 },
+                            item.info.zone,
+                        ).filter { !it.isNullOrBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
