@@ -33,26 +33,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.armsx2.data.library.OpenBiosRepo
+import com.armsx2.runtime.MainActivityRuntime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * The open BIOS images, offered from the project's repository.
+ * BIOS images the app can fetch, from the project's repository.
  *
  * Every other way into the BIOS folder starts with a file the player already has; this is the one
  * that does not, which is why it appears both here and in the first-run wizard. It draws nothing
  * until the catalogue is fetched, so a device with no network sees the screen it always saw.
  *
- * Each row carries its own verdict, in a few words. The paragraph explaining what "not
- * recognised" means is printed ONCE under the list, however many images are in that state —
- * repeating it per row says the same thing twice and makes two unfinished images look like two
- * separate problems.
+ * A row is a name and what you can do with it, and nothing else. It used to carry a verdict per
+ * line plus a paragraph explaining the verdict, which is a lot of prose to put between someone
+ * and a download button — and the state that actually matters is visible without any of it: the
+ * button says Baixar or Remover, and the row says "Em uso" when the emulator is set to boot from
+ * it.
  *
- * [onUse] is "make this the active BIOS", and it is only ever offered for an image the core
- * recognises. The BIOS manager routes it to its own select; the wizard routes it to the step's
- * import, so downloading one there completes the step.
+ * That last part is why selecting appears to do nothing otherwise. Choosing an image writes the
+ * emulator's BIOS preference, but the list further down this screen only shows images the core
+ * recognises — so an image still under development is selected and then invisible. The row says
+ * so itself.
  */
 @Composable
 fun OpenBiosSection(onUse: (File) -> Unit, onChanged: () -> Unit = {}) {
@@ -69,10 +72,13 @@ fun OpenBiosSection(onUse: (File) -> Unit, onChanged: () -> Unit = {}) {
     val entries = OpenBiosRepo.index.value
     if (entries.isEmpty()) return
 
-    val statuses = remember(entries, refresh) {
-        entries.associate { it.file to OpenBiosRepo.status(context, it) }
+    val downloaded = remember(entries, refresh) {
+        entries.filter { OpenBiosRepo.status(context, it) !is OpenBiosRepo.Status.Missing }
+            .map { it.file }
+            .toSet()
     }
-    val anyUnusable = statuses.values.any { it is OpenBiosRepo.Status.Unusable }
+    // Read as state so choosing one repaints the rows immediately.
+    val activePath = MainActivityRuntime.bios.value
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -81,14 +87,9 @@ fun OpenBiosSection(onUse: (File) -> Unit, onChanged: () -> Unit = {}) {
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(
-                "BIOS de código aberto",
+                "Baixar BIOS ONLINE",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Baixadas para a pasta BIOS, na raiz dos seus dados do emulador.",
-                color = Color(0xFF8B93A3), fontSize = 12.sp,
             )
             Spacer(Modifier.height(12.dp))
 
@@ -97,15 +98,11 @@ fun OpenBiosSection(onUse: (File) -> Unit, onChanged: () -> Unit = {}) {
                 // key(), because of the remember inside: without it the slots are positional and
                 // a catalogue that changes length hands one row's state to another.
                 key(entry.file) {
-                    val status = statuses[entry.file] ?: OpenBiosRepo.Status.Missing
+                    val bootable = OpenBiosRepo.bootableFile(context, entry)
                     OpenBiosRow(
                         title = entry.name,
-                        subtitle = listOfNotNull(
-                            entry.note.takeIf { it.isNotBlank() },
-                            entry.bytes.takeIf { it > 0 }?.let { "%.1f MB".format(it / 1048576.0) },
-                        ).joinToString("  ·  "),
-                        status = status,
-                        bootable = OpenBiosRepo.bootableFile(context, entry),
+                        downloaded = entry.file in downloaded,
+                        inUse = activePath == bootable.absolutePath,
                         busy = busy == entry.file,
                         onDownload = {
                             busy = entry.file
@@ -129,22 +126,12 @@ fun OpenBiosSection(onUse: (File) -> Unit, onChanged: () -> Unit = {}) {
                                 onChanged()
                             }
                         },
-                        onUse = { file -> onUse(file); onChanged() },
+                        onUse = { onUse(bootable); onChanged() },
                     )
                 }
             }
 
-            // Once, however many images are in this state.
-            if (anyUnusable) {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    "\"Não reconhecida\" quer dizer que falta a estrutura que o emulador procura: " +
-                        "a directory de ROM (entrada RESET) e o ROMVER. Dá para selecionar assim " +
-                        "mesmo — o jogo provavelmente não vai iniciar, mas é assim que se vê até " +
-                        "onde a imagem chega.",
-                    color = Color(0xFF8B93A3), fontSize = 11.sp,
-                )
-            }
+            // Only ever a real failure, so it is not one of the lines that sits there.
             failure?.let {
                 Spacer(Modifier.height(10.dp))
                 Text(it, color = Color(0xFFFF6B6B), fontSize = 12.sp)
@@ -156,14 +143,12 @@ fun OpenBiosSection(onUse: (File) -> Unit, onChanged: () -> Unit = {}) {
 @Composable
 private fun OpenBiosRow(
     title: String,
-    subtitle: String,
-    status: OpenBiosRepo.Status,
-    /** Where the core would read it from, for the "use it anyway" case. */
-    bootable: File,
+    downloaded: Boolean,
+    inUse: Boolean,
     busy: Boolean,
     onDownload: () -> Unit,
     onRemove: () -> Unit,
-    onUse: (File) -> Unit,
+    onUse: () -> Unit,
 ) {
     Row(
         Modifier
@@ -173,38 +158,22 @@ private fun OpenBiosRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Column(Modifier.padding(end = 12.dp).weight(1f)) {
-            Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-            val line = when (status) {
-                is OpenBiosRepo.Status.Ready -> status.description
-                is OpenBiosRepo.Status.Unusable -> "Não reconhecida pelo emulador"
-                else -> subtitle
-            }
-            if (line.isNotBlank()) {
-                Text(
-                    line,
-                    color = if (status is OpenBiosRepo.Status.Ready) Color(0xFF4ADE80) else Color(0xFF8B93A3),
-                    fontSize = 11.sp,
-                )
-            }
-        }
+        Text(
+            title,
+            color = Color.White,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(end = 12.dp).weight(1f),
+        )
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Offered for anything downloaded, recognised or not. An image the emulator cannot
-            // read yet is exactly the one its author needs to point the emulator at -- refusing
-            // to select it would take away the only way to see how far it gets. The row already
-            // says which of the two this is.
-            val file = when (status) {
-                is OpenBiosRepo.Status.Ready -> status.file
-                is OpenBiosRepo.Status.Unusable -> bootable
-                else -> null
-            }
-            if (file != null && !busy) {
-                Pill(if (status is OpenBiosRepo.Status.Ready) "Usar" else "Usar assim mesmo", accent = true) {
-                    onUse(file)
+            if (downloaded && !busy) {
+                if (inUse) {
+                    Pill("Em uso", accent = true, enabled = false) {}
+                } else {
+                    Pill("Usar", accent = true, onClick = onUse)
                 }
                 Spacer(Modifier.width(8.dp))
             }
-            val downloaded = status is OpenBiosRepo.Status.Ready || status is OpenBiosRepo.Status.Unusable
             Pill(
                 when {
                     busy -> "…"
