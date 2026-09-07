@@ -278,20 +278,24 @@ private fun BiosRow(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(item.file.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    // Built from the parts that are there. An image the core could not read has
-                    // no version and no zone, and " · v0.00 · " reads as a broken row rather than
-                    // an honest one.
-                    Text(
-                        listOf(
-                            item.info.description,
-                            item.info.versionString.takeIf { item.info.version != 0 },
-                            item.info.zone,
-                        ).filter { !it.isNullOrBlank() }.joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    // Built from the parts that are there, and skipped entirely when there are
+                    // none. An image the core could not read has no description, no version and
+                    // no zone; an empty line still takes a line's height, and " · v0.00 · " reads
+                    // as a broken row rather than an honest one.
+                    val detail = listOf(
+                        item.info.description,
+                        item.info.versionString.takeIf { item.info.version != 0 },
+                        item.info.zone,
+                    ).filter { !it.isNullOrBlank() }.joinToString(" · ")
+                    if (detail.isNotBlank()) {
+                        Text(
+                            detail,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 if (item.selected) StatusChip(str("backend.driver.active"), Success)
                 if (perGameActive) {

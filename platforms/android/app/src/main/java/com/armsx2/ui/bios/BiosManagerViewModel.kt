@@ -270,8 +270,10 @@ class BiosManagerViewModel(application: Application) : AndroidViewModel(applicat
     private fun unrecognisedBios(file: File): BiosInfo? {
         if (file.extension.lowercase() in BIOS_SIDECARS) return null
         if (file.length() < MIN_BIOS_BYTES) return null
+        // No description: there is nothing true to say about an image the core could not read,
+        // and the row is complete without it -- filename, COH-H, and the button to select it.
         // Region 11 is COH-H, which is what an arcade image would report if it could be read.
-        return BiosInfo(0, 11, "Ainda não reconhecida", "")
+        return BiosInfo(0, 11, "", "")
     }
 
     private fun probe(file: File): BiosInfo? = runCatching {
