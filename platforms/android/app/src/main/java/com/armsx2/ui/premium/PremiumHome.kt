@@ -148,6 +148,12 @@ fun PremiumHome(
                         .heightIn(max = 360.dp),
                 )
                 Spacer(Modifier.height(20.dp))
+            } else {
+                // With no game to show, nothing claims the middle of the screen and the row of
+                // destinations rode up under the greeting -- stranded a third of the way down,
+                // anchored to nothing. The card carries the weight when there is one; this
+                // carries it when there is not, so the row sits at the foot either way.
+                Spacer(Modifier.weight(1f))
             }
 
             DestinationRow(
