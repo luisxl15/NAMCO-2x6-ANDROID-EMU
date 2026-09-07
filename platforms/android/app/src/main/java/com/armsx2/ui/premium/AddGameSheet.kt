@@ -83,6 +83,12 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
     var batchIndex by remember { mutableStateOf(0) }
     var batchTotal by remember { mutableStateOf(0) }
 
+    // The local-network drop box. Only alive while this sheet is open: it is a tool for the
+    // minute you are moving files, not a service the app should be running in the background.
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { com.armsx2.data.library.LanUpload.stop() }
+    }
+
     val folderZipPicker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree(),
     ) { tree ->
@@ -99,8 +105,13 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
                         ?.listFiles().orEmpty()
                         .filter { !it.isDirectory }
                         .mapNotNull { doc -> doc.name?.let { doc.uri to it } }
+                        // .7z counts now that there is a decoder for it, and .rar is kept in
+                        // deliberately: it gets a line in the report saying it cannot be opened,
+                        // which is more use than silently not appearing.
                         .filter { (_, name) ->
-                            name.endsWith(".zip", true) || ArcadeZipInstall.unsupported(name)
+                            name.endsWith(".zip", true) ||
+                                ArcadeZipInstall.isSevenZip(name) ||
+                                ArcadeZipInstall.unsupported(name)
                         }
                         .sortedBy { it.second.lowercase() }
                 }.getOrDefault(emptyList())
@@ -134,7 +145,7 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
         if (picked == null) return@rememberLauncherForActivityResult
         val name = displayNameOf(context, picked)
         if (ArcadeZipInstall.unsupported(name)) {
-            note = "Só consigo abrir .zip. Extraia o .7z antes e copie a pasta."
+            note = "Não consigo abrir .rar. Extraia antes, ou use .zip ou .7z."
         } else {
             note = null
             zipUri = picked
@@ -207,6 +218,32 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
                     )
                 }
                 if (zip == null && !installing && batchAt == null) {
+                    val lanCtx = context
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(Radii.pill))
+                            .material(MaterialLevel.Thin, RoundedCornerShape(Radii.pill))
+                            .controllerFocusable("add.lan", RoundedCornerShape(Radii.pill)) {
+                                toggleLan(lanCtx) { scope.launch {
+                                    found = withContext(Dispatchers.IO) { AcgameWizard.findCandidates(lanCtx) }
+                                    onCreated()
+                                } }
+                            }
+                            .clickable {
+                                toggleLan(lanCtx) { scope.launch {
+                                    found = withContext(Dispatchers.IO) { AcgameWizard.findCandidates(lanCtx) }
+                                    onCreated()
+                                } }
+                            }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    ) {
+                        Text(
+                            if (com.armsx2.data.library.LanUpload.address.value != null) "Parar envio"
+                            else "Enviar do PC",
+                            style = Type.subheadline, color = Palette.label,
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(Radii.pill))
@@ -255,6 +292,7 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
             Spacer(Modifier.height(18.dp))
 
             when {
+                com.armsx2.data.library.LanUpload.address.value != null -> LanPanel()
                 batchAt != null -> BatchProgress(batchAt!!, batchIndex, batchTotal)
                 batch != null -> BatchReport(batch!!) { batch = null }
                 zip != null -> ZipPanel(
@@ -450,6 +488,60 @@ private fun human(bytes: Long): String = when {
     bytes >= 1L shl 30 -> "%.1f GB".format(bytes.toDouble() / (1L shl 30))
     bytes >= 1L shl 20 -> "%.0f MB".format(bytes.toDouble() / (1L shl 20))
     else -> "%.0f KB".format(bytes.toDouble() / 1024.0)
+}
+
+/** Start or stop the local-network drop box. */
+private fun toggleLan(context: android.content.Context, onInstalled: () -> Unit) {
+    if (com.armsx2.data.library.LanUpload.running) com.armsx2.data.library.LanUpload.stop()
+    else com.armsx2.data.library.LanUpload.start(context, onInstalled)
+}
+
+/**
+ * The address to type on the computer, and what has arrived.
+ *
+ * The address is the whole interface: everything else happens in a browser on the other machine.
+ * What this side owes the player is the URL in big enough type to read across a desk, and a line
+ * per file so they know it landed.
+ */
+@Composable
+private fun LanPanel() {
+    val lan = com.armsx2.data.library.LanUpload
+    Column(Modifier.fillMaxSize()) {
+        Text("No computador, abra:", style = Type.footnote, color = Palette.labelSecondary)
+        Spacer(Modifier.height(6.dp))
+        Text(lan.address.value.orEmpty(), style = Type.title2, color = Palette.accentBright)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Arraste o .zip ou .7z na página que abrir. O aparelho e o computador precisam " +
+                "estar na mesma rede.",
+            style = Type.footnote, color = Palette.labelSecondary,
+        )
+
+        lan.receivingName.value?.let { name ->
+            Spacer(Modifier.height(18.dp))
+            Text("Recebendo $name", style = Type.footnote, color = Palette.label)
+            Spacer(Modifier.height(8.dp))
+            val total = lan.expected.value
+            if (total > 0L) {
+                LinearProgressIndicator(
+                    progress = { (lan.received.value.toFloat() / total).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Palette.accentBright,
+                )
+            } else {
+                LinearProgressIndicator(Modifier.fillMaxWidth(), color = Palette.accentBright)
+            }
+        }
+
+        if (lan.log.isNotEmpty()) {
+            Spacer(Modifier.height(18.dp))
+            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(lan.log.toList()) { line ->
+                    Text(line, style = Type.footnote, color = Palette.labelSecondary)
+                }
+            }
+        }
+    }
 }
 
 /** While a folder is installing: which archive, and how far along the list. */

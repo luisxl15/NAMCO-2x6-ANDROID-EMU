@@ -7,11 +7,13 @@ import com.armsx2.data.library.ArcadeCompat
 import com.armsx2.data.library.ArcadePreflight
 import com.armsx2.data.library.ArcadeRepair
 import com.armsx2.data.library.ArcadeZipInstall
+import com.armsx2.data.library.LanUpload
 import com.armsx2.data.library.OpenBiosRepo
 import com.armsx2.input.AndroidGyroscopeInput
 import com.armsx2.input.ArcadeSwitches
 import com.armsx2.input.LightgunAim
 import com.armsx2.input.Taiko
+import com.armsx2.i18n.AppMessages
 import com.armsx2.i18n.HotkeyNames
 import com.armsx2.input.ControllerMappings
 import com.armsx2.ui.premium.humanNote
@@ -713,5 +715,108 @@ class ArcadeTest {
         assertTrue(OpenBiosRepo.parseIndex("nao e json").isEmpty())
         assertTrue(OpenBiosRepo.parseIndex("""{"bios":null}""").isEmpty())
         assertTrue(OpenBiosRepo.parseListing("{}").isEmpty())
+    }
+
+    // ------------------------------------------------------- manager messages
+
+    @Test
+    fun `a message that carries a filename keeps it`() {
+        // These are matched by shape, not by an exact key, because most of them have a filename
+        // or a slot number in the middle. Dropping the captured group is the way that goes wrong.
+        assertEquals(
+            "Não foi possível apagar r27v1602f.8g.",
+            AppMessages.translate("pt-BR", "Unable to delete r27v1602f.8g."),
+        )
+        assertEquals(
+            "NM00004.ps2 atribuído ao slot 1.",
+            AppMessages.translate("pt-BR", "NM00004.ps2 assigned to slot 1."),
+        )
+        assertEquals(
+            "O slot 2 volta a seguir o cartão global. Reinicie o jogo para aplicar.",
+            AppMessages.translate("pt-BR", "Slot 2 follows the global card again. Restart the game to apply."),
+        )
+    }
+
+    @Test
+    fun `a sentence with no rule comes through in English`() {
+        // The right failure: an upstream rewording loses its translation and keeps its meaning.
+        val unknown = "Something upstream started saying today."
+        assertEquals(unknown, AppMessages.translate("pt-BR", unknown))
+        // And another language is never touched.
+        assertEquals(
+            "Unable to delete x.bin.",
+            AppMessages.translate("en", "Unable to delete x.bin."),
+        )
+    }
+
+    @Test
+    fun `the longest messages match whole, not by prefix`() {
+        val english = "Stop the game before restoring a memory card. The console keeps its own " +
+            "picture of the card while it runs, and would write over the restored copy."
+        val out = AppMessages.translate("pt-BR", english)
+        assertTrue("não traduziu: $out", out.startsWith("Feche o jogo"))
+        // The whole sentence, not just its opening: the second half is where a prefix match
+        // would leave English behind. ("memory card" stays -- it is what the app calls them.)
+        assertTrue("parou no meio: $out", out.endsWith("cópia restaurada."))
+        assertTrue("sobrou inglês: $out", !out.contains("Stop the game"))
+    }
+
+    // ------------------------------------------------------------------ 7z
+
+    @Test
+    fun `the 7z reader is on the classpath and works`() {
+        // A smoke test of the dependency itself, not of our code. commons-compress reads 7z from
+        // a random-access file and delegates LZMA2 to xz; without the second one an archive opens
+        // and then throws on its first entry, which is exactly the kind of half-working that a
+        // "compiles fine" build hides.
+        val file = File.createTempFile("armsx2", ".7z")
+        file.deleteOnExit()
+        org.apache.commons.compress.archivers.sevenz.SevenZOutputFile(file).use { out ->
+            val entry = out.createArchiveEntry(File("NM00004.chd"), "NM00004/NM00004.chd")
+            out.putArchiveEntry(entry)
+            out.write(ByteArray(4096) { 7 })
+            out.closeArchiveEntry()
+        }
+        org.apache.commons.compress.archivers.sevenz.SevenZFile.builder()
+            .setFile(file).get().use { archive ->
+                val e = archive.nextEntry
+                assertEquals("NM00004/NM00004.chd", e.name)
+                val buf = ByteArray(4096)
+                assertEquals(4096, archive.read(buf))
+                assertEquals(7.toByte(), buf[0])
+                assertEquals(null, archive.nextEntry)
+            }
+    }
+
+    @Test
+    fun `only rar is refused by name now`() {
+        assertTrue(ArcadeZipInstall.isSevenZip("jogo.7z"))
+        assertTrue(!ArcadeZipInstall.isSevenZip("jogo.zip"))
+        assertTrue(!ArcadeZipInstall.unsupported("jogo.7z"))
+        assertTrue(ArcadeZipInstall.unsupported("jogo.rar"))
+    }
+
+    // ----------------------------------------------------------- upload names
+
+    @Test
+    fun `an uploaded name is stripped to a bare filename`() {
+        // A browser sends whatever it was given. A name carrying a path would write outside the
+        // ROM folder, which is the one thing a server that accepts files must not allow.
+        assertEquals("jogo.zip", LanUpload.fileNameFrom("/upload?name=jogo.zip"))
+        assertEquals("jogo.zip", LanUpload.fileNameFrom("/upload?name=%2Fetc%2Fjogo.zip"))
+        assertEquals("jogo.zip", LanUpload.fileNameFrom("/upload?name=..%2F..%2Fjogo.zip"))
+        assertEquals("jogo.zip", LanUpload.fileNameFrom("/upload?name=C%3A%5Ctmp%5Cjogo.zip"))
+        // Percent-encoding is undone, so a real name with spaces survives.
+        assertEquals(
+            "Capcom Fighting Jam.7z",
+            LanUpload.fileNameFrom("/upload?name=Capcom%20Fighting%20Jam.7z"),
+        )
+    }
+
+    @Test
+    fun `a name that is only a path is refused`() {
+        assertEquals(null, LanUpload.fileNameFrom("/upload?name=..%2F.."))
+        assertEquals(null, LanUpload.fileNameFrom("/upload?name="))
+        assertEquals(null, LanUpload.fileNameFrom("/upload"))
     }
 }

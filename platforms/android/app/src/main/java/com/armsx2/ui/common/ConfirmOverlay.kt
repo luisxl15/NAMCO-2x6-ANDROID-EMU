@@ -71,7 +71,10 @@ fun ConfirmOverlay(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    message,
+                    // The manager screens write these sentences straight into their view models,
+                    // in English, outside the string tables. This is the one place all of them
+                    // pass through, so it is where they are translated.
+                    com.armsx2.i18n.AppMessages.text(message),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -148,7 +151,7 @@ fun NotifyOverlay(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    message,
+                    com.armsx2.i18n.AppMessages.text(message),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier

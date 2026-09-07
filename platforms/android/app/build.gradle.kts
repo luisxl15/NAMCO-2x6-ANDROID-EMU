@@ -428,11 +428,23 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
 
+    // .7z, for the game installer. Android ships a zip decoder and nothing else, so an archive in
+    // the format half these games are passed around in had to be extracted by hand elsewhere
+    // first. commons-compress reads 7z from a SeekableByteChannel -- which a content URI can give
+    // us -- and xz is the LZMA/LZMA2 codec it delegates to; 7z without it opens and then fails on
+    // the first entry.
+    implementation("org.apache.commons:commons-compress:1.27.1")
+    implementation("org.tukaani:xz:1.10")
+
     testImplementation(libs.junit)
     // The real org.json on the unit-test classpath. Android's stub jar throws "Stub!" from every
     // method, and our JSON parse is wrapped in runCatching, so without this the compatibility
     // list would silently parse as empty in tests -- the exact failure the tests exist to catch.
     testImplementation("org.json:json:20231013")
+    // The 7z reader on the test classpath, so the smoke test that proves the codec actually
+    // decodes (rather than merely linking) can run without a device.
+    testImplementation("org.apache.commons:commons-compress:1.27.1")
+    testImplementation("org.tukaani:xz:1.10")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     debugImplementation(libs.androidx.compose.ui.tooling)

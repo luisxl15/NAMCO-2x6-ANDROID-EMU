@@ -5,7 +5,9 @@ import android.net.Uri
 import com.armsx2.runtime.MainActivityRuntime
 import java.io.File
 import java.io.InputStream
+import java.nio.channels.SeekableByteChannel
 import java.util.zip.ZipInputStream
+import org.apache.commons.compress.archivers.sevenz.SevenZFile
 
 /**
  * Installing a game from the archive it arrived in.
@@ -16,8 +18,9 @@ import java.util.zip.ZipInputStream
  * directory and only then opening the add-game sheet. Four steps outside the app, each of which
  * ends in "the emulator does not see my game" when one of them goes slightly wrong.
  *
- * Only ZIP. A `.7z` is a different container and Android ships no decoder for it, so it is
- * refused by name rather than failing halfway through with something unreadable.
+ * ZIP and 7z. Android ships a zip decoder and nothing else, so 7z -- the format half of these
+ * games are passed around in -- used to be refused by name; commons-compress reads it now. RAR is
+ * still refused by name rather than failing halfway through with something unreadable.
  *
  * Extraction stages into a `.part` folder and renames at the end, so an install interrupted
  * halfway — the app killed, the storage full — leaves nothing the library will scan and nothing
@@ -35,6 +38,8 @@ object ArcadeZipInstall {
         val files: List<String>,
         /** That folder, with its slash, or "" -- so extraction strips exactly what this did. */
         val root: String,
+        /** The archive's own filename, which is what decides zip or 7z at extraction time. */
+        val archiveName: String,
         val media: String?,
         val dongle: String?,
         val elf: String?,
@@ -88,8 +93,11 @@ object ArcadeZipInstall {
     }.getOrDefault(false)
 
     /** True for archives this cannot open — said before anything is extracted. */
-    fun unsupported(name: String): Boolean =
-        name.endsWith(".7z", true) || name.endsWith(".rar", true)
+    fun unsupported(name: String): Boolean = name.endsWith(".rar", true)
+
+    /** Whether to read this as 7z rather than zip. By extension: the two containers share no
+     *  reader, and guessing from the magic bytes would mean opening the file twice. */
+    internal fun isSevenZip(name: String): Boolean = name.endsWith(".7z", true)
 
     /**
      * What came of looking inside an archive.
@@ -111,18 +119,7 @@ object ArcadeZipInstall {
                 "Use uma pasta na memória interna do aparelho.",
         )
         val entries = mutableListOf<Pair<String, Long>>()
-        val read = runCatching {
-            openStream(context, uri)?.use { input ->
-                ZipInputStream(input.buffered()).use { zip ->
-                    while (true) {
-                        val e = zip.nextEntry ?: break
-                        if (!e.isDirectory) entries += e.name.replace('\\', '/') to e.size.coerceAtLeast(0L)
-                        zip.closeEntry()
-                    }
-                }
-                true
-            } ?: false
-        }
+        val read = runCatching { listEntries(context, uri, isSevenZip(displayName), entries) }
         if (read.isFailure) {
             return Look.Refused("Não consegui ler o arquivo: ${read.exceptionOrNull()?.message}")
         }
@@ -149,8 +146,9 @@ object ArcadeZipInstall {
             Preview(
             gameId = gameId,
             title = compat?.name?.takeIf { it.isNotBlank() },
-            files = stripped,
-            root = root,
+                files = stripped,
+                root = root,
+                archiveName = displayName,
             media = media,
             dongle = names.firstOrNull { it.endsWith(".ps2", true) },
             elf = names.firstOrNull { it.endsWith(".elf", true) },
@@ -243,6 +241,125 @@ object ArcadeZipInstall {
         }
     }
 
+    // ---- reading the two containers ------------------------------------------
+    //
+    // Zip streams; 7z does not. Its directory is at the END of the file and its entries can be
+    // compressed as one solid block, so it needs random access -- which a content URI can still
+    // give us, through the file descriptor's channel. That is the whole difference; above this
+    // line neither the caller nor the preview knows which kind it is holding.
+
+    private fun listEntries(
+        context: Context,
+        uri: Uri,
+        sevenZip: Boolean,
+        into: MutableList<Pair<String, Long>>,
+    ): Boolean {
+        if (sevenZip) {
+            val channel = openChannel(context, uri) ?: return false
+            channel.use { ch ->
+                SevenZFile.builder().setSeekableByteChannel(ch).get().use { archive ->
+                    while (true) {
+                        val e = archive.nextEntry ?: break
+                        if (!e.isDirectory) {
+                            into += e.name.replace('\\', '/') to e.size.coerceAtLeast(0L)
+                        }
+                    }
+                }
+            }
+            return true
+        }
+        val stream = openStream(context, uri) ?: return false
+        stream.use { input ->
+            ZipInputStream(input.buffered()).use { zip ->
+                while (true) {
+                    val e = zip.nextEntry ?: break
+                    if (!e.isDirectory) into += e.name.replace('\\', '/') to e.size.coerceAtLeast(0L)
+                    zip.closeEntry()
+                }
+            }
+        }
+        return true
+    }
+
+    /** Where one entry lands, or null when its name would escape the folder being built. */
+    private fun target(staging: File, root: String, name: String): File? {
+        val rel = name.replace('\\', '/').trimStart('/').removePrefix(root)
+        val out = File(staging, rel)
+        // Zip-slip: an entry named ../../something would otherwise be written outside.
+        if (!out.canonicalPath.startsWith(staging.canonicalPath + File.separator)) return null
+        return out
+    }
+
+    private fun extractAll(
+        context: Context,
+        uri: Uri,
+        preview: Preview,
+        staging: File,
+        onProgress: (Long) -> Unit,
+    ): String? {
+        var written = 0L
+        val buffer = ByteArray(1 shl 16)
+
+        if (isSevenZip(preview.archiveName)) {
+            val channel = openChannel(context, uri) ?: return "Não foi possível abrir o arquivo."
+            channel.use { ch ->
+                SevenZFile.builder().setSeekableByteChannel(ch).get().use { archive ->
+                    while (true) {
+                        val entry = archive.nextEntry ?: break
+                        if (entry.isDirectory) continue
+                        val out = target(staging, preview.root, entry.name) ?: continue
+                        out.parentFile?.mkdirs()
+                        out.outputStream().buffered().use { sink ->
+                            while (true) {
+                                val n = archive.read(buffer)
+                                if (n <= 0) break
+                                sink.write(buffer, 0, n)
+                                written += n
+                                onProgress(written)
+                            }
+                        }
+                    }
+                }
+            }
+            return null
+        }
+
+        val stream = openStream(context, uri) ?: return "Não foi possível abrir o arquivo."
+        stream.use { input ->
+            ZipInputStream(input.buffered()).use { zip ->
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    if (entry.isDirectory) { zip.closeEntry(); continue }
+                    val out = target(staging, preview.root, entry.name)
+                    if (out == null) { zip.closeEntry(); continue }
+                    out.parentFile?.mkdirs()
+                    out.outputStream().buffered().use { sink ->
+                        while (true) {
+                            val n = zip.read(buffer)
+                            if (n <= 0) break
+                            sink.write(buffer, 0, n)
+                            written += n
+                            onProgress(written)
+                        }
+                    }
+                    zip.closeEntry()
+                }
+            }
+        }
+        return null
+    }
+
+    /** A seekable view of the archive, which 7z needs and a plain stream cannot give. */
+    private fun openChannel(context: Context, uri: Uri): SeekableByteChannel? = runCatching {
+        if (uri.scheme == "file") {
+            uri.path?.let { java.io.RandomAccessFile(File(it), "r").channel }
+        } else {
+            context.contentResolver.openFileDescriptor(uri, "r")?.let { pfd ->
+                android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd).channel
+            }
+        }
+    }.getOrNull()
+
     private fun openStream(context: Context, uri: Uri): InputStream? = runCatching {
         if (uri.scheme == "file") uri.path?.let { File(it).inputStream() }
         else context.contentResolver.openInputStream(uri)
@@ -270,38 +387,8 @@ object ArcadeZipInstall {
         runCatching { staging.deleteRecursively() }
         if (!staging.mkdirs()) return "Não foi possível criar a pasta do jogo."
 
-        var written = 0L
         val problem = runCatching {
-            openStream(context, uri)?.use { input ->
-                ZipInputStream(input.buffered()).use { zip ->
-                    val buffer = ByteArray(1 shl 16)
-                    while (true) {
-                        val entry = zip.nextEntry ?: break
-                        if (entry.isDirectory) { zip.closeEntry(); continue }
-                        val rel = entry.name.replace('\\', '/').trimStart('/')
-                            .removePrefix(preview.root)
-                        val out = File(staging, rel)
-                        // Zip-slip: an entry named ../../something would otherwise be written
-                        // outside the folder we are building.
-                        if (!out.canonicalPath.startsWith(staging.canonicalPath + File.separator)) {
-                            zip.closeEntry()
-                            continue
-                        }
-                        out.parentFile?.mkdirs()
-                        out.outputStream().buffered().use { sink ->
-                            while (true) {
-                                val n = zip.read(buffer)
-                                if (n <= 0) break
-                                sink.write(buffer, 0, n)
-                                written += n
-                                onProgress(written)
-                            }
-                        }
-                        zip.closeEntry()
-                    }
-                }
-                null
-            } ?: "Não foi possível abrir o arquivo."
+            extractAll(context, uri, preview, staging, onProgress)
         }.getOrElse { it.message ?: "Falha ao extrair." }
 
         if (problem != null) {
