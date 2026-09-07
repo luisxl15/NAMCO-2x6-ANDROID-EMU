@@ -60,10 +60,22 @@ object ArcadeZipInstall {
                 (manifest != null && File(destination.parentFile, manifest).exists())
     }
 
-    /** Where a game can be written. The first ROM folder that is a real, writable path. */
+    /**
+     * Where a game can be written. The first ROM folder that is a real, writable path.
+     *
+     * The TREE resolver first, and that is the whole of it. A ROM folder is stored as the tree
+     * URI the folder picker handed back -- `.../tree/primary%3Anamco_246%2Froms` -- which has no
+     * `/document/` segment, so DocumentsContract.getDocumentId throws on it and the document
+     * resolver answers null for every ROM folder the app has. This returned null on a perfectly
+     * good folder, and the zip installer refused to open anything. The rest of the app never saw
+     * it because the library scan falls back to DocumentFile; this has no such fallback, because
+     * extracting gigabytes has to go through the file API.
+     */
     fun romsDir(): File? = MainActivityRuntime.romsDirs.value.asSequence()
         .mapNotNull { raw ->
-            (MainActivityRuntime.resolveDocumentUriToPosix(raw) ?: raw.takeIf { it.startsWith("/") })
+            (MainActivityRuntime.resolveTreeUriToPosix(raw)
+                ?: MainActivityRuntime.resolveDocumentUriToPosix(raw)
+                ?: raw.takeIf { it.startsWith("/") })
                 ?.let(::File)
         }
         .firstOrNull { it.isDirectory && canWrite(it) }
@@ -80,24 +92,42 @@ object ArcadeZipInstall {
         name.endsWith(".7z", true) || name.endsWith(".rar", true)
 
     /**
-     * Read the archive's table of contents.
+     * What came of looking inside an archive.
      *
-     * Blocking. Returns null when the archive holds no game image, which is the one thing that
-     * makes it not a game.
+     * A refusal carries its own sentence, because there are five different ways this can decline
+     * and they want five different answers from the player: a folder to fix, a different file to
+     * pick, a rename. One "nothing to install" for all of them says only that something is wrong
+     * with something.
      */
-    fun inspect(context: Context, uri: Uri, displayName: String): Preview? {
-        val roms = romsDir() ?: return null
+    sealed interface Look {
+        data class Ready(val preview: Preview) : Look
+        data class Refused(val why: String) : Look
+    }
+
+    /** Read the archive's table of contents. Blocking. */
+    fun inspect(context: Context, uri: Uri, displayName: String): Look {
+        val roms = romsDir() ?: return Look.Refused(
+            "Nenhuma pasta de ROMs com caminho de arquivo real e gravável. " +
+                "Use uma pasta na memória interna do aparelho.",
+        )
         val entries = mutableListOf<Pair<String, Long>>()
-        openStream(context, uri)?.use { input ->
-            ZipInputStream(input.buffered()).use { zip ->
-                while (true) {
-                    val e = zip.nextEntry ?: break
-                    if (!e.isDirectory) entries += e.name.replace('\\', '/') to e.size.coerceAtLeast(0L)
-                    zip.closeEntry()
+        val read = runCatching {
+            openStream(context, uri)?.use { input ->
+                ZipInputStream(input.buffered()).use { zip ->
+                    while (true) {
+                        val e = zip.nextEntry ?: break
+                        if (!e.isDirectory) entries += e.name.replace('\\', '/') to e.size.coerceAtLeast(0L)
+                        zip.closeEntry()
+                    }
                 }
-            }
-        } ?: return null
-        if (entries.isEmpty()) return null
+                true
+            } ?: false
+        }
+        if (read.isFailure) {
+            return Look.Refused("Não consegui ler o arquivo: ${read.exceptionOrNull()?.message}")
+        }
+        if (read.getOrDefault(false).not()) return Look.Refused("Não consegui abrir o arquivo.")
+        if (entries.isEmpty()) return Look.Refused("O arquivo está vazio ou não é um .zip.")
 
         val root = commonRoot(entries.map { it.first })
         val stripped = entries.map {
@@ -105,11 +135,18 @@ object ArcadeZipInstall {
         }
         val names = stripped.map { it.substringAfterLast('/') }
         val media = names.firstOrNull { it.substringAfterLast('.', "").lowercase() in MEDIA_EXT }
-            ?: return null
+            ?: return Look.Refused(
+                "Não há imagem de jogo (.chd, .iso, .cso ou .zso) dentro do arquivo.",
+            )
 
-        val gameId = gameIdFrom(entries.map { it.first }, media, displayName) ?: return null
+        val gameId = gameIdFrom(entries.map { it.first }, media, displayName)
+            ?: return Look.Refused(
+                "Não consegui descobrir o gameid. Nada dentro do arquivo, nem o nome dele, " +
+                    "está no formato NMxxxxx.",
+            )
         val compat = ArcadeCompat.entryFor(context, gameId)
-        return Preview(
+        return Look.Ready(
+            Preview(
             gameId = gameId,
             title = compat?.name?.takeIf { it.isNotBlank() },
             files = stripped,
@@ -122,8 +159,9 @@ object ArcadeZipInstall {
             // scatter the payload across the ROM folder.
             manifest = stripped.firstOrNull { !it.contains('/') && it.endsWith(".acgame", true) },
             totalBytes = entries.sumOf { it.second },
-            destination = File(roms, gameId),
-            compat = compat,
+                destination = File(roms, gameId),
+                compat = compat,
+            ),
         )
     }
 

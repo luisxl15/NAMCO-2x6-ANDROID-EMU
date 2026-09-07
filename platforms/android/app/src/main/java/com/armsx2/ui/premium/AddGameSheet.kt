@@ -81,25 +81,24 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
     ) { picked ->
         if (picked == null) return@rememberLauncherForActivityResult
         val name = displayNameOf(context, picked)
-        when {
-            ArcadeZipInstall.unsupported(name) ->
-                note = "Só consigo abrir .zip. Extraia o .7z antes e copie a pasta."
-            ArcadeZipInstall.romsDir() == null ->
-                note = "Nenhuma pasta de ROMs com caminho real e permissao de escrita."
-            else -> {
-                note = null
-                zipUri = picked
-                reading = true
-                scope.launch {
-                    val preview = withContext(Dispatchers.IO) {
-                        runCatching { ArcadeZipInstall.inspect(context, picked, name) }.getOrNull()
-                    }
-                    reading = false
-                    if (preview == null) {
-                        note = "Nao achei uma imagem de jogo (.chd/.iso) dentro do arquivo."
-                    } else {
-                        zip = preview
-                    }
+        if (ArcadeZipInstall.unsupported(name)) {
+            note = "Só consigo abrir .zip. Extraia o .7z antes e copie a pasta."
+        } else {
+            note = null
+            zipUri = picked
+            reading = true
+            scope.launch {
+                // Every way this can decline has its own sentence -- see ArcadeZipInstall.Look.
+                // One "nothing to install" covering all of them says only that something,
+                // somewhere, is wrong.
+                val look = withContext(Dispatchers.IO) {
+                    runCatching { ArcadeZipInstall.inspect(context, picked, name) }
+                        .getOrElse { ArcadeZipInstall.Look.Refused(it.message ?: "Falha ao ler o arquivo.") }
+                }
+                reading = false
+                when (look) {
+                    is ArcadeZipInstall.Look.Ready -> zip = look.preview
+                    is ArcadeZipInstall.Look.Refused -> note = look.why
                 }
             }
         }
