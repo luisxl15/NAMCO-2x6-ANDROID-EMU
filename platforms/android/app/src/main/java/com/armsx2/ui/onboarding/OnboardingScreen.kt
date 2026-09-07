@@ -697,13 +697,21 @@ private fun BiosRow(candidate: BiosCandidate, selected: Boolean, onClick: () -> 
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                listOfNotNull(candidate.info.description, candidate.info.versionString).joinToString(" · "),
-                style = Type.footnote,
-                color = Palette.labelSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // Skipped entirely when there is nothing in it: an image the core could not read has
+            // no description and no version, and an empty line still takes a line's height.
+            val detail = listOfNotNull(
+                candidate.info.description.takeIf { it.isNotBlank() },
+                candidate.info.versionString.takeIf { candidate.info.version != 0 },
+            ).joinToString(" · ")
+            if (detail.isNotBlank()) {
+                Text(
+                    detail,
+                    style = Type.footnote,
+                    color = Palette.labelSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         if (selected) {
             Spacer(Modifier.width(12.dp))

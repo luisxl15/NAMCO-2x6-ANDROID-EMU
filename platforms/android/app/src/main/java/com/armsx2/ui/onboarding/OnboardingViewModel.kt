@@ -217,13 +217,13 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             .listFiles().orEmpty()
             .filter(File::isFile)
             .mapNotNull { file ->
-                runCatching {
+                val info = runCatching {
                     val fd = android.os.ParcelFileDescriptor.open(
                         file, android.os.ParcelFileDescriptor.MODE_READ_ONLY,
                     )
                     NativeApp.getBiosInfoFromFd(fd.detachFd())
-                        ?.let { BiosCandidate(file.name, file.absolutePath, it) }
-                }.getOrNull()
+                }.getOrNull() ?: unreadableImage(file) ?: return@mapNotNull null
+                BiosCandidate(file.name, file.absolutePath, info)
             }
             .sortedBy { it.name.lowercase() }
         if (options.isEmpty()) return
@@ -236,6 +236,22 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
             biosOptions = options,
             selectedBiosPath = chosen.path,
         )
+    }
+
+    /**
+     * A stand-in for an image in the BIOS folder that the core cannot read yet.
+     *
+     * The same rule the BIOS manager's list uses, and for the same reason: an open BIOS under
+     * development has to be selectable or its author can never point the emulator at it. It would
+     * be strange for the wizard to hide the one the manager shows. Sidecars are kept out by
+     * extension and anything small by size, so the .nvm and .mec files beside a BIOS do not
+     * become rows. Region 11 is COH-H, which is what an arcade image would report if it could
+     * be read; description empty, because there is nothing true to say.
+     */
+    private fun unreadableImage(file: File): BiosInfo? {
+        if (file.extension.lowercase() in setOf("nvm", "mec", "rom1", "rom2", "erom", "part")) return null
+        if (file.length() < (1L shl 20)) return null
+        return BiosInfo(0, 11, "", "")
     }
 
     /** Switch the active BIOS to one the user tapped in the setup list. */
