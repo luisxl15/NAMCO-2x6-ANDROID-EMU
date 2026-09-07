@@ -84,6 +84,10 @@ fun PremiumHome(
 ) {
     val state = viewModel.state.value
     var showLibrary by remember { mutableStateOf(false) }
+    // The game whose per-game menu is open. The card shows one game, so "configure" here can
+    // only ever mean that one -- which is the whole reason this belongs on the card and not in
+    // the top bar, where settings are global and say nothing about what is on screen.
+    var menuGame by remember { mutableStateOf<GameInfo?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.load(MainActivityRuntime.romsDirs.value, MainActivityRuntime.nativeReady.value)
@@ -142,6 +146,7 @@ fun PremiumHome(
                 HeroCard(
                     game = hero,
                     onPlay = { viewModel.launch(hero) },
+                    onConfigure = { menuGame = hero },
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
@@ -159,6 +164,15 @@ fun PremiumHome(
             DestinationRow(
                 onLibrary = { showLibrary = true },
                 onNavigate = onNavigate,
+            )
+        }
+
+        // Last in the Box, so it covers the card it belongs to.
+        menuGame?.let { game ->
+            GameContextMenu(
+                game = game,
+                onDismiss = { menuGame = null },
+                onPlay = { viewModel.launch(it) },
             )
         }
     }
@@ -206,7 +220,12 @@ private fun GlyphButton(
 }
 
 @Composable
-private fun HeroCard(game: GameInfo, onPlay: () -> Unit, modifier: Modifier = Modifier) {
+private fun HeroCard(
+    game: GameInfo,
+    onPlay: () -> Unit,
+    onConfigure: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val title = game.displayTitle(EnglishTitles.enabled.value)
     val context = LocalContext.current
     val heroVersion = HeroArt.version.intValue
@@ -307,7 +326,14 @@ private fun HeroCard(game: GameInfo, onPlay: () -> Unit, modifier: Modifier = Mo
                     Spacer(Modifier.height(if (tight) 2.dp else 4.dp))
                     Text(metaLine(game), style = Type.footnote, color = Palette.labelSecondary)
                     Spacer(Modifier.height(gap))
-                    PlayButton(onPlay)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PlayButton(onPlay)
+                        Spacer(Modifier.width(10.dp))
+                        // Beside Play, because it configures the game Play would start. The top
+                        // bar's cog opens the emulator's own settings and always did; this one
+                        // has a game attached and only ever touches that game's own layer.
+                        GlyphButton(Arc.settings, id = "home.hero.settings", phase = 0.7f, onClick = onConfigure)
+                    }
                     // Play time is the first thing to go: it is the only line here the player can
                     // read somewhere else (the library's detail pane).
                     if (roomy) {

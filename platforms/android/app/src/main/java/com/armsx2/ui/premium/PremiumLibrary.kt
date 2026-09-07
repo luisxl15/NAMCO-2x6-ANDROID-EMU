@@ -14,7 +14,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -100,6 +102,9 @@ fun PremiumLibrary(
     modifier: Modifier = Modifier,
 ) {
     var adding by remember { mutableStateOf(false) }
+    // The game whose per-game menu is open, or null. Held out here with the other screen-level
+    // state, so dismissing the sheet cannot disturb the grid's own selection.
+    var menuGame by remember { mutableStateOf<GameInfo?>(null) }
     var sort by rememberSaveable { mutableStateOf(LibrarySort.Recent) }
     var query by rememberSaveable { mutableStateOf("") }
 
@@ -198,6 +203,7 @@ fun PremiumLibrary(
                 if (shown.isEmpty()) {
                     NoMatches(query)
                 } else BoxWithConstraints(Modifier.fillMaxSize()) {
+
                     // The pane needs real width to be worth the space it takes; below that the
                     // grid gets the whole screen and the pane would only crowd it.
                     val roomForPane = maxWidth >= 720.dp
@@ -221,6 +227,11 @@ fun PremiumLibrary(
                                     onClick = {
                                         if (key == selectedKey) onLaunch(game) else selectedKey = key
                                     },
+                                    // Hold the cover for everything that belongs to this game
+                                    // alone. A tap already means select-then-play, so the long
+                                    // press is the only gesture left that can mean "about THIS
+                                    // one" -- and it is where a phone player looks for it.
+                                    onLongClick = { menuGame = game },
                                 )
                             }
                         }
@@ -246,6 +257,16 @@ fun PremiumLibrary(
         // press, because the list is on top of it.
         if (adding) {
             AddGameSheet(onDismiss = { adding = false }, onCreated = onRefresh)
+        }
+
+        // Same reason as the sheet above: last inside the Box so it draws over the grid it is
+        // covering, rather than under it.
+        menuGame?.let { game ->
+            GameContextMenu(
+                game = game,
+                onDismiss = { menuGame = null },
+                onPlay = onLaunch,
+            )
         }
     }
 }
@@ -424,8 +445,14 @@ private fun EmptyLibrary() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LibraryCard(game: GameInfo, selected: Boolean, onClick: () -> Unit) {
+private fun LibraryCard(
+    game: GameInfo,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
     val id = game.uri.toString()
     var pressed by remember { mutableStateOf(false) }
     // No scale-up on selection: the trace and the lifted brightness already say which one is
@@ -453,7 +480,10 @@ private fun LibraryCard(game: GameInfo, selected: Boolean, onClick: () -> Unit) 
                     },
                 )
                 .controllerFocusable("lib.game.$id", RoundedCornerShape(Radii.tile), onConfirm = { pressed = true; onClick() })
-                .clickable { pressed = true; onClick() },
+                .combinedClickable(
+                    onClick = { pressed = true; onClick() },
+                    onLongClick = onLongClick,
+                ),
         ) {
             CoverArt(game, Modifier.fillMaxSize())
             if (!selected) {
