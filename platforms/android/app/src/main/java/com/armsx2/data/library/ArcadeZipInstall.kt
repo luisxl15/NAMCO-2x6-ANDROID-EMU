@@ -201,6 +201,48 @@ object ArcadeZipInstall {
         return "$first/"
     }
 
+    // ---- a folder of archives ------------------------------------------------
+
+    /** What became of one archive in a folder install. */
+    data class Result(val archive: String, val ok: Boolean, val message: String)
+
+    /**
+     * Install every archive in a list, one after another.
+     *
+     * Never stops on a failure. Building a collection means pointing at a folder of ten files of
+     * which two are a different console's, one is a .7z and one is half-downloaded — and an
+     * installer that gives up on the first of those has installed nothing. Each archive gets its
+     * own line in the result, and the seven good ones are in the library when it finishes.
+     *
+     * Blocking and slow: call it off the main thread. [onArchive] announces which one is starting
+     * (index is zero-based), [onProgress] carries bytes within the current one.
+     */
+    fun installAll(
+        context: Context,
+        archives: List<Pair<Uri, String>>,
+        onArchive: (Int, String) -> Unit,
+        onProgress: (Long) -> Unit,
+    ): List<Result> = archives.mapIndexed { index, (uri, name) ->
+        onArchive(index, name)
+        when {
+            unsupported(name) -> Result(name, false, "não é .zip")
+            else -> when (val look = runCatching { inspect(context, uri, name) }
+                .getOrElse { Look.Refused(it.message ?: "falha ao ler") }) {
+                is Look.Refused -> Result(name, false, look.why)
+                is Look.Ready -> {
+                    val preview = look.preview
+                    if (preview.alreadyThere) {
+                        Result(name, false, "${preview.gameId} já está na biblioteca")
+                    } else {
+                        val problem = install(context, uri, preview, onProgress)
+                        if (problem == null) Result(name, true, preview.gameId)
+                        else Result(name, false, problem)
+                    }
+                }
+            }
+        }
+    }
+
     private fun openStream(context: Context, uri: Uri): InputStream? = runCatching {
         if (uri.scheme == "file") uri.path?.let { File(it).inputStream() }
         else context.contentResolver.openInputStream(uri)

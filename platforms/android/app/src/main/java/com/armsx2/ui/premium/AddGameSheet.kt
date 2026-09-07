@@ -76,6 +76,58 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
     var installing by remember { mutableStateOf(false) }
     var installedBytes by remember { mutableStateOf(0L) }
 
+    // A whole folder of archives. Building a collection is not a one-file job -- ten downloads
+    // sit in one folder and installing them one tap at a time is the same work ten times.
+    var batch by remember { mutableStateOf<List<ArcadeZipInstall.Result>?>(null) }
+    var batchAt by remember { mutableStateOf<String?>(null) }
+    var batchIndex by remember { mutableStateOf(0) }
+    var batchTotal by remember { mutableStateOf(0) }
+
+    val folderZipPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree(),
+    ) { tree ->
+        if (tree == null) return@rememberLauncherForActivityResult
+        if (ArcadeZipInstall.romsDir() == null) {
+            note = "Nenhuma pasta de ROMs com caminho de arquivo real e gravável."
+            return@rememberLauncherForActivityResult
+        }
+        note = null
+        scope.launch {
+            val archives = withContext(Dispatchers.IO) {
+                runCatching {
+                    androidx.documentfile.provider.DocumentFile.fromTreeUri(context, tree)
+                        ?.listFiles().orEmpty()
+                        .filter { !it.isDirectory }
+                        .mapNotNull { doc -> doc.name?.let { doc.uri to it } }
+                        .filter { (_, name) ->
+                            name.endsWith(".zip", true) || ArcadeZipInstall.unsupported(name)
+                        }
+                        .sortedBy { it.second.lowercase() }
+                }.getOrDefault(emptyList())
+            }
+            if (archives.isEmpty()) {
+                note = "Nenhum arquivo compactado nessa pasta."
+                return@launch
+            }
+            batchTotal = archives.size
+            batchIndex = 0
+            batch = null
+            batchAt = archives.first().second
+            val results = withContext(Dispatchers.IO) {
+                ArcadeZipInstall.installAll(
+                    context,
+                    archives,
+                    onArchive = { i, name -> batchIndex = i; batchAt = name },
+                    onProgress = {},
+                )
+            }
+            batchAt = null
+            batch = results
+            found = withContext(Dispatchers.IO) { AcgameWizard.findCandidates(context) }
+            onCreated()
+        }
+    }
+
     val picker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
     ) { picked ->
@@ -154,7 +206,22 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
                         style = Type.footnote, color = Palette.labelSecondary,
                     )
                 }
-                if (zip == null && !installing) {
+                if (zip == null && !installing && batchAt == null) {
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(Radii.pill))
+                            .material(MaterialLevel.Thin, RoundedCornerShape(Radii.pill))
+                            .controllerFocusable("add.zipfolder", RoundedCornerShape(Radii.pill)) {
+                                folderZipPicker.launch(null)
+                            }
+                            .clickable { folderZipPicker.launch(null) }
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    ) {
+                        Text("Pasta de .zip", style = Type.subheadline, color = Palette.label)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                }
+                if (zip == null && !installing && batchAt == null) {
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(Radii.pill))
@@ -188,6 +255,8 @@ fun AddGameSheet(onDismiss: () -> Unit, onCreated: () -> Unit) {
             Spacer(Modifier.height(18.dp))
 
             when {
+                batchAt != null -> BatchProgress(batchAt!!, batchIndex, batchTotal)
+                batch != null -> BatchReport(batch!!) { batch = null }
                 zip != null -> ZipPanel(
                     preview = zip!!,
                     installing = installing,
@@ -381,6 +450,79 @@ private fun human(bytes: Long): String = when {
     bytes >= 1L shl 30 -> "%.1f GB".format(bytes.toDouble() / (1L shl 30))
     bytes >= 1L shl 20 -> "%.0f MB".format(bytes.toDouble() / (1L shl 20))
     else -> "%.0f KB".format(bytes.toDouble() / 1024.0)
+}
+
+/** While a folder is installing: which archive, and how far along the list. */
+@Composable
+private fun BatchProgress(name: String, index: Int, total: Int) {
+    Column(Modifier.fillMaxSize()) {
+        Text("Instalando ${index + 1} de $total", style = Type.title3, color = Palette.label)
+        Spacer(Modifier.height(6.dp))
+        Text(name, style = Type.footnote, color = Palette.labelSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(16.dp))
+        LinearProgressIndicator(
+            progress = { if (total == 0) 0f else (index.toFloat() / total).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth(),
+            color = Palette.accentBright,
+        )
+    }
+}
+
+/**
+ * What became of each archive.
+ *
+ * Every one gets a line, the refused ones included and with their reason. A folder of downloads
+ * always has something odd in it — another console's game, a half-finished file, a .7z — and
+ * "8 instalados" alone leaves you counting to work out which two are missing.
+ */
+@Composable
+private fun BatchReport(results: List<ArcadeZipInstall.Result>, onDone: () -> Unit) {
+    val ok = results.count { it.ok }
+    Column(Modifier.fillMaxSize()) {
+        Text(
+            "$ok de ${results.size} instalados",
+            style = Type.title3, color = Palette.label,
+        )
+        Spacer(Modifier.height(12.dp))
+        LazyColumn(
+            Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(results, key = { it.archive }) { r ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .material(MaterialLevel.UltraThin, RoundedCornerShape(Radii.tile))
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ArcIcon(
+                        if (r.ok) Arc.check else Arc.close,
+                        tint = if (r.ok) Palette.accentBright else Palette.labelTertiary,
+                        size = 13.dp,
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            r.archive,
+                            style = Type.footnote, color = Palette.label,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(r.message, style = Type.caption, color = Palette.labelSecondary)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(Radii.pill))
+                .background(Palette.accent)
+                .controllerFocusable("batch.done", RoundedCornerShape(Radii.pill), onConfirm = onDone)
+                .clickable(onClick = onDone)
+                .padding(horizontal = 22.dp, vertical = 11.dp),
+        ) { Text("Pronto", style = Type.subheadline, color = Color.White) }
+    }
 }
 
 @Composable
