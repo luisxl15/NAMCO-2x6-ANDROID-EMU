@@ -104,6 +104,10 @@ fun AboutScreen(onBack: () -> Unit, viewModel: AboutViewModel = viewModel()) {
                         }
                         hardware(Modifier.fillMaxWidth())
                     }
+                    // Who made this and what it stands on. The screen credited the projects
+                    // underneath and said nothing about the one in front, which left a reader
+                    // unable to tell a rebrand from its own work.
+                    ProjectLinks(Modifier.fillMaxWidth())
                     Text(
                         str("about.pcsx2.description"),
                         style = MaterialTheme.typography.bodySmall,
