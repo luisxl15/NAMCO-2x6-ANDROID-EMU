@@ -20,7 +20,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,6 +55,7 @@ import com.armsx2.ui.settings.controllerFocusable
 fun GameContextMenu(game: GameInfo, onDismiss: () -> Unit, onPlay: (GameInfo) -> Unit) {
     val title = game.displayTitle(EnglishTitles.enabled.value)
     val scroll = rememberScrollState()
+    var showSram by remember { mutableStateOf(false) }
 
     androidx.activity.compose.BackHandler(onBack = onDismiss)
 
@@ -134,6 +138,10 @@ fun GameContextMenu(game: GameInfo, onDismiss: () -> Unit, onPlay: (GameInfo) ->
                     MainActivityRuntime.contextGame.value = game
                     UiNavigator.navigate(AppRoute.SaveManager)
                 }
+                // The board's own memory, which is where the high scores are. Here rather than
+                // on a screen of its own because it belongs to one game the way a memory card
+                // does, and because this is the only place that already knows which game.
+                MenuRow("Recordes e ajustes da placa") { showSram = true }
             }
 
             Spacer(Modifier.height(14.dp))
@@ -143,6 +151,8 @@ fun GameContextMenu(game: GameInfo, onDismiss: () -> Unit, onPlay: (GameInfo) ->
             )
         }
     }
+
+    if (showSram) SramSheet(game) { showSram = false }
 }
 
 @Composable
