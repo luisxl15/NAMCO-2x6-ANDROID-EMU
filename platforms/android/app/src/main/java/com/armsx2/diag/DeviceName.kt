@@ -92,43 +92,5 @@ object DeviceName {
         return if (shown.equals(model.trim(), ignoreCase = true)) head else "$head (${model.trim()})"
     }
 
-    // ---- reading the properties ------------------------------------------------------------
-
-    private val dumped: Map<String, String> by lazy { runCatching { dumpProperties() }.getOrElse { emptyMap() } }
-
-    private val reflected: ((String) -> String?)? by lazy {
-        runCatching {
-            val method = Class.forName("android.os.SystemProperties")
-                .getMethod("get", String::class.java)
-            val read: (String) -> String? = { key -> method.invoke(null, key) as? String }
-            read
-        }.getOrNull()
-    }
-
-    private fun property(key: String): String? {
-        reflected?.let { get -> runCatching { get(key) }.getOrNull()?.let { if (it.isNotBlank()) return it } }
-        return dumped[key]
-    }
-
-    /** One `getprop` with no arguments: lines of the form `[key]: [value]`. */
-    private fun dumpProperties(): Map<String, String> {
-        if (reflected != null) return emptyMap()
-        val process = ProcessBuilder("/system/bin/getprop").redirectErrorStream(true).start()
-        val out = process.inputStream.bufferedReader().use { it.readText() }
-        process.waitFor()
-        return parseGetprop(out)
-    }
-
-    /** Lines of the form `[key]: [value]`; anything else in the dump is skipped. */
-    internal fun parseGetprop(text: String): Map<String, String> {
-        val out = LinkedHashMap<String, String>()
-        text.lineSequence().forEach { raw ->
-            val line = raw.trim()
-            val split = line.indexOf("]: [")
-            if (line.startsWith("[") && line.endsWith("]") && split > 1) {
-                out[line.substring(1, split)] = line.substring(split + 4, line.length - 1)
-            }
-        }
-        return out
-    }
+    private fun property(key: String): String? = SysProp.read(key)
 }

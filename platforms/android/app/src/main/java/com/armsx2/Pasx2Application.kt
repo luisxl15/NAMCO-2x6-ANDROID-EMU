@@ -130,6 +130,10 @@ class Pasx2Application : Application(), ImageLoaderFactory {
 			// so always serve from the disk cache after the first successful
 			// fetch even if the server's Cache-Control says otherwise.
 			.respectCacheHeaders(false)
+			// Decode into graphics memory where the graphics stack can map it. On an emulated GL
+			// stack it cannot, and every cover and logo draws as a white smear -- see
+			// [GraphicsQuirks]. Software bitmaps cost a heap copy and are correct everywhere.
+			.allowHardware(com.armsx2.diag.GraphicsQuirks.hardwareBitmaps)
 			.crossfade(150)
 			.build()
 	}

@@ -2009,7 +2009,7 @@ private fun GameCover(
             .data(model)
             .size(360, 500)
             .precision(Precision.INEXACT)
-            .allowHardware(true)
+            .allowHardware(com.armsx2.diag.GraphicsQuirks.hardwareBitmaps)
             .crossfade(false)
             .build()
     }

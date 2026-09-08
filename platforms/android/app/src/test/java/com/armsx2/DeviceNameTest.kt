@@ -1,6 +1,7 @@
 package com.armsx2
 
 import com.armsx2.diag.DeviceName
+import com.armsx2.diag.SysProp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -85,7 +86,7 @@ class DeviceNameTest {
 
     @Test
     fun `getprop output is read back as pairs`() {
-        val map = DeviceName.parseGetprop(
+        val map = SysProp.parse(
             """
             [ro.product.brand]: [Redmi]
             [ro.product.marketname]: [Redmi Note 13 5G]
