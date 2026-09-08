@@ -280,7 +280,9 @@ object PerfMonitor {
             // The phone, not the chip inside it. SOC_MODEL was here first and it is the wrong
             // answer twice over: it is a part number almost nobody recognises as their device,
             // and it is blank on plenty of phones, so half of them fell back to this line anyway.
-            device = Build.MODEL,
+            // Build.MODEL is the same kind of part number on Xiaomi, OPPO and vivo, so it goes
+            // through DeviceName, which asks the vendor for the retail name first.
+            device = DeviceName.short(),
             abi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty(),
             gpu = runCatching { GpuInfo.rendererName() }.getOrNull()?.let { shortGpu(it) } ?: "?",
             ram = totalGb?.let { String.format(Locale.US, "%.1fGB", it) } ?: "?",

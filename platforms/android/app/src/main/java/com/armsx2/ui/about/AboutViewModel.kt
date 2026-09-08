@@ -23,7 +23,7 @@ data class AboutUiState(
     // numbering, which says nothing about this build.
     val appVersion: String = com.armsx2.BuildConfig.VERSION_NAME,
     val coreVersion: String = "",
-    val device: String = "${Build.MANUFACTURER} ${Build.MODEL}".trim(),
+    val device: String = com.armsx2.diag.DeviceName.full().trim(),
     val androidVersion: String = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
     val soc: String = "",
     val gpu: String = "",

@@ -151,7 +151,7 @@ object PerfReport {
             appendLine("Namco System 246 EMU ${BuildConfig.VERSION_NAME} (${Build.SUPPORTED_ABIS.firstOrNull().orEmpty()})")
             appendLine("Nucleo: " + runCatching { NativeApp.getBuildVersion() }.getOrDefault("?"))
             appendLine()
-            appendLine("Aparelho: ${Build.MANUFACTURER} ${Build.MODEL}")
+            appendLine("Aparelho: ${DeviceName.full()}")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 appendLine("SoC: ${Build.SOC_MANUFACTURER} ${Build.SOC_MODEL}")
             }
