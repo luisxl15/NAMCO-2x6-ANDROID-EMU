@@ -8,7 +8,7 @@ Not a PS2 emulator with an arcade mode bolted on. It boots `.acgame` manifests, 
 emulated JVS I/O board, keeps the cabinet's battery-backed SRAM, and has no idea what a DualShock
 is.
 
-![Library](docs/library.png)
+![Namco System 246 EMU](docs/home.png)
 
 ---
 
@@ -44,7 +44,20 @@ is.
 - Per-game settings that never overwrite the global ones
 - Link between two devices on one Wi-Fi, the way two cabinets shared a bench
 
-![Home](docs/home.png)
+---
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Library](docs/library.png) | ![Game menu](docs/game-menu.png) |
+| The library: rendered arcade cases, a **246** or **256** badge on every one, and the compatibility verdict beside the board on the right. | Everything that belongs to one game, from a held cover. None of it overwrites a global setting. |
+| ![SRAM](docs/sram.png) | ![BIOS](docs/bios.png) |
+| The board's 32 KB of battery-backed memory — where the high scores live — with backup, restore, export and import. | BIOS images identified by structure, not by hash: the board, the EXTINFO serial and the revision. Open-source images can be downloaded from here. |
+| ![Link](docs/link.png) | ![Artwork](docs/artwork.png) |
+| Two devices on one Wi-Fi, the way two cabinets shared a bench — with a frame counter, so a dead link is told apart from a quiet game. | Box art fetched by game id, so it cannot be the wrong game; SteamGridDB only fills what the arcade set does not carry. |
+| ![Menu](docs/menu.png) | |
+| Everything else: BIOS, memory cards, controls, save states, artwork, patches, textures. | |
 
 ---
 
@@ -76,8 +89,6 @@ Playable, and honest about where it is not:
 | Media on `.chd` | read-only — a game that writes to its own disc has those writes dropped |
 | Shaders | compiled the first time each variant appears, which is felt as a stutter |
 | Cabinet link | the transport works; whether any of these games links is still unproven |
-
-![SRAM](docs/sram.png)
 
 ---
 
