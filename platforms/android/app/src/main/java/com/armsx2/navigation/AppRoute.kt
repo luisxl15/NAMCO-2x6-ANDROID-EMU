@@ -36,6 +36,7 @@ enum class SettingsCategory {
     Controls,
     Hotkeys,
     OnScreen,
+    Network,
     Advanced,
     Patches,
     About,

@@ -433,6 +433,9 @@ private fun settingsSections() = listOf(
     SettingsSection(SettingsCategory.Controls, "tab.controls"),
     SettingsSection(SettingsCategory.Hotkeys, "tab.hotkeys"),
     SettingsSection(SettingsCategory.OnScreen, "tab.overlay"),
+    // "tab.network" is an upstream key and every translation table already carries it -- "Rede"
+    // in this one -- so the tab is named in all nineteen languages without a new string.
+    SettingsSection(SettingsCategory.Network, "tab.network"),
     SettingsSection(SettingsCategory.Advanced, "tab.fixes"),
     SettingsSection(SettingsCategory.Patches, "tab.patches"),
 )
@@ -448,6 +451,7 @@ private fun CategoryContent(category: SettingsCategory, viewModel: SettingsViewM
         SettingsCategory.Controls -> PadTab(viewModel.settings)
         SettingsCategory.Hotkeys -> HotkeysTab(viewModel.settings)
         SettingsCategory.OnScreen -> OverlayTab(viewModel.settings)
+        SettingsCategory.Network -> com.armsx2.ui.settings.NetworkTab(viewModel.settings)
         SettingsCategory.Advanced -> FixesTab(viewModel.settings)
         SettingsCategory.Patches -> com.armsx2.ui.patches.PatchesSettingsTab(viewModel.uiState.value.game)
         SettingsCategory.About -> Unit
@@ -464,6 +468,7 @@ internal fun categoryTitle(category: SettingsCategory): String = when (category)
     SettingsCategory.Controls -> str("tab.controls")
     SettingsCategory.Hotkeys -> str("tab.hotkeys")
     SettingsCategory.OnScreen -> str("tab.overlay")
+    SettingsCategory.Network -> str("tab.network")
     SettingsCategory.Advanced -> str("tab.fixes")
     SettingsCategory.Patches -> str("patches.dialog.patchesAndCheats")
     SettingsCategory.About -> str("about.title")

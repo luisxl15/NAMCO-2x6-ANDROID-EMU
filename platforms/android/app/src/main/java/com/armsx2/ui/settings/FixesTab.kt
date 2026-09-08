@@ -44,10 +44,6 @@ fun FixesTab(state: MutableState<Settings>) {
         modifier = Modifier
             .fillMaxWidth(),
     ) {
-        // Two cabinets on one bench, over Wi-Fi. Here because this is the app's "advanced" drawer
-        // and a link between devices is nobody's first setting -- and above the hardware fixes
-        // because it is the only thing on this tab that is not about one game's rendering.
-        LocalLinkSection(state)
         CollapsibleSection(str("fixes.section.display")) {
         HelpText(
             str("fixes.section.display.help"),
