@@ -299,6 +299,10 @@ private fun HeroCard(
                         .clip(RoundedCornerShape(Radii.tile)),
                 ) {
                     CoverArt(game, Modifier.fillMaxSize())
+                    BoardTag(
+                        boardFor(context, game.serial),
+                        Modifier.align(Alignment.TopStart).padding(6.dp),
+                    )
                 }
 
                 Spacer(Modifier.width(if (tight) 16.dp else 22.dp))
@@ -324,7 +328,11 @@ private fun HeroCard(
                         },
                     )
                     Spacer(Modifier.height(if (tight) 2.dp else 4.dp))
-                    Text(metaLine(game), style = Type.footnote, color = Palette.labelSecondary)
+                    Text(
+                        metaLine(game, boardFor(context, game.serial)),
+                        style = Type.footnote,
+                        color = Palette.labelSecondary,
+                    )
                     Spacer(Modifier.height(gap))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         PlayButton(onPlay)
@@ -546,10 +554,12 @@ private fun NamcoPlate() {
     }
 }
 
-internal fun metaLine(game: GameInfo): String = buildString {
+internal fun metaLine(game: GameInfo, board: String? = null): String = buildString {
     val serial = game.serial
-    // NMxxxxx is a System 246/256 gameid; anything else is a console disc.
-    if (serial != null && serial.startsWith("NM")) append("NAMCO System 246/256") else append("PlayStation 2")
+    // NMxxxxx is a System 246/256 gameid; anything else is a console disc. Which of the two
+    // boards when we know -- they are not interchangeable, and "246/256" is the one answer that
+    // is never true of any particular game.
+    if (serial != null && serial.startsWith("NM")) append(boardName(board)) else append("PlayStation 2")
     if (serial != null) { append("  ·  "); append(serial) }
 }
 

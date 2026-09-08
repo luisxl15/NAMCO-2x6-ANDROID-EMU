@@ -495,6 +495,13 @@ private fun LibraryCard(
                 // full grid does not turn into a wall of competing artwork.
                 Box(Modifier.fillMaxSize().background(Palette.ground.copy(alpha = 0.42f)))
             }
+            // Over the veil rather than under it. The whole point of the tag is that a shelf of
+            // covers can be read at a glance, and dimmed with the artwork it would only be
+            // legible on the one tile that is already selected.
+            BoardTag(
+                boardFor(LocalContext.current, game.serial),
+                Modifier.align(Alignment.TopStart).padding(6.dp),
+            )
         }
         Spacer(Modifier.height(9.dp))
         Text(
@@ -563,15 +570,20 @@ private fun DetailPane(game: GameInfo, onLaunch: (GameInfo) -> Unit) {
                 },
             )
             Spacer(Modifier.height(6.dp))
-            Text(metaLine(game), style = Type.footnote, color = Palette.labelSecondary)
-
             // What the project's tracker says about this board, and any warning attached to it.
             // Above the Play button on purpose: "only reaches the demo" or "crashes on this
             // BIOS" is worth reading BEFORE the boot, not after the black screen.
             val compat = com.armsx2.data.library.ArcadeCompat.entryFor(LocalContext.current, game.serial)
+            Text(metaLine(game, compat?.board), style = Type.footnote, color = Palette.labelSecondary)
             if (compat != null) {
                 Spacer(Modifier.height(12.dp))
-                CompatBadge(compat.status)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CompatBadge(compat.status)
+                    BoardBadge(compat.board)
+                }
                 explain(compat.status)?.let {
                     Spacer(Modifier.height(7.dp))
                     Text(it, style = Type.footnote, color = Palette.labelSecondary)
