@@ -36,6 +36,34 @@ object ArcadeCovers {
             it.length == 7 && it.startsWith("NM") && it.drop(2).all(Char::isDigit)
         }
 
+    /** Ids the repository answered 404 for, so a rescan does not ask again for the same misses. */
+    private val absent = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+    /**
+     * Give every arcade game that has no cover the one from the repository.
+     *
+     * Run after a library scan, because a game added today should arrive with its box already on
+     * it. Before this, a new game showed the branded placeholder until someone found the artwork
+     * screen and pressed a button -- and the button most people reached for fetched from
+     * SteamGridDB, which is keyed by title and returns console box scans, so a library ended up
+     * half rendered arcade cases and half something else.
+     *
+     * Cheap by construction: only ids with no cover are asked about, an id the repository does
+     * not carry is remembered as missing for the rest of the session, and nothing here ever
+     * replaces art that is already there.
+     */
+    suspend fun fillMissing(context: Context, games: List<GameInfo>): Int = withContext(Dispatchers.IO) {
+        val have = CustomCovers.loadAll(context)
+        var stored = 0
+        for (game in games) {
+            val id = gameIdOf(game) ?: continue
+            if (id in absent) continue
+            if (CustomCovers.matchIn(have, game) != null) continue
+            if (fetch(context, game)) stored++ else absent += id
+        }
+        stored
+    }
+
     /**
      * Fetch and store this game's cover. Returns true when one was stored, false when the
      * repository has no art for the id — which is an ordinary outcome, not an error, and the

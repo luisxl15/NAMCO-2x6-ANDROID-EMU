@@ -178,6 +178,32 @@ fun PremiumArtwork(
                 }
             }
 
+            // The button above fills gaps and never replaces a cover that is already there,
+            // which is right for it and wrong for anyone whose covers were fetched before the
+            // arcade repository existed: those came from SteamGridDB, by title, and are console
+            // box scans. This one replaces them with the rendered arcade cases, which are keyed
+            // by gameid and therefore cannot be the wrong game. Only for the ids the repository
+            // carries; every other cover is left exactly as it is.
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PillButton(if (busy) "Baixando…" else "Usar as capas 3D do acervo", enabled = !busy) {
+                    busy = true
+                    status = null
+                    scope.launch {
+                        var replaced = 0
+                        for (g in games) {
+                            if (com.armsx2.art.ArcadeCovers.fetch(context, g)) replaced++
+                        }
+                        busy = false
+                        status = when (replaced) {
+                            0 -> "O acervo arcade não tem capa para nenhum destes jogos."
+                            1 -> "1 capa trocada pela caixa 3D do acervo."
+                            else -> "$replaced capas trocadas pelas caixas 3D do acervo."
+                        }
+                    }
+                }
+            }
+
             Spacer(Modifier.height(18.dp))
 
             LazyColumn(

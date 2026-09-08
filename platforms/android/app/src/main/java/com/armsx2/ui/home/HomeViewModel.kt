@@ -66,9 +66,28 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             // Library-wide RetroAchievements progress. Hooked here because this is where the game
             // list lives, and the sync needs paths to hash. No-op unless a web API key is set.
             if (nativeReady) com.armsx2.RaLibrary.onLibraryLoaded(state.value.allGames)
+            // Also here, not only after a scan: the library usually comes back from its cache and
+            // never scans again, so a cover that was missing then would stay missing forever.
+            fillCovers(state.value.allGames)
             if (nativeReady && pendingInitialScan) refresh()
         } else if (nativeReady && pendingInitialScan) {
             refresh()
+        }
+    }
+
+    /**
+     * Give any arcade game with no cover the one from the project's repository.
+     *
+     * A game added today should arrive with its box already on it rather than a placeholder that
+     * stays until somebody finds the artwork screen -- and the button most people reach for there
+     * fetches from SteamGridDB, which is keyed by title and returns console box scans, so a
+     * library ends up half rendered arcade cases and half something else. This source is keyed by
+     * gameid, needs no API key, and never replaces art that is already there.
+     */
+    private fun fillCovers(games: List<GameInfo>) {
+        if (games.isEmpty()) return
+        scope.launch {
+            runCatching { com.armsx2.art.ArcadeCovers.fillMissing(getApplication(), games) }
         }
     }
 
@@ -88,6 +107,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     state.value.copy(allGames = games, scanning = false, initialized = true),
                 )
                 com.armsx2.RaLibrary.onLibraryLoaded(games)
+                fillCovers(games)
             }.onFailure { failure ->
                 pendingInitialScan = false
                 state.value = state.value.copy(
