@@ -1073,6 +1073,53 @@ static bool s_jvs_binds_valid = false;
 static std::string s_jvs_binds_layout;
 static JVS_MODE s_jvs_binds_mode = JVS_MODE::DEFAULT;
 
+// ---- ARCADE: the cabinet's lever, on a thumbstick ------------------------------------
+//
+// A JVS panel's directions are switches, and every layout binds them to the pad's D-PAD. So on a
+// phone the analog stick did nothing at all in a fighting or a standard cabinet: the stick
+// reports LeftStick*, no layout has a mask for it, and the lookup below simply returned. The only
+// way to play those games was the d-pad.
+//
+// Standing the stick in for the lever is a matter of borrowing the d-pad's mask once the stick
+// leans far enough. Two things that must not break:
+//
+//  - A DRIVING cabinet, where the left stick already IS the steering -- an analog axis, handled
+//    in ApplyJvsWheelAxis. A digital LEFT fired while steering left would be a second, wrong
+//    input, so the stand-in is off in DRIVE mode. A twin-stick cabinet needs no exception: its
+//    layout binds LeftStick* itself, so there is nothing to borrow.
+//  - The D-PAD, which drives the same JVS bit. Whichever of the two released last would
+//    otherwise clear a direction the other one is still holding, so each direction remembers
+//    which sources hold it and the bit follows the pair.
+static bool s_jvs_stick_lever = true;
+static float s_jvs_stick_dead = 0.35f;
+static u8 s_jvs_dir_src[2][4]; // [port][direction]: bit0 = d-pad, bit1 = stick
+
+enum { JVS_DIR_UP, JVS_DIR_DOWN, JVS_DIR_LEFT, JVS_DIR_RIGHT };
+
+/** Which direction this binding is, or -1; [is_stick] says whether it came from the stick. */
+static int JvsDirOf(GenericInputBinding g, bool& is_stick) {
+    switch (g) {
+        case GenericInputBinding::DPadUp:         is_stick = false; return JVS_DIR_UP;
+        case GenericInputBinding::DPadDown:       is_stick = false; return JVS_DIR_DOWN;
+        case GenericInputBinding::DPadLeft:       is_stick = false; return JVS_DIR_LEFT;
+        case GenericInputBinding::DPadRight:      is_stick = false; return JVS_DIR_RIGHT;
+        case GenericInputBinding::LeftStickUp:    is_stick = true;  return JVS_DIR_UP;
+        case GenericInputBinding::LeftStickDown:  is_stick = true;  return JVS_DIR_DOWN;
+        case GenericInputBinding::LeftStickLeft:  is_stick = true;  return JVS_DIR_LEFT;
+        case GenericInputBinding::LeftStickRight: is_stick = true;  return JVS_DIR_RIGHT;
+        default: return -1;
+    }
+}
+
+static GenericInputBinding JvsDPadFor(int dir) {
+    switch (dir) {
+        case JVS_DIR_UP:    return GenericInputBinding::DPadUp;
+        case JVS_DIR_DOWN:  return GenericInputBinding::DPadDown;
+        case JVS_DIR_LEFT:  return GenericInputBinding::DPadLeft;
+        default:            return GenericInputBinding::DPadRight;
+    }
+}
+
 static void AddJvsGenericBinds(u32 player, std::span<const InputBindingInfo> binds,
                                bool skip_generic_action_buttons) {
     for (const InputBindingInfo& bi : binds) {
@@ -1092,6 +1139,8 @@ static void AddJvsGenericBinds(u32 player, std::span<const InputBindingInfo> bin
 
 static void RebuildJvsGenericBinds() {
     std::memset(s_jvs_generic_binds, 0, sizeof(s_jvs_generic_binds));
+    // The masks are about to change, so nothing that was held is still held by the same bit.
+    std::memset(s_jvs_dir_src, 0, sizeof(s_jvs_dir_src));
 
     const std::span<const InputBindingInfo> layouts[] = {
         ACJV::GetFightingButtons(), ACJV::GetStandardButtons(), ACJV::GetRacingButtons()};
@@ -1154,6 +1203,34 @@ static void ApplyJvsPadButton(u32 port, GenericInputBinding generic, float state
     }
 
     u16 mask = s_jvs_generic_binds[port][static_cast<size_t>(generic)];
+
+    // Directions have two possible sources and are held by either; see s_jvs_dir_src above.
+    bool is_stick = false;
+    const int dir = JvsDirOf(generic, is_stick);
+    if (dir >= 0)
+    {
+        bool borrowed = false;
+        if (is_stick && mask == 0)
+        {
+            if (!s_jvs_stick_lever || ACJV::GetMode() == JVS_MODE::DRIVE)
+                return;
+            mask = s_jvs_generic_binds[port][static_cast<size_t>(JvsDPadFor(dir))];
+            borrowed = true;
+        }
+        if (mask == 0)
+            return;
+        // A thumbstick is never at rest at zero and never reaches one cleanly, so the borrowed
+        // case gets a real deadzone; a switch keeps the plain half-way test it always had.
+        const bool held = state > (borrowed ? s_jvs_stick_dead : 0.5f);
+        const u8 bit = is_stick ? 0x2 : 0x1;
+        if (held)
+            s_jvs_dir_src[port][dir] |= bit;
+        else
+            s_jvs_dir_src[port][dir] &= static_cast<u8>(~bit);
+        ACJV::SetButtonState(port, mask, s_jvs_dir_src[port][dir] != 0);
+        return;
+    }
+
     if (mask == 0)
         return;
 
@@ -1488,6 +1565,16 @@ Java_kr_co_iefriends_pcsx2_NativeApp_jvsSetWheelCalibration(JNIEnv*, jclass, jfl
                                                            jfloat p_gain) {
     s_jvs_wheel_dead = std::clamp(static_cast<float>(p_deadzone), 0.0f, 0.9f);
     s_jvs_wheel_gain = std::clamp(static_cast<float>(p_gain), 0.1f, 4.0f);
+}
+
+// Whether the left stick stands in for the cabinet's lever, and how far it must lean before a
+// direction counts. Global for the same reason the wheel calibration is: it describes the pad in
+// the player's hands, not the game on screen.
+extern "C" JNIEXPORT void JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_jvsSetStickLever(JNIEnv*, jclass, jboolean p_on,
+                                                      jfloat p_deadzone) {
+    s_jvs_stick_lever = (p_on == JNI_TRUE);
+    s_jvs_stick_dead = std::clamp(static_cast<float>(p_deadzone), 0.05f, 0.9f);
 }
 
 extern "C" JNIEXPORT jstring JNICALL

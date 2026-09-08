@@ -426,6 +426,7 @@ public class NativeApp {
 	/** Steering feel for a driving cabinet: deadzone as a fraction of full deflection (0..0.9)
 	 *  and a gain on what is left (0.1..4). Steering only -- the pedals stay linear. */
 	public static native void jvsSetWheelCalibration(float deadzone, float sensitivity);
+	public static native void jvsSetStickLever(boolean on, float deadzone);
 
 	/* ARCADE drum (Taiko no Tatsujin). The drum's four sensors per side are JVS ANALOG channels,
 	 * not switches, so nothing in the ordinary pad mirror could ever reach them. pad: 0 = don
