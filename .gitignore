@@ -1,0 +1,17 @@
+# Namco System 246 EMU
+#
+# Android emulator for the NAMCO System 246/256 arcade boards.
+# Licensed GPL-3.0, like PCSX2 which it descends from.
+#
+# Nothing proprietary belongs in this repository: no BIOS images, no game
+# images, no dongles, no shader blobs from paid software.
+*.bin
+*.chd
+*.ps2
+*.nvm
+*.mec
+*.rom1
+*.rom2
+*.erom
+*.dll
+*.apk
