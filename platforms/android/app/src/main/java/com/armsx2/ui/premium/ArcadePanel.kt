@@ -63,6 +63,15 @@ fun ArcadePanel(modifier: Modifier = Modifier) {
             if (isArcade) {
                 testOn = runCatching { NativeApp.jvsGetDipSwitchState(DIP_TEST) }.getOrDefault(false)
                 coop = com.armsx2.input.PadRouter.coopActive()
+                // The board answering is the earliest moment a coin can be worth anything, and
+                // this poll is already here for it. Off unless the player asked for it per game;
+                // it pays once per boot and then costs a comparison.
+                com.armsx2.input.ArcadeCredits.onBoardReady(
+                    com.armsx2.runtime.MainActivityRuntime.currentGame.value?.serial
+                        ?: com.armsx2.ui.InGameOverlay.currentSerial.value,
+                )
+            } else {
+                com.armsx2.input.ArcadeCredits.forget()
             }
             delay(1000)
         }

@@ -656,6 +656,12 @@ private fun SessionPane(state: EmulationMenuUiState, viewModel: EmulationMenuVie
         serial = com.armsx2.runtime.MainActivityRuntime.currentGame.value?.serial
             ?: com.armsx2.ui.InGameOverlay.currentSerial.value,
     )
+    // Who puts the coin in. Off unless asked for, per game.
+    Spacer(Modifier.height(10.dp))
+    ArcadeCreditsSection(
+        serial = com.armsx2.runtime.MainActivityRuntime.currentGame.value?.serial
+            ?: com.armsx2.ui.InGameOverlay.currentSerial.value,
+    )
     // The stick standing in for the lever, for every cabinet that is not a driving one.
     Spacer(Modifier.height(10.dp))
     ArcadeStickSection(
