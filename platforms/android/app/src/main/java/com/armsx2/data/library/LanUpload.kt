@@ -253,6 +253,15 @@ object LanUpload {
      */
     private fun localAddress(): String? = candidates().firstOrNull()
 
+    /**
+     * Every local address this device has, Wi-Fi first.
+     *
+     * Shared with the cabinet link, which needs the same answer for the same reason: the number a
+     * person on the other device has to type in. Keeping one implementation means the two screens
+     * cannot disagree about which interface counts.
+     */
+    fun localAddresses(): List<String> = candidates()
+
     private fun candidates(): List<String> = runCatching {
         NetworkInterface.getNetworkInterfaces().toList()
             .filter { it.isUp && !it.isLoopback }

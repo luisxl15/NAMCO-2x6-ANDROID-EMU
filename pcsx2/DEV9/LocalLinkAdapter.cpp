@@ -285,6 +285,22 @@ bool LocalLinkAdapter::ConfigureEndpoint()
 	return true;
 }
 
+// Counters, not statistics: they exist so a person can tell a dead link from a quiet game. File
+// scope rather than members because the screen asking has no handle on the adapter -- net.cpp owns
+// it, creates it on a settings change and destroys it on close.
+static std::atomic<u64> s_frames_sent{0};
+static std::atomic<u64> s_frames_received{0};
+static std::atomic<u32> s_peer_count{0};
+
+LocalLinkStats GetLocalLinkStats()
+{
+	return LocalLinkStats{
+		s_frames_sent.load(std::memory_order_relaxed),
+		s_frames_received.load(std::memory_order_relaxed),
+		s_peer_count.load(std::memory_order_relaxed),
+	};
+}
+
 bool LocalLinkAdapter::recv(NetPacket* pkt)
 {
 	if (NetAdapter::recv(pkt))
@@ -298,7 +314,10 @@ bool LocalLinkAdapter::recv(NetPacket* pkt)
 	{
 		bool had_datagram = false;
 		if (ReceiveDatagram(pkt, &had_datagram))
+		{
+			s_frames_received.fetch_add(1, std::memory_order_relaxed);
 			return true;
+		}
 		if (!had_datagram)
 			break;
 	}
@@ -314,6 +333,7 @@ bool LocalLinkAdapter::send(NetPacket* pkt)
 		return false;
 
 	InspectSend(pkt);
+	s_frames_sent.fetch_add(1, std::memory_order_relaxed);
 	if (!m_host && m_session_nonce.load(std::memory_order_acquire) == 0)
 		return true;
 	if (!m_host)
@@ -627,6 +647,7 @@ bool LocalLinkAdapter::RegisterPeer(u32 id, u32 hello_sequence, const sockaddr_i
 	if (m_peers.size() >= MAX_PEERS)
 		return false;
 	m_peers.push_back(Peer{endpoint, id, std::chrono::steady_clock::now(), 0, 0});
+	s_peer_count.store(static_cast<u32>(m_peers.size()), std::memory_order_relaxed);
 	Console.WriteLn("DEV9: Local Link peer %u joined", id);
 	return true;
 }
@@ -676,6 +697,7 @@ void LocalLinkAdapter::PurgeExpiredState()
 	m_peers.erase(std::remove_if(m_peers.begin(), m_peers.end(), [&](const Peer& peer) {
 		return now - peer.last_seen > std::chrono::seconds(10);
 	}), m_peers.end());
+	s_peer_count.store(static_cast<u32>(m_peers.size()), std::memory_order_relaxed);
 }
 
 bool LocalLinkAdapter::SameEndpoint(const sockaddr_in& lhs, const sockaddr_in& rhs)

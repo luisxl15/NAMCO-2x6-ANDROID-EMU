@@ -25,6 +25,23 @@
 // A small authenticated layer-2 tunnel intended for phones on the same Wi-Fi
 // network or local hotspot. The host is a star-topology Ethernet relay; it is
 // deliberately separate from the internet-facing DEV9 Sockets backend.
+/**
+ * What the tunnel has actually carried, for the screen that switched it on.
+ *
+ * Without this the feature is unfalsifiable: two phones, a game that shows nothing, and no way to
+ * tell whether the link is down, the room code is wrong, or the game simply never links. Three
+ * counters answer all three -- frames the emulated board sent, frames that arrived from another
+ * device, and how many devices are currently known.
+ */
+struct LocalLinkStats
+{
+	u64 sent;
+	u64 received;
+	u32 peers;
+};
+
+LocalLinkStats GetLocalLinkStats();
+
 class LocalLinkAdapter final : public NetAdapter
 {
 public:

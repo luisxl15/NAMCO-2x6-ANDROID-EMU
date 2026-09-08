@@ -31,6 +31,7 @@
 #include "GS/Renderers/Common/GSDevice.h" // GSDevice::SetShaderChainParams (shader chain params)
 #include "GS/Renderers/Vulkan/VKShaderCache.h"
 #include "GS/Renderers/Vulkan/GSLsfg.h" // LSFG availability query (JNI)
+#include "DEV9/LocalLinkAdapter.h" // cabinet link traffic counters (JNI)
 #include "GSDumpReplayer.h"
 #include "ImGui/ImGuiManager.h"
 #include "ImGui/ImGuiOverlays.h"
@@ -1575,6 +1576,18 @@ Java_kr_co_iefriends_pcsx2_NativeApp_jvsSetStickLever(JNIEnv*, jclass, jboolean 
                                                       jfloat p_deadzone) {
     s_jvs_stick_lever = (p_on == JNI_TRUE);
     s_jvs_stick_dead = std::clamp(static_cast<float>(p_deadzone), 0.05f, 0.9f);
+}
+
+// What the cabinet link has carried: frames out, frames in, devices seen. Packed into one long
+// (20 bits of peers, 22 each of sent and received, saturating) so the screen polling it does one
+// JNI call per second instead of three.
+extern "C" JNIEXPORT jlong JNICALL
+Java_kr_co_iefriends_pcsx2_NativeApp_localLinkStats(JNIEnv*, jclass) {
+    const LocalLinkStats st = GetLocalLinkStats();
+    const u64 sent = std::min<u64>(st.sent, 0x3FFFFF);
+    const u64 recv = std::min<u64>(st.received, 0x3FFFFF);
+    const u64 peers = std::min<u64>(st.peers, 0xFFF);
+    return static_cast<jlong>((peers << 44) | (sent << 22) | recv);
 }
 
 extern "C" JNIEXPORT jstring JNICALL
