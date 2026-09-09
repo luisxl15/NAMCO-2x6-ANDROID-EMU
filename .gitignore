@@ -150,17 +150,17 @@ CMakeSettings.json
 /out/
 /.cache/
 
-# Achievement sounds are shipped assets, not build output — keep them tracked
+# Achievement sounds are shipped assets, not build output â€” keep them tracked
 !platforms/android/app/src/main/assets/resources/sounds/**/*.wav
 
-# RetroAchievements client User-Agent secret — the real pinned version is injected
+# RetroAchievements client User-Agent secret â€” the real pinned version is injected
 # from this header at build time and must NEVER be committed (spoofing prevention).
 ra_ua_secret.h
 
 # Kotlin compiler session scratch dir created by Gradle next to the android project.
 platforms/android/.kotlin/
 
-# Discord Social SDK — supplied privately at build time via DISCORD_SDK_DIR, never committed.
+# Discord Social SDK â€” supplied privately at build time via DISCORD_SDK_DIR, never committed.
 # Discord's terms permit shipping the SDK inside a working application but not republishing the
 # raw SDK on its own, so none of it belongs in this repository. Our own bridge, IPC interface and
 # helper service ARE here; only Discord's material is excluded.
@@ -168,3 +168,15 @@ platforms/android/.kotlin/
 **/discord_partner_sdk.aar
 **/discord_partner_sdk.jar
 platforms/android/app/src/main/cpp/3rdparty/discord/include/
+
+# ---- Namco System 246 EMU -------------------------------------------------
+# Nothing proprietary belongs in this repository: no BIOS images, no game
+# images, no dongles, no shader blobs from paid software, no built APKs.
+*.chd
+*.ps2
+*.nvm
+*.mec
+*.rom1
+*.rom2
+*.erom
+*.apk

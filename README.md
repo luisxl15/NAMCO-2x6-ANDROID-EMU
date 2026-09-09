@@ -1,45 +1,144 @@
-# ARMSX2 — Native ARM64 JIT Fork of PCSX2
-[![All Platforms](https://img.shields.io/github/actions/workflow/status/ARMSX2/ARMSX2/build-all.yml?branch=master&label=All%20Platforms)](https://github.com/ARMSX2/ARMSX2/actions/workflows/build-all.yml)
+# Namco System 246 EMU
 
-ARMSX2 is a free and open-source PlayStation 2 (PS2) emulator based on PCSX2. Its purpose is to emulate the PS2's hardware, using a combination of MIPS CPU [Interpreters](<https://en.wikipedia.org/wiki/Interpreter_(computing)>), [Recompilers](https://en.wikipedia.org/wiki/Dynamic_recompilation) and a [Virtual Machine](https://en.wikipedia.org/wiki/Virtual_machine) which manages hardware states and PS2 system memory. This allows you to play PS2 games on your phone, PC, or gaming handheld, with many additional features and benefits.
+An Android emulator for the **NAMCO System 246 / 256** arcade boards — the PlayStation 2 hardware
+Namco put in cabinets between 2001 and 2008, running Tekken 4 and 5, Soulcalibur II and III, Time
+Crisis 3 and 4, Ridge Racer V, Wangan Midnight, the Taiko drum games and about fifty others.
 
-## Thank You
+Not a PS2 emulator with an arcade mode bolted on. It boots `.acgame` manifests, talks to an
+emulated JVS I/O board, keeps the cabinet's battery-backed SRAM, and has no idea what a DualShock
+is.
 
-The ARMSX2 team is eternally indebted to the [PCSX2 project](https://pcsx2.net) it is based on. We are so fortunate to build on their 20 years of hardcore development.
+![Namco System 246 EMU](docs/home.png)
 
-## About This Fork
+---
 
-[![Project Demo](https://img.youtube.com/vi/a1_zydGhVaE/maxresdefault.jpg)](https://www.youtube.com/watch?v=a1_zydGhVaE)
+## What it does
 
-The upstream PCSX2 project ships an ARM64 *interpreter* build for ARM, but its high-performance **JIT recompilers** (EE, IOP, VU0, VU1, and vtlb fast memory) are x86-64 only. 
+**The board**
+- System 246 and System 256, from a COH-H BIOS
+- ACATA / ACATAPI: the cabinet's CD, DVD and HDD, read from `.chd`
+- ACJV: the JVS I/O board — coin, START, TEST, SERVICE, and the per-game control layout
+- ACSRAM: the 32 KB of battery-backed memory where the high scores and the TEST-menu settings live
+- ACRAM, ACUART, ACDEV: the RAM expansion, the drive-board serial link, the COH-H ROM window
+- ARM64 recompilers for the EE, the IOP and both VUs, taught the 128 MB map an arcade boot asks for
 
-**This fork exists to close that gap.** The goal is to preserve the correctness features of 20 years of PCSX2 development, while generating the fastest native ARM performance possible.
+**The cabinet, on a phone**
+- Cabinet switches on screen and on a gamepad, per player — the second seat gets its own coin slot
+- Six control modes, chosen from the game id: standard, fighting, driving, lightgun, drum, twin-stick
+- The analog stick standing in for the cabinet's lever, because a JVS panel's directions are switches
+- Steering with a deadzone and sensitivity you can set, or by tilting the phone
+- Lightgun aiming by touch or by pointing the phone
+- Taiko drums, four columns, on screen or on the shoulder buttons
+- Haptics for the drum, the gun, the coin and the switches
 
-**Current status:**
-- ✅ EE (Emotion Engine) recompiler — integer, float, MMI, COP0/COP1/COP2, branches, load/store
-- ✅ IOP (I/O Processor / R3000A) recompiler — full integer, load/store, branches, coprocessors
-- ✅ VU (Vector Unit) recompiler — microVU skeleton + Upper FMAC vector ISA complete; Lower ISA and runtime complete
-- ✅ vtlb fast memory
-- ✅ Native ARM64 binary builds and boots the PS2 BIOS
-- ✅ 2D games are already playable
-- ✅ 3D games run
+**The launcher**
+- A wizard that writes the `.acgame` manifest for you, and a repair that fixes a broken one
+- A pre-flight check that says what a game is missing *before* the board black-screens
+- Install from `.zip` or `.7z` — one archive, a whole folder of them, or straight from a PC browser
+  over the local network
+- The project's compatibility list, bundled: 55 titles with board, media, state and notes
+- 246 / 256 board badges on the cover, rendered arcade box art fetched by game id, game logos,
+  cabinet bezels
+- Backup, restore, export and import of the board's SRAM — the high scores are a 32 KB file and
+  nothing else in the app could copy it
+- Per-game settings that never overwrite the global ones
+- Link between two devices on one Wi-Fi, the way two cabinets shared a bench
 
-### Why LLMs / AI Were Used
+---
 
-A word on methodology:
+## Screenshots
 
-The x86-64 JIT code in upstream ARMSX2 is **already proven correct** — it has run thousands of PS2 titles for years. The challenge in this port is not emulator design or JIT theory; it is **mechanical translation** of a large, well-understood x86-64 assembly codebase into equivalent ARM64 assembly (via VIXL) while preserving the exact same register-allocation contracts, block lifecycle, and recompiler semantics.
+| | |
+|---|---|
+| ![Library](docs/library.png) | ![Game menu](docs/game-menu.png) |
+| The library: rendered arcade cases, a **246** or **256** badge on every one, and the compatibility verdict beside the board on the right. | Everything that belongs to one game, from a held cover. None of it overwrites a global setting. |
+| ![SRAM](docs/sram.png) | ![BIOS](docs/bios.png) |
+| The board's 32 KB of battery-backed memory — where the high scores live — with backup, restore, export and import. | BIOS images identified by structure, not by hash: the board, the EXTINFO serial and the revision. Open-source images can be downloaded from here. |
+| ![Link](docs/link.png) | ![Artwork](docs/artwork.png) |
+| Two devices on one Wi-Fi, the way two cabinets shared a bench — with a frame counter, so a dead link is told apart from a quiet game. | Box art fetched by game id, so it cannot be the wrong game; SteamGridDB only fills what the arcade set does not carry. |
+| ![Menu](docs/menu.png) | |
+| Everything else: BIOS, memory cards, controls, save states, artwork, patches, textures. | |
 
-Large language models (LLMs) were used as an **accelerant for this translation work** — pattern-matching x86 JIT boilerplate to ARM64 equivalents, scaffolding emit routines, and keeping the porting velocity high. The JIT *logic* (block compiler, dispatcher, analysis passes, flag pipelines, clamping rules, Tri-Ace hacks, etc.) is taken directly from the upstream x86 implementation and validated against it. **Nothing was hallucinated from scratch.**
+---
 
-In other words: the hard engineering was done by the PCSX2 team over two decades. The hard *typing* — translating ~50k lines of x86 emitter code into ARM64 — is what AI helped compress.
+## What you need
 
-## System Requirements
+Two things this repository does not and will not contain:
 
-ARMSX2 targets ARM64 across desktop (macOS, Windows, Linux) and mobile (Android, iOS/iPadOS), all from the single shared core. Our [setup documentation page](https://pcsx2.net/docs/setup/requirements) contains additional details on software and hardware requirements.
+1. **A System 246/256 BIOS.** A COH-H image. If you would rather not use a dump, there is an
+   open-source one in progress: [BasicInput_Output_Sys_Namco_246_256](https://github.com/luisxl15/BasicInput_Output_Sys_Namco_246_256)
+   — the app can download it for you from inside the BIOS screen.
+2. **Game images**, as `.chd`, with their dongle file.
 
-Please note that a BIOS dump from a legitimately-owned PS2 console is required to use the emulator. For more information, visit [this page](https://pcsx2.net/docs/setup/bios/).
+The artwork the app fetches is hosted separately:
+[Namco-System-246-MEDIA-REPO](https://github.com/luisxl15/Namco-System-246-MEDIA-REPO) (logos,
+bezels, menu film) and the arcade box art comes from
+[EmuCoreX-Arcade-Covers](https://github.com/sashkinbro/EmuCoreX-Arcade-Covers).
 
-## Building
+---
 
-Check out our [github actions](https://github.com/ARMSX2/ARMSX2/actions/workflows/build-all.yml) for the latest build recipe
+## Status
+
+Playable, and honest about where it is not:
+
+| | |
+|---|---|
+| Interface | Portuguese (Brazil), with the nineteen upstream translations intact underneath |
+| Builds | `arm64-v8a` for phones, `x86_64` for Android emulators on a PC |
+| Compatibility list | 55 titles; the list is a snapshot of the pcsx2x6 tracker |
+| Media on `.chd` | read-only — a game that writes to its own disc has those writes dropped |
+| Shaders | compiled the first time each variant appears, which is felt as a stutter |
+| Cabinet link | the transport works; whether any of these games links is still unproven |
+
+---
+
+## Built on
+
+This emulator is developed by [luisxl15](https://github.com/luisxl15). The launcher, the arcade
+layer on Android, the manifest tooling and the media and patch catalogues are this project's own
+work, on top of three open-source code bases:
+
+| | |
+|---|---|
+| [PS2Homebrew-arcade/pcsx2x6](https://github.com/PS2Homebrew-arcade/pcsx2x6) | where System 246/256 support comes from |
+| [ARMSX2/ARMSX2](https://github.com/ARMSX2/ARMSX2) | the Android launcher and the ARM64 recompiler |
+| [PCSX2/pcsx2](https://github.com/PCSX2/pcsx2) | the PlayStation 2 emulator both descend from |
+
+Licensed **GPL-3.0**, like everything it is built on. Nothing proprietary ships in the app.
+
+Not affiliated with, endorsed by, or connected to Bandai Namco. "NAMCO", "System 246" and "System
+256" are the property of their owners, and the game names above are used to say which hardware
+this emulates.
+
+---
+
+## Source
+
+This repository *is* the source: the ARMSX2 tree with the arcade layer transplanted in, full
+history, upstream commits included.
+
+Where this project's own work lives:
+
+| | |
+|---|---|
+| `pcsx2/DEV9/AC*.{cpp,h}` | the arcade hardware — ACATA/ACATAPI, ACJV, ACCORE, ACRAM, ACSRAM, ACUART |
+| `pcsx2/VMManager.cpp` | the `.acgame` boot path: manifest, dongle staging, SRAM, JVS mode |
+| `pcsx2/arm64/iR5900-arm64.cpp` | the ARM64 EE recompiler taught the 128 MB map an arcade boot needs |
+| `platforms/android/app/src/main/cpp/native-lib.cpp` | the JVS bridge: pad → cabinet, wheel, drum, lightgun |
+| `platforms/android/app/src/main/java/com/armsx2/` | the launcher — `data/library/Arcade*`, `input/Arcade*`, `ui/premium/`, `art/` |
+| `FORK.md` | what was changed and why, and how to take an upstream update without losing it |
+
+### Building
+
+Android Studio, or the command line. NDK 29 or newer.
+
+```bash
+cd platforms/android
+./gradlew :app:assembleGithubDebug -Parmsx2.ndkVersion=<your ndk> -Parmsx2.abi=arm64-v8a
+./gradlew :app:testGithubDebugUnitTest -Parmsx2.ndkVersion=<your ndk>
+```
+
+`-Parmsx2.abi=x86_64` builds for the Android emulators that run on a PC. The `github` flavour is
+the full one; `play` drops what a store build cannot carry.
+
+Ready-made APKs are under [Releases](../../releases).
