@@ -42,13 +42,13 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       # Even a JVM-only task configures the Android extension, which resolves ndkVersion. Same
       # versions build-all.yml installs: the NDK default AGP picks, and the CMake pinned in
@@ -57,7 +57,7 @@ jobs:
         run: yes | sdkmanager "ndk;28.2.13676358" "cmake;3.31.6" >/dev/null || true
 
       - name: Cache Gradle
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
